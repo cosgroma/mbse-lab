@@ -1,0 +1,638 @@
+#!/usr/bin/env python3
+"""Move a conservative SysML v2 snapshot from Flexo into SysON.
+
+The bridge intentionally starts with the lowest-risk exchange format:
+Flexo SysML v2 REST JSON -> SysML v2 textual notation -> SysON GraphQL import.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+from pathlib import Path
+from typing import Any
+
+
+DEFAULT_FLEXO_URL = "http://localhost:18083"
+DEFAULT_LAYER1_URL = "http://localhost:18080"
+DEFAULT_SYSON_URL = "http://localhost:18090"
+DEFAULT_FLEXO_ENV_DIR = Path("deploy/flexo-mms")
+DEFAULT_OUTPUT_DIR = Path("exports")
+
+RENDERABLE_TYPES = {
+    "Package",
+    "PartDefinition",
+    "PartUsage",
+    "AttributeUsage",
+    "PortUsage",
+    "RequirementDefinition",
+    "RequirementUsage",
+    "ConnectionDefinition",
+    "ConnectionUsage",
+    "InterfaceDefinition",
+    "InterfaceUsage",
+    "ActionDefinition",
+    "ActionUsage",
+    "ItemDefinition",
+    "ItemUsage",
+}
+
+
+def fail(message: str, exit_code: int = 1) -> None:
+    print(f"error: {message}", file=sys.stderr)
+    raise SystemExit(exit_code)
+
+
+def info(message: str) -> None:
+    print(message)
+
+
+def trim_url(url: str) -> str:
+    return url.rstrip("/")
+
+
+def read_json(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def write_json(path: Path, data: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def request(
+    method: str,
+    url: str,
+    body: bytes | None = None,
+    headers: dict[str, str] | None = None,
+    timeout: int = 30,
+) -> tuple[int, bytes, dict[str, str]]:
+    req = urllib.request.Request(url, data=body, method=method)
+    for key, value in (headers or {}).items():
+        req.add_header(key, value)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            return response.status, response.read(), dict(response.headers)
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read(), dict(exc.headers)
+    except urllib.error.URLError as exc:
+        fail(f"could not reach {url}: {exc}")
+
+
+def request_json(
+    method: str,
+    url: str,
+    payload: Any | None = None,
+    headers: dict[str, str] | None = None,
+    timeout: int = 30,
+    expected: set[int] | None = None,
+) -> Any:
+    body = None
+    merged_headers = dict(headers or {})
+    if payload is not None:
+        body = json.dumps(payload).encode("utf-8")
+        merged_headers.setdefault("Content-Type", "application/json")
+    status, raw, _ = request(method, url, body=body, headers=merged_headers, timeout=timeout)
+    if expected is None:
+        expected = {200}
+    if status not in expected:
+        text = raw.decode("utf-8", errors="replace")
+        fail(f"{method} {url} returned HTTP {status}: {text}")
+    if not raw:
+        return None
+    return json.loads(raw.decode("utf-8"))
+
+
+def graphql(url: str, query: str, variables: dict[str, Any] | None = None, timeout: int = 30) -> dict[str, Any]:
+    response = request_json(
+        "POST",
+        f"{trim_url(url)}/api/graphql",
+        {"query": query, "variables": variables or {}},
+        timeout=timeout,
+    )
+    if response.get("errors"):
+        fail(json.dumps(response["errors"], indent=2))
+    return response
+
+
+def read_flexo_service_token(env_dir: Path) -> str | None:
+    env_path = env_dir / "env" / "flexo-sysmlv2.env"
+    if not env_path.exists():
+        return None
+    pattern = re.compile(r'^FLEXO_AUTH="?Bearer\s+(.+?)"?$')
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        match = pattern.match(line.strip())
+        if match:
+            return match.group(1)
+    return None
+
+
+def cmd_init_flexo_org(args: argparse.Namespace) -> None:
+    token = args.token or read_flexo_service_token(args.env_dir)
+    if not token:
+        fail("no token provided and no FLEXO_AUTH token found in deploy/flexo-mms/env/flexo-sysmlv2.env")
+
+    body = (
+        "@prefix dct: <http://purl.org/dc/terms/> .\n"
+        f'<> dct:title "{args.title}" .\n'
+    ).encode("utf-8")
+    status, raw, _ = request(
+        "PUT",
+        f"{trim_url(args.layer1_url)}/orgs/{urllib.parse.quote(args.org_id)}",
+        body=body,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "text/turtle",
+        },
+        timeout=args.timeout,
+    )
+    if status not in {200, 201, 204}:
+        fail(raw.decode("utf-8", errors="replace"))
+    info(f"Initialized Flexo org `{args.org_id}` via Layer1 ({status}).")
+
+
+def cmd_flexo_list_projects(args: argparse.Namespace) -> None:
+    projects = request_json("GET", f"{trim_url(args.flexo_url)}/projects", timeout=args.timeout)
+    if args.json:
+        print(json.dumps(projects, indent=2))
+        return
+    if not projects:
+        info("No Flexo SysML v2 projects found.")
+        return
+    for project in projects:
+        print(f"{project.get('@id')}  {project.get('name')}")
+
+
+def cmd_flexo_create_project(args: argparse.Namespace) -> None:
+    payload = {"@type": "Project", "name": args.name}
+    if args.description:
+        payload["description"] = args.description
+    project = request_json(
+        "POST",
+        f"{trim_url(args.flexo_url)}/projects",
+        payload,
+        timeout=args.timeout,
+        expected={200, 201},
+    )
+    print(json.dumps(project, indent=2))
+
+
+def commit_id_from_branch(branch: dict[str, Any]) -> str | None:
+    for key in ("head", "referencedCommit"):
+        value = branch.get(key)
+        if isinstance(value, dict) and value.get("@id"):
+            return value["@id"]
+    return None
+
+
+def select_commit_id(flexo_url: str, project: dict[str, Any], explicit_commit_id: str | None, timeout: int) -> str:
+    if explicit_commit_id:
+        return explicit_commit_id
+
+    project_id = project["@id"]
+    branches = request_json("GET", f"{flexo_url}/projects/{project_id}/branches", timeout=timeout)
+    default_branch_id = (project.get("defaultBranch") or {}).get("@id")
+    for branch in branches:
+        if branch.get("@id") == default_branch_id:
+            commit_id = commit_id_from_branch(branch)
+            if commit_id:
+                return commit_id
+    for branch in branches:
+        commit_id = commit_id_from_branch(branch)
+        if commit_id:
+            return commit_id
+
+    commits = request_json("GET", f"{flexo_url}/projects/{project_id}/commits", timeout=timeout)
+    if commits:
+        return commits[-1]["@id"]
+    fail(f"could not determine a commit for Flexo project {project_id}")
+
+
+def export_flexo_project(flexo_url: str, project_id: str, commit_id: str | None, timeout: int) -> dict[str, Any]:
+    flexo_url = trim_url(flexo_url)
+    project = request_json("GET", f"{flexo_url}/projects/{project_id}", timeout=timeout)
+    branches = request_json("GET", f"{flexo_url}/projects/{project_id}/branches", timeout=timeout)
+    selected_commit_id = select_commit_id(flexo_url, project, commit_id, timeout)
+    commit = request_json("GET", f"{flexo_url}/projects/{project_id}/commits/{selected_commit_id}", timeout=timeout)
+    roots = request_json(
+        "GET",
+        f"{flexo_url}/projects/{project_id}/commits/{selected_commit_id}/roots",
+        timeout=timeout,
+    )
+    elements = request_json(
+        "GET",
+        f"{flexo_url}/projects/{project_id}/commits/{selected_commit_id}/elements",
+        timeout=timeout,
+    )
+    return {
+        "source": "flexo-sysmlv2",
+        "project": project,
+        "branches": branches,
+        "commit": commit,
+        "roots": roots,
+        "elements": elements,
+    }
+
+
+def cmd_flexo_export(args: argparse.Namespace) -> None:
+    snapshot = export_flexo_project(args.flexo_url, args.project_id, args.commit_id, args.timeout)
+    output = args.output
+    if output is None:
+        output = DEFAULT_OUTPUT_DIR / "flexo" / f"{args.project_id}.json"
+    write_json(output, snapshot)
+    info(f"Wrote Flexo export: {output}")
+
+
+def ref_id(value: Any) -> str | None:
+    if isinstance(value, dict):
+        return value.get("@id")
+    return None
+
+
+def ref_ids(values: Any) -> list[str]:
+    if not isinstance(values, list):
+        return []
+    ids: list[str] = []
+    for value in values:
+        item_id = ref_id(value)
+        if item_id:
+            ids.append(item_id)
+    return ids
+
+
+def element_name(element: dict[str, Any]) -> str:
+    name = (
+        element.get("declaredName")
+        or element.get("name")
+        or element.get("memberName")
+        or element.get("@id")
+        or "Unnamed"
+    )
+    return sanitize_identifier(str(name))
+
+
+def sanitize_identifier(value: str) -> str:
+    value = re.sub(r"[^A-Za-z0-9_]", "_", value.strip())
+    if not value:
+        return "Unnamed"
+    if value[0].isdigit():
+        value = f"_{value}"
+    return value
+
+
+def child_ids(element: dict[str, Any]) -> list[str]:
+    ids: list[str] = []
+    for key in (
+        "ownedElement",
+        "ownedMember",
+        "ownedMemberElement",
+        "ownedRelatedElement",
+        "nestedPart",
+        "nestedAttribute",
+        "nestedPort",
+        "nestedRequirement",
+        "nestedConnection",
+        "nestedUsage",
+    ):
+        value = element.get(key)
+        if isinstance(value, dict):
+            item_id = ref_id(value)
+            if item_id:
+                ids.append(item_id)
+        else:
+            ids.extend(ref_ids(value))
+    return list(dict.fromkeys(ids))
+
+
+def render_element(
+    element: dict[str, Any],
+    elements_by_id: dict[str, dict[str, Any]],
+    depth: int = 0,
+    seen: set[str] | None = None,
+) -> list[str]:
+    seen = set(seen or set())
+    element_id = element.get("@id")
+    if element_id:
+        if element_id in seen:
+            return []
+        seen.add(element_id)
+
+    element_type = element.get("@type", "Element")
+    if element_type not in RENDERABLE_TYPES:
+        return []
+
+    indent = "  " * depth
+    name = element_name(element)
+    rendered_children: list[str] = []
+    for child_id in child_ids(element):
+        child = elements_by_id.get(child_id)
+        if child:
+            rendered_children.extend(render_element(child, elements_by_id, depth + 1, seen))
+
+    keyword = {
+        "Package": "package",
+        "PartDefinition": "part def",
+        "PartUsage": "part",
+        "AttributeUsage": "attribute",
+        "PortUsage": "port",
+        "RequirementDefinition": "requirement def",
+        "RequirementUsage": "requirement",
+        "ConnectionDefinition": "connection def",
+        "ConnectionUsage": "connection",
+        "InterfaceDefinition": "interface def",
+        "InterfaceUsage": "interface",
+        "ActionDefinition": "action def",
+        "ActionUsage": "action",
+        "ItemDefinition": "item def",
+        "ItemUsage": "item",
+    }.get(element_type, "element")
+
+    if rendered_children and element_type in {"Package", "PartDefinition", "RequirementDefinition"}:
+        return [f"{indent}{keyword} {name} {{", *rendered_children, f"{indent}}}"]
+    return [f"{indent}{keyword} {name};"]
+
+
+def render_snapshot(snapshot: dict[str, Any]) -> str:
+    elements = snapshot.get("elements") or []
+    roots = snapshot.get("roots") or []
+    elements_by_id = {
+        element["@id"]: element
+        for element in elements
+        if isinstance(element, dict) and element.get("@id")
+    }
+    root_elements = [
+        elements_by_id.get(root.get("@id"), root)
+        for root in roots
+        if isinstance(root, dict)
+    ]
+    if not root_elements:
+        root_elements = [
+            element
+            for element in elements
+            if isinstance(element, dict) and element.get("@type") in RENDERABLE_TYPES
+        ]
+
+    lines = [
+        "// Generated from a Flexo SysML v2 REST export.",
+        f"// Project: {snapshot.get('project', {}).get('name', 'unknown')}",
+        f"// Commit: {snapshot.get('commit', {}).get('@id', 'unknown')}",
+        "",
+    ]
+    rendered: list[str] = []
+    for root in root_elements:
+        rendered.extend(render_element(root, elements_by_id))
+    if not rendered:
+        rendered.append("// No supported renderable SysML elements were found in this snapshot.")
+    return "\n".join(lines + rendered) + "\n"
+
+
+def cmd_render_sysml(args: argparse.Namespace) -> None:
+    snapshot = read_json(args.input)
+    text = render_snapshot(snapshot)
+    output = args.output
+    if output is None:
+        project_id = snapshot.get("project", {}).get("@id", "flexo-export")
+        output = DEFAULT_OUTPUT_DIR / "sysml" / f"{project_id}.sysml"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(text, encoding="utf-8")
+    info(f"Wrote SysML textual export: {output}")
+
+
+def cmd_syson_list_projects(args: argparse.Namespace) -> None:
+    query = """
+    query {
+      viewer {
+        projects {
+          edges {
+            node {
+              id
+              name
+              currentEditingContext { id }
+            }
+          }
+        }
+      }
+    }
+    """
+    response = graphql(args.syson_url, query, timeout=args.timeout)
+    projects = response["data"]["viewer"]["projects"]["edges"]
+    for edge in projects:
+        node = edge["node"]
+        editing_context = node.get("currentEditingContext") or {}
+        print(f"{node['id']}  {node['name']}  editingContext={editing_context.get('id')}")
+
+
+def cmd_syson_create_project(args: argparse.Namespace) -> None:
+    mutation = """
+    mutation CreateProject($input: CreateProjectInput!) {
+      createProject(input: $input) {
+        __typename
+        ... on CreateProjectSuccessPayload {
+          project { id name currentEditingContext { id } }
+        }
+        ... on ErrorPayload { message }
+      }
+    }
+    """
+    variables = {
+        "input": {
+            "id": str(uuid.uuid4()),
+            "name": args.name,
+            "templateId": args.template_id,
+            "libraryIds": args.library_ids,
+        }
+    }
+    response = graphql(args.syson_url, mutation, variables, timeout=args.timeout)
+    result = response["data"]["createProject"]
+    if result["__typename"] == "ErrorPayload":
+        fail(result["message"])
+    print(json.dumps(result["project"], indent=2))
+
+
+def cmd_syson_roots(args: argparse.Namespace) -> None:
+    project_id = args.project_id
+    roots = request_json(
+        "GET",
+        f"{trim_url(args.syson_url)}/api/rest/projects/{project_id}/commits/{project_id}/roots",
+        timeout=args.timeout,
+    )
+    if args.json:
+        print(json.dumps(roots, indent=2))
+        return
+    for root in roots:
+        print(f"{root.get('@id')}  {root.get('@type')}  {root.get('declaredName') or root.get('name')}")
+
+
+def syson_editing_context_id(syson_url: str, project_id: str, timeout: int) -> str:
+    query = """
+    query FetchEditingContext($projectId: ID!) {
+      viewer {
+        project(projectId: $projectId) {
+          currentEditingContext { id }
+        }
+      }
+    }
+    """
+    response = graphql(syson_url, query, {"projectId": project_id}, timeout=timeout)
+    project = response["data"]["viewer"].get("project")
+    if not project:
+        fail(f"SysON project not found: {project_id}")
+    editing_context = project.get("currentEditingContext")
+    if not editing_context:
+        fail(f"SysON project has no current editing context: {project_id}")
+    return editing_context["id"]
+
+
+def cmd_syson_import_text(args: argparse.Namespace) -> None:
+    textual_content = args.input.read_text(encoding="utf-8")
+    editing_context_id = args.editing_context_id or syson_editing_context_id(
+        args.syson_url,
+        args.project_id,
+        args.timeout,
+    )
+    mutation = """
+    mutation InsertTextualSysMLv2($input: InsertTextualSysMLv2Input!) {
+      insertTextualSysMLv2(input: $input) {
+        __typename
+        ... on SuccessPayload { id }
+        ... on ErrorPayload { message }
+      }
+    }
+    """
+    variables = {
+        "input": {
+            "id": str(uuid.uuid4()),
+            "editingContextId": editing_context_id,
+            "objectId": args.namespace_id,
+            "textualContent": textual_content,
+        }
+    }
+    response = graphql(args.syson_url, mutation, variables, timeout=args.timeout)
+    result = response["data"]["insertTextualSysMLv2"]
+    if result["__typename"] == "ErrorPayload":
+        fail(result["message"])
+    info(f"Imported {args.input} into SysON project {args.project_id}.")
+
+
+def cmd_flexo_to_syson(args: argparse.Namespace) -> None:
+    snapshot = export_flexo_project(args.flexo_url, args.flexo_project_id, args.commit_id, args.timeout)
+    output_dir = args.output_dir
+    export_path = output_dir / "flexo" / f"{args.flexo_project_id}.json"
+    sysml_path = output_dir / "sysml" / f"{args.flexo_project_id}.sysml"
+    write_json(export_path, snapshot)
+    sysml_path.parent.mkdir(parents=True, exist_ok=True)
+    sysml_path.write_text(render_snapshot(snapshot), encoding="utf-8")
+    info(f"Wrote Flexo export: {export_path}")
+    info(f"Wrote SysML textual export: {sysml_path}")
+
+    import_args = argparse.Namespace(
+        input=sysml_path,
+        syson_url=args.syson_url,
+        project_id=args.syson_project_id,
+        namespace_id=args.namespace_id,
+        editing_context_id=args.editing_context_id,
+        timeout=args.timeout,
+    )
+    cmd_syson_import_text(import_args)
+
+
+def add_common_url_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--timeout", type=int, default=30)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    init_org = subparsers.add_parser("init-flexo-org", help="Create the Flexo org used by the SysML v2 service")
+    init_org.add_argument("--layer1-url", default=DEFAULT_LAYER1_URL)
+    init_org.add_argument("--env-dir", type=Path, default=DEFAULT_FLEXO_ENV_DIR)
+    init_org.add_argument("--org-id", default="sysmlv2")
+    init_org.add_argument("--title", default="SysML v2")
+    init_org.add_argument("--token")
+    add_common_url_args(init_org)
+    init_org.set_defaults(func=cmd_init_flexo_org)
+
+    list_flexo = subparsers.add_parser("flexo-list-projects", help="List Flexo SysML v2 projects")
+    list_flexo.add_argument("--flexo-url", default=DEFAULT_FLEXO_URL)
+    list_flexo.add_argument("--json", action="store_true")
+    add_common_url_args(list_flexo)
+    list_flexo.set_defaults(func=cmd_flexo_list_projects)
+
+    create_flexo = subparsers.add_parser("flexo-create-project", help="Create a Flexo SysML v2 project")
+    create_flexo.add_argument("name")
+    create_flexo.add_argument("--description")
+    create_flexo.add_argument("--flexo-url", default=DEFAULT_FLEXO_URL)
+    add_common_url_args(create_flexo)
+    create_flexo.set_defaults(func=cmd_flexo_create_project)
+
+    export_flexo = subparsers.add_parser("flexo-export", help="Export a Flexo project snapshot")
+    export_flexo.add_argument("project_id")
+    export_flexo.add_argument("--commit-id")
+    export_flexo.add_argument("--output", type=Path)
+    export_flexo.add_argument("--flexo-url", default=DEFAULT_FLEXO_URL)
+    add_common_url_args(export_flexo)
+    export_flexo.set_defaults(func=cmd_flexo_export)
+
+    render = subparsers.add_parser("render-sysml", help="Render a Flexo export JSON file as SysML textual notation")
+    render.add_argument("input", type=Path)
+    render.add_argument("--output", type=Path)
+    render.set_defaults(func=cmd_render_sysml)
+
+    list_syson = subparsers.add_parser("syson-list-projects", help="List SysON projects")
+    list_syson.add_argument("--syson-url", default=DEFAULT_SYSON_URL)
+    add_common_url_args(list_syson)
+    list_syson.set_defaults(func=cmd_syson_list_projects)
+
+    create_syson = subparsers.add_parser("syson-create-project", help="Create a SysON project")
+    create_syson.add_argument("name")
+    create_syson.add_argument("--template-id", default="sysmlv2-template")
+    create_syson.add_argument("--library-ids", nargs="*", default=[])
+    create_syson.add_argument("--syson-url", default=DEFAULT_SYSON_URL)
+    add_common_url_args(create_syson)
+    create_syson.set_defaults(func=cmd_syson_create_project)
+
+    roots = subparsers.add_parser("syson-roots", help="List root namespace elements for a SysON project")
+    roots.add_argument("project_id")
+    roots.add_argument("--syson-url", default=DEFAULT_SYSON_URL)
+    roots.add_argument("--json", action="store_true")
+    add_common_url_args(roots)
+    roots.set_defaults(func=cmd_syson_roots)
+
+    import_text = subparsers.add_parser("syson-import-text", help="Import a .sysml file into a SysON namespace")
+    import_text.add_argument("input", type=Path)
+    import_text.add_argument("--project-id", required=True)
+    import_text.add_argument("--namespace-id", required=True)
+    import_text.add_argument("--editing-context-id")
+    import_text.add_argument("--syson-url", default=DEFAULT_SYSON_URL)
+    add_common_url_args(import_text)
+    import_text.set_defaults(func=cmd_syson_import_text)
+
+    pipeline = subparsers.add_parser("flexo-to-syson", help="Export from Flexo, render .sysml, and import into SysON")
+    pipeline.add_argument("flexo_project_id")
+    pipeline.add_argument("--commit-id")
+    pipeline.add_argument("--syson-project-id", required=True)
+    pipeline.add_argument("--namespace-id", required=True)
+    pipeline.add_argument("--editing-context-id")
+    pipeline.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    pipeline.add_argument("--flexo-url", default=DEFAULT_FLEXO_URL)
+    pipeline.add_argument("--syson-url", default=DEFAULT_SYSON_URL)
+    add_common_url_args(pipeline)
+    pipeline.set_defaults(func=cmd_flexo_to_syson)
+
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

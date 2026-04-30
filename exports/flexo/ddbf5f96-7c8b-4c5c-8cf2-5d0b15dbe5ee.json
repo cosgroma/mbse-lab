@@ -1,0 +1,54 @@
+{
+  "branches": [
+    {
+      "@id": "90435c70-bafa-42e0-b6d5-c40c1f770611",
+      "@type": "Branch",
+      "created": "2026-04-30T05:22:46.393893031Z",
+      "head": {
+        "@id": "5346a3c0-914a-4d42-8711-f9b0ae39b4ca"
+      },
+      "name": "Initial",
+      "owningProject": {
+        "@id": "ddbf5f96-7c8b-4c5c-8cf2-5d0b15dbe5ee"
+      },
+      "referencedCommit": {
+        "@id": "5346a3c0-914a-4d42-8711-f9b0ae39b4ca"
+      }
+    }
+  ],
+  "commit": {
+    "@id": "5346a3c0-914a-4d42-8711-f9b0ae39b4ca",
+    "@type": "Commit",
+    "created": "2026-04-30T05:23:59.812598030Z",
+    "description": "",
+    "owningProject": {
+      "@id": "ddbf5f96-7c8b-4c5c-8cf2-5d0b15dbe5ee"
+    },
+    "previousCommit": null
+  },
+  "elements": [
+    {
+      "@id": "11111111-1111-4111-8111-111111111111",
+      "@type": "Package",
+      "declaredName": "FlexoPackage"
+    }
+  ],
+  "project": {
+    "@id": "ddbf5f96-7c8b-4c5c-8cf2-5d0b15dbe5ee",
+    "@type": "Project",
+    "created": "2026-04-30T05:22:43.314804754Z",
+    "defaultBranch": {
+      "@id": "90435c70-bafa-42e0-b6d5-c40c1f770611"
+    },
+    "description": "Probe project",
+    "name": "Bridge Probe"
+  },
+  "roots": [
+    {
+      "@id": "11111111-1111-4111-8111-111111111111",
+      "@type": "Package",
+      "declaredName": "FlexoPackage"
+    }
+  ],
+  "source": "flexo-sysmlv2"
+}

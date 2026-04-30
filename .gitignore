@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local service data
+deploy/syson/data/postgres/
+deploy/flexo-mms/data/minio/
+
+# Local runtime environment files. Commit the *.example files instead.
+deploy/flexo-mms/.env
+deploy/flexo-mms/env/*.env
+deploy/syson/.env
+!deploy/flexo-mms/.env.example
+!deploy/flexo-mms/env/*.env.example
+!deploy/syson/.env.example
+
+# Generated backups can be large and should be copied deliberately if needed.
+deploy/flexo-mms/backups/*
+!deploy/flexo-mms/backups/.gitkeep
+
+# Temporary output
+tmp/
+*.log

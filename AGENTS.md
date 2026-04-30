@@ -178,6 +178,12 @@ Inspect the fixture-derived deployment runtime contract:
 python3 scripts/flexo_syson_bridge.py deployment-contract
 ```
 
+Verify the running Docker containers against that contract:
+
+```bash
+python3 scripts/flexo_syson_bridge.py deployment-verify
+```
+
 Create a SysON project:
 
 ```bash

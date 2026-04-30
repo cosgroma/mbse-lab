@@ -62,6 +62,12 @@ checks with:
 make deployment-contract
 ```
 
+Verify the running Docker containers against that contract with:
+
+```bash
+make deployment-verify
+```
+
 ## Context And Working State
 
 Keep durable context in files, not in chat history:

@@ -1,4 +1,4 @@
-.PHONY: help init up down status logs diagnostics check docs-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract
+.PHONY: help init up down status logs diagnostics check docs-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify
 
 help:
 	@printf '%s\n' 'MBSE local lab commands:'
@@ -16,6 +16,7 @@ help:
 	@printf '  %-16s %s\n' 'flexo-list' 'List Flexo SysML v2 projects'
 	@printf '  %-16s %s\n' 'syson-list' 'List SysON projects'
 	@printf '  %-16s %s\n' 'deployment-contract' 'Show fixture-derived deployment runtime contract'
+	@printf '  %-16s %s\n' 'deployment-verify' 'Verify Docker runtime against deployment contract'
 
 init:
 	python3 scripts/flexo_mms_env.py init --with-sysmlv2
@@ -85,3 +86,6 @@ syson-list:
 
 deployment-contract:
 	python3 scripts/flexo_syson_bridge.py deployment-contract
+
+deployment-verify:
+	python3 scripts/flexo_syson_bridge.py deployment-verify

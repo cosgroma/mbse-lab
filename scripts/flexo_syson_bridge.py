@@ -10,7 +10,9 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import os
 import re
+import subprocess
 import sys
 import time
 import traceback
@@ -520,6 +522,267 @@ def cmd_deployment_contract(args: argparse.Namespace) -> None:
     print(format_deployment_contract_table(contract))
 
 
+def read_env_file(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {}
+
+    values: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        values[key.strip()] = value.strip().strip("\"'")
+    return values
+
+
+def load_deployment_env(root: Path) -> dict[str, str]:
+    env: dict[str, str] = {}
+    for path in (
+        root / "deploy" / "flexo-mms" / ".env.example",
+        root / "deploy" / "flexo-mms" / ".env",
+        root / "deploy" / "syson" / ".env.example",
+        root / "deploy" / "syson" / ".env",
+    ):
+        env.update(read_env_file(path))
+
+    for key in (
+        "FLEXO_MMS_FUSEKI_HOST_PORT",
+        "FLEXO_MMS_MINIO_HOST_PORT",
+        "FLEXO_MMS_AUTH_HOST_PORT",
+        "FLEXO_MMS_STORE_HOST_PORT",
+        "FLEXO_MMS_LAYER1_HOST_PORT",
+        "FLEXO_MMS_SYSMLV2_HOST_PORT",
+        "SYSON_HOST_PORT",
+    ):
+        if key in os.environ:
+            env[key] = os.environ[key]
+    return env
+
+
+def inspect_docker_container(name: str, timeout: int) -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        result = subprocess.run(
+            ["docker", "inspect", name],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except FileNotFoundError:
+        return None, "docker CLI is not available"
+    except subprocess.TimeoutExpired:
+        return None, f"docker inspect timed out after {timeout}s"
+
+    if result.returncode != 0:
+        return None, result.stderr.strip() or result.stdout.strip() or f"docker inspect exited {result.returncode}"
+
+    inspected = json.loads(result.stdout)
+    if len(inspected) != 1:
+        return None, f"docker inspect returned {len(inspected)} objects"
+    return inspected[0], None
+
+
+def deployment_check(name: str, status: str, details: dict[str, Any], message: str | None = None) -> dict[str, Any]:
+    check = {
+        "name": name,
+        "status": status,
+        "details": details,
+    }
+    if message:
+        check["message"] = message
+    return check
+
+
+def verify_deployment_contract(
+    contract: dict[str, Any],
+    env: dict[str, str],
+    root: Path,
+    timeout: int = 20,
+) -> dict[str, Any]:
+    services = []
+    total_checks = 0
+    failed_checks = 0
+
+    for expected in contract["services"]:
+        container_name = expected["containerName"]
+        container, inspect_error = inspect_docker_container(container_name, timeout)
+        checks: list[dict[str, Any]] = []
+        if inspect_error:
+            checks.append(
+                deployment_check(
+                    "container-inspect",
+                    "failed",
+                    {"containerName": container_name},
+                    inspect_error,
+                )
+            )
+        else:
+            state = container.get("State", {})
+            running = bool(state.get("Running"))
+            checks.append(
+                deployment_check(
+                    "container-running",
+                    "passed" if running else "failed",
+                    {"status": state.get("Status"), "running": running},
+                    None if running else f"{container_name} is not running: {state.get('Status')}",
+                )
+            )
+            checks.extend(verify_deployment_ports(container, expected, env))
+            checks.extend(verify_deployment_mounts(container, expected, root))
+
+        service_failed_checks = sum(1 for check in checks if check["status"] != "passed")
+        total_checks += len(checks)
+        failed_checks += service_failed_checks
+        services.append(
+            {
+                "id": expected.get("id"),
+                "declaredName": expected.get("declaredName"),
+                "stackName": expected.get("stackName"),
+                "serviceName": expected.get("serviceName"),
+                "containerName": container_name,
+                "status": "failed" if service_failed_checks else "passed",
+                "checks": checks,
+            }
+        )
+
+    passed_services = sum(1 for service in services if service["status"] == "passed")
+    report_status = "passed" if failed_checks == 0 else "failed"
+    return {
+        "status": report_status,
+        "checkedAt": utc_now(),
+        "project": contract.get("project", {}),
+        "commit": contract.get("commit", {}),
+        "summary": {
+            "services": len(services),
+            "passedServices": passed_services,
+            "failedServices": len(services) - passed_services,
+            "checks": total_checks,
+            "passedChecks": total_checks - failed_checks,
+            "failedChecks": failed_checks,
+        },
+        "services": services,
+    }
+
+
+def verify_deployment_ports(
+    container: dict[str, Any],
+    expected: dict[str, Any],
+    env: dict[str, str],
+) -> list[dict[str, Any]]:
+    checks = []
+    published_ports = container.get("NetworkSettings", {}).get("Ports") or {}
+    for port in expected.get("ports", []):
+        protocol = port.get("protocol", "tcp")
+        container_port = f"{port['containerPort']}/{protocol}"
+        bindings = published_ports.get(container_port) or []
+        host_ports = sorted({binding.get("HostPort") for binding in bindings if binding.get("HostPort")})
+        expected_host_port = env.get(port["hostPortEnv"], str(port["defaultHostPort"]))
+        passed = expected_host_port in host_ports
+        checks.append(
+            deployment_check(
+                "port-published",
+                "passed" if passed else "failed",
+                {
+                    "containerPort": container_port,
+                    "expectedHostPort": expected_host_port,
+                    "hostPortEnv": port["hostPortEnv"],
+                    "actualHostPorts": host_ports,
+                },
+                None
+                if passed
+                else (
+                    f"{expected['containerName']} should publish {container_port} "
+                    f"on host port {expected_host_port}"
+                ),
+            )
+        )
+    return checks
+
+
+def verify_deployment_mounts(container: dict[str, Any], expected: dict[str, Any], root: Path) -> list[dict[str, Any]]:
+    checks = []
+    mounts = container.get("Mounts") or []
+    by_destination = {mount.get("Destination"): mount for mount in mounts}
+    for mount in expected.get("mounts", []):
+        actual = by_destination.get(mount["containerPath"])
+        expected_source = os.path.abspath(root / mount["hostPath"])
+        actual_source = actual.get("Source") if actual else None
+        actual_type = actual.get("Type") if actual else None
+        expected_type = mount.get("type", "bind")
+        passed = bool(actual and actual_type == expected_type and actual_source == expected_source)
+        checks.append(
+            deployment_check(
+                "mount-present",
+                "passed" if passed else "failed",
+                {
+                    "containerPath": mount["containerPath"],
+                    "expectedHostPath": expected_source,
+                    "expectedType": expected_type,
+                    "actualHostPath": actual_source,
+                    "actualType": actual_type,
+                },
+                None
+                if passed
+                else f"{expected['containerName']} should mount {mount['containerPath']} from {expected_source}",
+            )
+        )
+    return checks
+
+
+def format_deployment_verification_report(report: dict[str, Any]) -> str:
+    lines = [
+        f"Deployment verification: {report['status']}",
+        (
+            "Services: "
+            f"{report['summary']['passedServices']} passed, "
+            f"{report['summary']['failedServices']} failed, "
+            f"{report['summary']['services']} total"
+        ),
+        (
+            "Checks: "
+            f"{report['summary']['passedChecks']} passed, "
+            f"{report['summary']['failedChecks']} failed, "
+            f"{report['summary']['checks']} total"
+        ),
+        "",
+    ]
+    for service in report["services"]:
+        lines.append(
+            f"{service['status'].upper()} {service['containerName']} "
+            f"({service.get('stackName') or 'unknown-stack'}/{service.get('serviceName') or 'unknown-service'})"
+        )
+        for check in service["checks"]:
+            line = f"  - {check['status']} {check['name']}"
+            if check.get("message"):
+                line += f": {check['message']}"
+            lines.append(line)
+    return "\n".join(lines)
+
+
+def cmd_deployment_verify(args: argparse.Namespace) -> None:
+    root = args.root.resolve()
+    contract = deployment_contract_from_snapshot(read_json(args.fixture))
+    if not contract["services"]:
+        fail(f"no container services found in deployment fixture: {args.fixture}")
+    report = verify_deployment_contract(
+        contract,
+        load_deployment_env(root),
+        root,
+        timeout=args.timeout,
+    )
+    report["fixture"] = str(args.fixture)
+
+    if args.output:
+        write_json(args.output, report)
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+    else:
+        print(format_deployment_verification_report(report))
+    if report["status"] != "passed":
+        raise SystemExit(1)
+
+
 def cmd_render_sysml(args: argparse.Namespace) -> None:
     snapshot = read_json(args.input)
     text = render_snapshot(snapshot)
@@ -841,6 +1104,17 @@ def build_parser() -> argparse.ArgumentParser:
     contract.add_argument("--fixture", type=Path, default=DEFAULT_DEPLOYMENT_FIXTURE)
     contract.add_argument("--json", action="store_true")
     contract.set_defaults(func=cmd_deployment_contract)
+
+    verify = subparsers.add_parser(
+        "deployment-verify",
+        help="Verify Docker runtime state against the deployment contract",
+    )
+    verify.add_argument("--fixture", type=Path, default=DEFAULT_DEPLOYMENT_FIXTURE)
+    verify.add_argument("--root", type=Path, default=Path("."))
+    verify.add_argument("--timeout", type=int, default=20)
+    verify.add_argument("--json", action="store_true")
+    verify.add_argument("--output", type=Path, help="Write the structured verification report as JSON.")
+    verify.set_defaults(func=cmd_deployment_verify)
 
     list_syson = subparsers.add_parser("syson-list-projects", help="List SysON projects")
     list_syson.add_argument("--syson-url", default=DEFAULT_SYSON_URL)

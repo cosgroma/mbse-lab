@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -166,6 +167,54 @@ class BridgeRenderTests(unittest.TestCase):
         self.assertIn("flexo-sysmlv2", rendered)
         self.assertIn("${FLEXO_MMS_SYSMLV2_HOST_PORT:-18083}->8080/tcp", rendered)
         self.assertIn("deploy/syson/data/postgres->/var/lib/postgresql/data", rendered)
+
+    def test_deployment_verification_report_uses_contract_data(self) -> None:
+        contract = {
+            "project": {"name": "Fixture"},
+            "commit": {"@id": "commit-1"},
+            "services": [
+                {
+                    "id": "service-1",
+                    "declaredName": "demo",
+                    "stackName": "demo-stack",
+                    "serviceName": "demo-service",
+                    "containerName": "demo-container",
+                    "ports": [
+                        {
+                            "containerPort": 8080,
+                            "defaultHostPort": 18080,
+                            "hostPortEnv": "DEMO_HOST_PORT",
+                            "protocol": "tcp",
+                        }
+                    ],
+                    "mounts": [
+                        {
+                            "containerPath": "/data",
+                            "hostPath": "deploy/demo/data",
+                            "type": "bind",
+                        }
+                    ],
+                }
+            ],
+        }
+        container = {
+            "State": {"Running": True, "Status": "running"},
+            "NetworkSettings": {"Ports": {"8080/tcp": [{"HostPort": "18080"}]}},
+            "Mounts": [
+                {
+                    "Destination": "/data",
+                    "Source": str(ROOT / "deploy" / "demo" / "data"),
+                    "Type": "bind",
+                }
+            ],
+        }
+
+        with mock.patch.object(flexo_syson_bridge, "inspect_docker_container", return_value=(container, None)):
+            report = flexo_syson_bridge.verify_deployment_contract(contract, {}, ROOT)
+
+        self.assertEqual("passed", report["status"])
+        self.assertEqual(3, report["summary"]["passedChecks"])
+        self.assertIn("PASSED demo-container", flexo_syson_bridge.format_deployment_verification_report(report))
 
 
 if __name__ == "__main__":

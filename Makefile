@@ -1,10 +1,11 @@
-.PHONY: help install-cli bootstrap doctor init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify
+.PHONY: help install-cli bootstrap first-model doctor init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify
 
 help:
 	@printf '%s\n' 'MBSE local lab commands:'
 	@printf '  %-16s %s\n' 'init' 'Generate Flexo runtime env files and compose setup'
 	@printf '  %-16s %s\n' 'install-cli' 'Install the mbse-lab CLI in editable mode'
 	@printf '  %-16s %s\n' 'bootstrap' 'Prepare and start the local SysML v2 lab'
+	@printf '  %-16s %s\n' 'first-model' 'Create a tiny Flexo model and import it into SysON'
 	@printf '  %-16s %s\n' 'doctor' 'Run mbse-lab environment checks'
 	@printf '  %-16s %s\n' 'up' 'Start Flexo and SysON'
 	@printf '  %-16s %s\n' 'down' 'Stop Flexo and SysON'
@@ -32,6 +33,9 @@ install-cli:
 
 bootstrap:
 	mbse-lab bootstrap
+
+first-model:
+	mbse-lab first-model "First Model"
 
 doctor:
 	mbse-lab doctor

@@ -1,4 +1,4 @@
-.PHONY: help init up down status logs check eval bridge-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list
+.PHONY: help init up down status logs check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list
 
 help:
 	@printf '%s\n' 'MBSE local lab commands:'
@@ -8,6 +8,7 @@ help:
 	@printf '  %-16s %s\n' 'status' 'Check local service status'
 	@printf '  %-16s %s\n' 'check' 'Run static validation and secret scan'
 	@printf '  %-16s %s\n' 'eval' 'Run deterministic local evals'
+	@printf '  %-16s %s\n' 'live-eval' 'Run optional live SysON import eval'
 	@printf '  %-16s %s\n' 'backup' 'Export Flexo Fuseki data and refresh startup dataset'
 	@printf '  %-16s %s\n' 'rotate-secrets' 'Regenerate ignored local Flexo runtime secrets'
 	@printf '  %-16s %s\n' 'flexo-list' 'List Flexo SysML v2 projects'
@@ -43,7 +44,10 @@ check:
 eval: bridge-eval
 
 bridge-eval:
-	python3 -m unittest discover -s evals -p 'test_*.py'
+	python3 -m unittest discover -s evals -p 'test_bridge_*.py'
+
+live-eval:
+	MBSE_LIVE_EVAL=1 python3 -m unittest discover -s evals -p 'test_live_*.py'
 
 secret-scan:
 	@git grep -n -E 'thisissomethingreallylon[g]|admi[n]test|adminpasswor[d]|passwor[d]1|passwor[d]2|eyJhb[G]ci|SYSON_POSTGRES_PASSWORD=passwor[d]|JWT_SECRET=thi[s]' HEAD || true

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Validate documentation discoverability and command snippets."""
+"""Validate documentation discoverability, command snippets, and workflow policy."""
 
 from __future__ import annotations
 
+import argparse
 import re
 import subprocess
 import sys
@@ -157,18 +158,37 @@ def check_workflow_contract(failures: list[str]) -> None:
             fail(f"WORKFLOW.md must mention `{fragment}`", failures)
 
 
-def main() -> None:
+def validate_workflow() -> list[str]:
+    failures: list[str] = []
+    check_workflow_contract(failures)
+    return failures
+
+
+def validate_docs() -> list[str]:
     failures: list[str] = []
     check_discoverability(failures)
     check_make_commands(failures)
     check_python_commands(failures)
-    check_workflow_contract(failures)
+    failures.extend(validate_workflow())
+    return failures
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--workflow-only", action="store_true", help="Validate only WORKFLOW.md policy requirements.")
+    return parser
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    failures = validate_workflow() if args.workflow_only else validate_docs()
     if failures:
-        print("docs-check failed:", file=sys.stderr)
+        label = "workflow-check" if args.workflow_only else "docs-check"
+        print(f"{label} failed:", file=sys.stderr)
         for failure in failures:
             print(f"  - {failure}", file=sys.stderr)
         raise SystemExit(1)
-    print("docs-check passed")
+    print("workflow-check passed" if args.workflow_only else "docs-check passed")
 
 
 if __name__ == "__main__":

@@ -28,6 +28,7 @@ class WorkflowContractTests(unittest.TestCase):
         text = WORKFLOW.read_text(encoding="utf-8")
 
         for command in (
+            "make workflow-check",
             "make check",
             "make docs-check",
             "make eval",

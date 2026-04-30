@@ -216,6 +216,12 @@ Run:
 make check
 ```
 
+When editing `WORKFLOW.md` or agent policy, run:
+
+```bash
+make workflow-check
+```
+
 Equivalent explicit commands:
 
 ```bash

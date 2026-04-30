@@ -41,6 +41,7 @@ make up
 make status
 make diagnostics
 make check
+make workflow-check
 make docs-check
 make live-eval
 make backup

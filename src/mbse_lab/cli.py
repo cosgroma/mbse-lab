@@ -53,8 +53,11 @@ def require_repo_root(ctx: click.Context) -> Path:
     raise click.ClickException("Could not find the mbse lab repo root. Run from the repo or pass --repo-root.")
 
 
-def run_command(command: list[str], repo_root: Path) -> None:
-    completed = subprocess.run(command, cwd=repo_root)
+def run_command(command: list[str], cwd: Path, dry_run: bool = False) -> None:
+    if dry_run:
+        click.echo(f"dry-run: {' '.join(command)}")
+        return
+    completed = subprocess.run(command, cwd=cwd)
     if completed.returncode != 0:
         raise click.ClickException(f"command failed with exit code {completed.returncode}: {' '.join(command)}")
 
@@ -98,6 +101,87 @@ def fetch_status(url: str, timeout: float = 2.0) -> int | None:
         return None
 
 
+def ensure_syson_env(repo_root: Path, dry_run: bool = False) -> None:
+    env_path = repo_root / "deploy/syson/.env"
+    example_path = repo_root / "deploy/syson/.env.example"
+    if env_path.exists():
+        click.echo(f"SysON env already exists: {env_path.relative_to(repo_root)}")
+        return
+    if not example_path.exists():
+        raise click.ClickException(f"missing SysON env template: {example_path}")
+    if dry_run:
+        click.echo(f"dry-run: copy {example_path.relative_to(repo_root)} to {env_path.relative_to(repo_root)}")
+        return
+    shutil.copyfile(example_path, env_path)
+    click.echo(f"Created SysON env: {env_path.relative_to(repo_root)}")
+
+
+def initialize_model_workspace(root: Path, force: bool, git_init: bool, dry_run: bool = False) -> Path:
+    root = root.expanduser().resolve()
+    if dry_run:
+        click.echo(f"dry-run: initialize model workspace {root}")
+        return root
+
+    root.mkdir(parents=True, exist_ok=True)
+    for directory in WORKSPACE_DIRS:
+        (root / directory).mkdir(parents=True, exist_ok=True)
+
+    readme = root / "README.md"
+    if force or not readme.exists():
+        readme.write_text(
+            "\n".join(
+                [
+                    "# SysML v2 Model Workspace",
+                    "",
+                    "Private workspace for SysML v2 model source, generated exports, run logs, and evidence.",
+                    "",
+                    "Use the shared lab kit CLI and set:",
+                    "",
+                    "```bash",
+                    f"export MBSE_MODEL_WORKSPACE={root}",
+                    "```",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    gitignore = root / ".gitignore"
+    if force or not gitignore.exists():
+        gitignore.write_text(
+            "\n".join(
+                [
+                    "# Generated bridge artifacts and local run evidence.",
+                    "exports/",
+                    "runs/",
+                    "diagnostics/",
+                    "*.log",
+                    "",
+                    "# Local service or editor noise.",
+                    ".DS_Store",
+                    "Thumbs.db",
+                    ".idea/",
+                    ".vscode/",
+                    "",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+    if git_init and not (root / ".git").exists():
+        run_command(["git", "init", "-b", "main"], root)
+    return root
+
+
+def print_service_urls() -> None:
+    click.echo("")
+    click.echo("Service URLs:")
+    click.echo("  Flexo Layer1 API:   http://localhost:18080")
+    click.echo("  Flexo SysML v2 API: http://localhost:18083")
+    click.echo("  SysON Web UI:       http://localhost:18090")
+    click.echo("  SysON GraphQL API:  http://localhost:18090/api/graphql")
+
+
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(__version__, prog_name="mbse-lab")
 @click.option(
@@ -110,6 +194,79 @@ def main(ctx: click.Context, repo_root: Path | None) -> None:
     """Operate the local SysML v2 lab and private model workspaces."""
     resolved_root = repo_root.resolve() if repo_root else find_repo_root()
     ctx.obj = CliContext(repo_root=resolved_root)
+
+
+@main.command()
+@click.option(
+    "--model-workspace",
+    type=click.Path(path_type=Path),
+    help="Initialize a private model workspace and print the export command.",
+)
+@click.option("--force-workspace", is_flag=True, help="Overwrite generated workspace README.md and .gitignore files.")
+@click.option(
+    "--workspace-git/--no-workspace-git",
+    default=True,
+    help="Initialize git in --model-workspace when needed.",
+)
+@click.option("--skip-start", is_flag=True, help="Prepare files but do not start Flexo or SysON containers.")
+@click.option("--skip-flexo-org", is_flag=True, help="Do not initialize the Flexo SysML v2 org.")
+@click.option("--skip-backup", is_flag=True, help="Do not back up Flexo after org initialization.")
+@click.option("--skip-status", is_flag=True, help="Do not run final service status checks.")
+@click.option("--timeout", type=int, default=60, show_default=True, help="Container startup/status timeout in seconds.")
+@click.option("--dry-run", is_flag=True, help="Print the planned commands without changing files or containers.")
+@click.pass_context
+def bootstrap(
+    ctx: click.Context,
+    model_workspace: Path | None,
+    force_workspace: bool,
+    workspace_git: bool,
+    skip_start: bool,
+    skip_flexo_org: bool,
+    skip_backup: bool,
+    skip_status: bool,
+    timeout: int,
+    dry_run: bool,
+) -> None:
+    """Prepare the local lab for first use."""
+    repo_root = require_repo_root(ctx)
+    click.echo(f"Bootstrapping SysML v2 lab at {repo_root}")
+
+    run_command(["python3", "scripts/flexo_mms_env.py", "init", "--with-sysmlv2"], repo_root, dry_run)
+    ensure_syson_env(repo_root, dry_run)
+
+    if model_workspace:
+        workspace_root = initialize_model_workspace(model_workspace, force_workspace, workspace_git, dry_run)
+        click.echo(f"Model workspace: {workspace_root}")
+        click.echo(f"Set it for bridge defaults with: export MBSE_MODEL_WORKSPACE={workspace_root}")
+    elif not os.environ.get("MBSE_MODEL_WORKSPACE"):
+        click.echo("No model workspace configured. Set MBSE_MODEL_WORKSPACE or pass --model-workspace.")
+
+    if not skip_start:
+        run_command(
+            ["python3", "scripts/flexo_mms_env.py", "up", "--wait", "--timeout", str(timeout)],
+            repo_root,
+            dry_run,
+        )
+        run_command(["docker", "compose", "-f", "deploy/syson/docker-compose.yml", "up", "-d"], repo_root, dry_run)
+
+    if not skip_flexo_org:
+        run_command(["python3", "scripts/flexo_syson_bridge.py", "init-flexo-org"], repo_root, dry_run)
+        if not skip_backup:
+            run_command(["python3", "scripts/flexo_mms_env.py", "backup"], repo_root, dry_run)
+
+    if not skip_status:
+        run_command(
+            ["python3", "scripts/flexo_mms_env.py", "status", "--with-sysmlv2", "--strict"],
+            repo_root,
+            dry_run,
+        )
+        run_command(["docker", "compose", "-f", "deploy/syson/docker-compose.yml", "ps"], repo_root, dry_run)
+
+    print_service_urls()
+    click.echo("")
+    click.echo("Next:")
+    click.echo("  mbse-lab doctor")
+    click.echo("  mbse-lab workspace env <private-workspace>")
 
 
 @main.command()
@@ -198,56 +355,7 @@ def workspace() -> None:
 @click.option("--git/--no-git", "git_init", default=True, help="Initialize a git repository if one is not present.")
 def workspace_init(path: Path, force: bool, git_init: bool) -> None:
     """Initialize a private model workspace."""
-    root = path.expanduser().resolve()
-    root.mkdir(parents=True, exist_ok=True)
-    for directory in WORKSPACE_DIRS:
-        (root / directory).mkdir(parents=True, exist_ok=True)
-
-    readme = root / "README.md"
-    if force or not readme.exists():
-        readme.write_text(
-            "\n".join(
-                [
-                    "# SysML v2 Model Workspace",
-                    "",
-                    "Private workspace for SysML v2 model source, generated exports, run logs, and evidence.",
-                    "",
-                    "Use the shared lab kit CLI and set:",
-                    "",
-                    "```bash",
-                    f"export MBSE_MODEL_WORKSPACE={root}",
-                    "```",
-                    "",
-                ]
-            ),
-            encoding="utf-8",
-        )
-
-    gitignore = root / ".gitignore"
-    if force or not gitignore.exists():
-        gitignore.write_text(
-            "\n".join(
-                [
-                    "# Generated bridge artifacts and local run evidence.",
-                    "exports/",
-                    "runs/",
-                    "diagnostics/",
-                    "*.log",
-                    "",
-                    "# Local service or editor noise.",
-                    ".DS_Store",
-                    "Thumbs.db",
-                    ".idea/",
-                    ".vscode/",
-                    "",
-                ]
-            ),
-            encoding="utf-8",
-        )
-
-    if git_init and not (root / ".git").exists():
-        run_command(["git", "init", "-b", "main"], root)
-
+    root = initialize_model_workspace(path, force, git_init)
     click.echo(f"Initialized model workspace: {root}")
     click.echo(f"Set it for bridge defaults with: export MBSE_MODEL_WORKSPACE={root}")
 

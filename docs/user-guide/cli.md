@@ -36,6 +36,39 @@ The doctor checks Python, Docker, Docker Compose, expected repo files, local
 runtime env files, `MBSE_MODEL_WORKSPACE`, common service ports, and basic Flexo
 and SysON reachability.
 
+## Bootstrap
+
+Prepare the local lab for first use:
+
+```bash
+mbse-lab bootstrap --model-workspace ~/work/my-private-models
+```
+
+The bootstrap command:
+
+- generates Flexo runtime files with SysML v2 enabled
+- creates `deploy/syson/.env` from the publishable example when needed
+- optionally initializes a private model workspace
+- starts Flexo and SysON
+- initializes the Flexo SysML v2 org
+- backs up Flexo graph state after org initialization
+- runs final status checks
+- prints local service URLs and next commands
+
+Preview the planned operations without changing files or starting containers:
+
+```bash
+mbse-lab bootstrap --dry-run --model-workspace ~/work/my-private-models
+```
+
+Useful options:
+
+```bash
+mbse-lab bootstrap --skip-start
+mbse-lab bootstrap --skip-flexo-org
+mbse-lab bootstrap --skip-status
+```
+
 ## Private Workspaces
 
 Initialize a private model workspace:

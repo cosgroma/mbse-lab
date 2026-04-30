@@ -55,6 +55,42 @@ class CliTests(unittest.TestCase):
         with mock.patch("urllib.request.urlopen", side_effect=TimeoutError("timed out")):
             self.assertIsNone(cli.fetch_status("http://localhost:1/"))
 
+    def test_bootstrap_dry_run_prints_planned_setup_without_touching_workspace(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            workspace = Path(temp_dir) / "workspace"
+            for path in (
+                repo / "deploy/flexo-mms/docker-compose.yml",
+                repo / "deploy/syson/docker-compose.yml",
+                repo / "deploy/syson/.env.example",
+                repo / "scripts/flexo_mms_env.py",
+                repo / "scripts/flexo_syson_bridge.py",
+            ):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("", encoding="utf-8")
+
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(repo),
+                    "bootstrap",
+                    "--dry-run",
+                    "--model-workspace",
+                    str(workspace),
+                    "--skip-start",
+                    "--skip-flexo-org",
+                    "--skip-status",
+                ],
+            )
+
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("dry-run: python3 scripts/flexo_mms_env.py init --with-sysmlv2", result.output)
+            self.assertIn("dry-run: copy deploy/syson/.env.example to deploy/syson/.env", result.output)
+            self.assertIn(f"dry-run: initialize model workspace {workspace}", result.output)
+            self.assertFalse(workspace.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

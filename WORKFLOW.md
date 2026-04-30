@@ -12,6 +12,7 @@ agent:
   max_chunk_scope: focused
 validation:
   required:
+    - make workflow-check
     - make check
   live_when_services_running:
     - make live-eval
@@ -56,6 +57,13 @@ changes:
 
 ```bash
 make check
+```
+
+Run the focused workflow contract validation when editing this file or changing
+agent policy:
+
+```bash
+make workflow-check
 ```
 
 For targeted documentation changes, `make docs-check` may be used during

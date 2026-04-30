@@ -1,5 +1,5 @@
-site_name: MBSE Local Lab
-site_description: Local MBSE lab for Flexo MMS, SysON, SysML v2 model experiments, and SERGEANT model specifications.
+site_name: SysML v2 Local Lab
+site_description: Shareable SysML v2 local lab kit for Flexo MMS, SysON, bridge workflows, private model workspaces, and publishable examples.
 repo_name: mbse
 docs_dir: docs
 site_dir: site
@@ -22,6 +22,8 @@ plugins:
 
 nav:
   - Home: index.md
+  - User Guide:
+      - Private Model Workspaces: user-guide/private-model-workspaces.md
   - Local Lab:
       - Bridge Workflow: lab/flexo-syson-bridge.md
       - Harness Engineering: lab/harness-engineering.md
@@ -36,11 +38,6 @@ nav:
       - Container Deployment: model-specs/container-deployment.md
       - Security Architecture: model-specs/security-architecture.md
       - Enterprise Architecture: model-specs/enterprise-architecture.md
-  - SERGEANT:
-      - Channel Controller: sergeant/cc-channel-controller.md
-      - GEnCor FPGA Resource and Timing: sergeant/gencor-fpga-resource-timing.md
-      - PGM SDRx Design: sergeant/pgm-sdrx-design.md
-      - Product Line: sergeant/sergeant-enterprise-product-line.md
   - Plans: plans/README.md
 
 markdown_extensions:

@@ -41,9 +41,10 @@ for Codex work in this MBSE local lab.
 
 Use this repo as a shared local workspace for MBSE environment setup, Flexo MMS
 automation, SysON import/review, bridge workflows, deployment verification, and
-diagnostics. Work in small chunks that land independently. Commit each chunk
-after implementation and validation when the user has asked to continue in this
-mode.
+diagnostics. Treat it as reusable tooling, not the storage location for private
+SysML v2 model repositories. Work in small chunks that land independently.
+Commit each chunk after implementation and validation when the user has asked to
+continue in this mode.
 
 Keep durable state in files:
 
@@ -168,8 +169,12 @@ python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
 
 Runtime secrets and local service data are intentionally ignored. Do not commit
 runtime `.env` files, Flexo backup data, SysON database files, diagnostics
-bundles, or run logs. Commit publishable examples and deterministic fixtures
-only.
+bundles, run logs, private Flexo JSON exports, private rendered `.sysml`
+snapshots, or real model source. Commit publishable examples and deterministic
+fixtures only.
+
+Use `MBSE_MODEL_WORKSPACE` or explicit bridge output paths when generated model
+artifacts belong in a private workspace outside this repo.
 
 Before destructive reset actions, such as deleting service data, removing
 containers with volumes, or rewriting persisted Flexo startup data, get

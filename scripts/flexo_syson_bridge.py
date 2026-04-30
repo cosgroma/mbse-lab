@@ -30,6 +30,7 @@ DEFAULT_FLEXO_ENV_DIR = Path("deploy/flexo-mms")
 DEFAULT_OUTPUT_DIR = Path("exports")
 DEFAULT_RUN_DIR = Path("runs")
 DEFAULT_DEPLOYMENT_FIXTURE = Path("evals/fixtures/container-deployment-basic.json")
+MODEL_WORKSPACE_ENV = "MBSE_MODEL_WORKSPACE"
 
 RENDERABLE_TYPES = {
     "Package",
@@ -70,6 +71,13 @@ def read_json(path: Path) -> Any:
 def write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def default_output_dir() -> Path:
+    model_workspace = os.environ.get(MODEL_WORKSPACE_ENV)
+    if model_workspace:
+        return Path(model_workspace).expanduser() / "exports"
+    return DEFAULT_OUTPUT_DIR
 
 
 def utc_now() -> str:
@@ -281,7 +289,7 @@ def cmd_flexo_export(args: argparse.Namespace) -> None:
     snapshot = export_flexo_project(args.flexo_url, args.project_id, args.commit_id, args.timeout)
     output = args.output
     if output is None:
-        output = DEFAULT_OUTPUT_DIR / "flexo" / f"{args.project_id}.json"
+        output = default_output_dir() / "flexo" / f"{args.project_id}.json"
     write_json(output, snapshot)
     info(f"Wrote Flexo export: {output}")
 
@@ -776,7 +784,7 @@ def cmd_render_sysml(args: argparse.Namespace) -> None:
     output = args.output
     if output is None:
         project_id = snapshot.get("project", {}).get("@id", "flexo-export")
-        output = DEFAULT_OUTPUT_DIR / "sysml" / f"{project_id}.sysml"
+        output = default_output_dir() / "sysml" / f"{project_id}.sysml"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(text, encoding="utf-8")
     info(f"Wrote SysML textual export: {output}")
@@ -1140,7 +1148,15 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline.add_argument("--syson-project-id", required=True)
     pipeline.add_argument("--namespace-id", required=True)
     pipeline.add_argument("--editing-context-id")
-    pipeline.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    pipeline.add_argument(
+        "--output-dir",
+        type=Path,
+        default=default_output_dir(),
+        help=(
+            "Directory for generated Flexo JSON and SysML files. "
+            f"Defaults to ${MODEL_WORKSPACE_ENV}/exports when set, otherwise exports/."
+        ),
+    )
     pipeline.add_argument("--run-log", type=Path, help="Write the structured run log to this exact path.")
     pipeline.add_argument("--run-log-dir", type=Path, default=DEFAULT_RUN_DIR, help="Directory for generated run logs.")
     pipeline.add_argument("--flexo-url", default=DEFAULT_FLEXO_URL)

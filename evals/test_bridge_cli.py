@@ -91,6 +91,38 @@ class CliTests(unittest.TestCase):
             self.assertIn(f"dry-run: initialize model workspace {workspace}", result.output)
             self.assertFalse(workspace.exists())
 
+    def test_first_model_dry_run_prints_planned_workflow(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            for path in (
+                repo / "deploy/flexo-mms/docker-compose.yml",
+                repo / "deploy/syson/docker-compose.yml",
+                repo / "scripts/flexo_mms_env.py",
+                repo / "scripts/flexo_syson_bridge.py",
+            ):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("", encoding="utf-8")
+
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(repo),
+                    "first-model",
+                    "Demo Model",
+                    "--dry-run",
+                    "--output-dir",
+                    str(Path(temp_dir) / "exports"),
+                ],
+            )
+
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("dry-run: create Flexo project `Demo Model`", result.output)
+            self.assertIn("dry-run: commit Package `Demo Model`", result.output)
+            self.assertIn("dry-run: create SysON project `Demo Model Review`", result.output)
+            self.assertIn("dry-run: import package `Demo_Model`", result.output)
+
 
 if __name__ == "__main__":
     unittest.main()

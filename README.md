@@ -121,6 +121,16 @@ Preview the bootstrap without changing files or starting containers:
 mbse-lab bootstrap --dry-run --model-workspace ~/work/my-private-models
 ```
 
+Create a tiny first model after the services are running:
+
+```bash
+mbse-lab first-model "My First Model"
+```
+
+That command creates a Flexo project with one package, exports and renders the
+model, creates a SysON review project, imports the rendered SysML text, and
+prints the resulting project IDs and artifact paths.
+
 ## Credentials
 
 Runtime credential files are intentionally ignored by git:

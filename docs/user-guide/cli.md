@@ -69,6 +69,39 @@ mbse-lab bootstrap --skip-flexo-org
 mbse-lab bootstrap --skip-status
 ```
 
+## First Model
+
+After the services are running, create a tiny end-to-end model:
+
+```bash
+mbse-lab first-model "My First Model"
+```
+
+The command:
+
+- creates a Flexo SysML v2 project
+- commits one root `Package`
+- exports Flexo JSON
+- renders textual SysML
+- creates a SysON review project
+- imports the rendered SysML into the SysON root package
+- prints Flexo IDs, SysON IDs, and generated artifact paths
+
+Preview the workflow without creating projects:
+
+```bash
+mbse-lab first-model "My First Model" --dry-run
+```
+
+Use explicit names or output locations when needed:
+
+```bash
+mbse-lab first-model "Radio Demo" \
+  --package-name "Radio Demo Package" \
+  --syson-project-name "Radio Demo Review" \
+  --output-dir ~/work/my-private-models/exports
+```
+
 ## Private Workspaces
 
 Initialize a private model workspace:

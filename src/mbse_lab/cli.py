@@ -2,19 +2,26 @@
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import shutil
 import socket
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
 import click
 
 from mbse_lab import __version__
+
+DEFAULT_FLEXO_URL = "http://localhost:18083"
+DEFAULT_SYSON_URL = "http://localhost:18090"
 
 REQUIRED_MARKERS = (
     Path("deploy/flexo-mms/docker-compose.yml"),
@@ -60,6 +67,226 @@ def run_command(command: list[str], cwd: Path, dry_run: bool = False) -> None:
     completed = subprocess.run(command, cwd=cwd)
     if completed.returncode != 0:
         raise click.ClickException(f"command failed with exit code {completed.returncode}: {' '.join(command)}")
+
+
+def trim_url(url: str) -> str:
+    return url.rstrip("/")
+
+
+def default_output_dir() -> Path:
+    model_workspace = os.environ.get("MBSE_MODEL_WORKSPACE")
+    if model_workspace:
+        return Path(model_workspace).expanduser() / "exports"
+    return Path("exports")
+
+
+def sanitize_identifier(value: str) -> str:
+    value = re.sub(r"[^A-Za-z0-9_]", "_", value.strip())
+    if not value:
+        return "Unnamed"
+    if value[0].isdigit():
+        value = f"_{value}"
+    return value
+
+
+def request_json(
+    method: str,
+    url: str,
+    payload: object | None = None,
+    timeout: int = 30,
+    expected: set[int] | None = None,
+) -> object:
+    body = None if payload is None else json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(url, data=body, method=method)
+    request.add_header("Accept", "application/json")
+    if body is not None:
+        request.add_header("Content-Type", "application/json")
+    expected_status = expected or {200}
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = response.read().decode("utf-8", errors="replace")
+            if response.status not in expected_status:
+                raise click.ClickException(f"{method} {url} returned {response.status}: {raw}")
+            if not raw.strip():
+                return {}
+            return json.loads(raw)
+    except urllib.error.HTTPError as exc:
+        raw = exc.read().decode("utf-8", errors="replace")
+        raise click.ClickException(f"{method} {url} returned {exc.code}: {raw}") from exc
+    except urllib.error.URLError as exc:
+        raise click.ClickException(f"{method} {url} failed: {exc}") from exc
+
+
+def graphql(
+    syson_url: str, query: str, variables: dict[str, object] | None = None, timeout: int = 30
+) -> dict[str, object]:
+    response = request_json(
+        "POST",
+        f"{trim_url(syson_url)}/api/graphql",
+        {"query": query, "variables": variables or {}},
+        timeout=timeout,
+    )
+    if not isinstance(response, dict):
+        raise click.ClickException("SysON GraphQL returned a non-object response")
+    if response.get("errors"):
+        raise click.ClickException(json.dumps(response["errors"], indent=2))
+    return response
+
+
+def create_flexo_project(flexo_url: str, name: str, timeout: int) -> dict[str, object]:
+    project = request_json(
+        "POST",
+        f"{trim_url(flexo_url)}/projects",
+        {
+            "@type": "Project",
+            "name": name,
+            "description": "Created by mbse-lab first-model",
+        },
+        timeout=timeout,
+        expected={200, 201},
+    )
+    if not isinstance(project, dict):
+        raise click.ClickException("Flexo project creation returned a non-object response")
+    return project
+
+
+def commit_flexo_package(
+    flexo_url: str, project_id: str, package_id: str, package_name: str, timeout: int
+) -> dict[str, object]:
+    commit = request_json(
+        "POST",
+        f"{trim_url(flexo_url)}/projects/{urllib.parse.quote(project_id)}/commits",
+        {
+            "@type": "Commit",
+            "description": "Create first package from mbse-lab",
+            "change": [
+                {
+                    "@type": "DataVersion",
+                    "identity": None,
+                    "payload": {
+                        "@id": package_id,
+                        "@type": "Package",
+                        "declaredName": package_name,
+                    },
+                }
+            ],
+        },
+        timeout=timeout,
+        expected={200, 201},
+    )
+    if not isinstance(commit, dict):
+        raise click.ClickException("Flexo commit returned a non-object response")
+    return commit
+
+
+def create_syson_project(syson_url: str, name: str, timeout: int) -> dict[str, object]:
+    mutation = """
+    mutation CreateProject($input: CreateProjectInput!) {
+      createProject(input: $input) {
+        __typename
+        ... on CreateProjectSuccessPayload {
+          project { id name currentEditingContext { id } }
+        }
+        ... on ErrorPayload { message }
+      }
+    }
+    """
+    response = graphql(
+        syson_url,
+        mutation,
+        {
+            "input": {
+                "id": str(uuid.uuid4()),
+                "name": name,
+                "templateId": "sysmlv2-template",
+                "libraryIds": [],
+            }
+        },
+        timeout=timeout,
+    )
+    data = response["data"]
+    if not isinstance(data, dict):
+        raise click.ClickException("SysON GraphQL response missing data object")
+    result = data["createProject"]
+    if not isinstance(result, dict):
+        raise click.ClickException("SysON createProject response was not an object")
+    if result["__typename"] == "ErrorPayload":
+        raise click.ClickException(str(result["message"]))
+    project = result["project"]
+    if not isinstance(project, dict):
+        raise click.ClickException("SysON project response was not an object")
+    return project
+
+
+def syson_latest_commit_id(syson_url: str, project_id: str, timeout: int) -> str:
+    commits = request_json(
+        "GET",
+        f"{trim_url(syson_url)}/api/rest/projects/{urllib.parse.quote(project_id)}/commits",
+        timeout=timeout,
+    )
+    if not isinstance(commits, list) or not commits:
+        raise click.ClickException(f"SysON project has no REST commits: {project_id}")
+    latest_commit = commits[-1]
+    if not isinstance(latest_commit, dict) or "@id" not in latest_commit:
+        raise click.ClickException(f"SysON latest commit was malformed for project {project_id}")
+    return str(latest_commit["@id"])
+
+
+def syson_root_package_id(syson_url: str, project_id: str, commit_id: str, timeout: int) -> str:
+    roots = request_json(
+        "GET",
+        (
+            f"{trim_url(syson_url)}/api/rest/projects/{urllib.parse.quote(project_id)}"
+            f"/commits/{urllib.parse.quote(commit_id)}/roots"
+        ),
+        timeout=timeout,
+    )
+    if not isinstance(roots, list):
+        raise click.ClickException(f"SysON roots response was not a list for project {project_id}")
+    for root in roots:
+        if isinstance(root, dict) and root.get("@type") == "Package":
+            return str(root["@id"])
+    raise click.ClickException(f"no root Package found in SysON project {project_id}")
+
+
+def import_sysml_text(
+    syson_url: str,
+    namespace_id: str,
+    editing_context_id: str,
+    textual_content: str,
+    timeout: int,
+) -> dict[str, object]:
+    mutation = """
+    mutation InsertTextualSysMLv2($input: InsertTextualSysMLv2Input!) {
+      insertTextualSysMLv2(input: $input) {
+        __typename
+        ... on SuccessPayload { id }
+        ... on ErrorPayload { message }
+      }
+    }
+    """
+    response = graphql(
+        syson_url,
+        mutation,
+        {
+            "input": {
+                "id": str(uuid.uuid4()),
+                "editingContextId": editing_context_id,
+                "objectId": namespace_id,
+                "textualContent": textual_content,
+            }
+        },
+        timeout=timeout,
+    )
+    data = response["data"]
+    if not isinstance(data, dict):
+        raise click.ClickException("SysON GraphQL response missing data object")
+    result = data["insertTextualSysMLv2"]
+    if not isinstance(result, dict):
+        raise click.ClickException("SysON import response was not an object")
+    if result["__typename"] == "ErrorPayload":
+        raise click.ClickException(str(result["message"]))
+    return result
 
 
 def check_mark(label: str, ok: bool, detail: str = "") -> None:
@@ -267,6 +494,121 @@ def bootstrap(
     click.echo("Next:")
     click.echo("  mbse-lab doctor")
     click.echo("  mbse-lab workspace env <private-workspace>")
+
+
+@main.command("first-model")
+@click.argument("name", default="First Model", required=False)
+@click.option("--package-name", help="Name of the first SysML package. Defaults to NAME.")
+@click.option("--syson-project-name", help="Name of the SysON review project. Defaults to '<NAME> Review'.")
+@click.option("--output-dir", type=click.Path(path_type=Path), help="Directory for generated export artifacts.")
+@click.option("--flexo-url", default=DEFAULT_FLEXO_URL, show_default=True)
+@click.option("--syson-url", default=DEFAULT_SYSON_URL, show_default=True)
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--json-output", is_flag=True, help="Print a machine-readable JSON summary.")
+@click.option("--dry-run", is_flag=True, help="Print the planned workflow without creating projects.")
+@click.pass_context
+def first_model(
+    ctx: click.Context,
+    name: str,
+    package_name: str | None,
+    syson_project_name: str | None,
+    output_dir: Path | None,
+    flexo_url: str,
+    syson_url: str,
+    timeout: int,
+    json_output: bool,
+    dry_run: bool,
+) -> None:
+    """Create a tiny Flexo model and import it into a SysON review project."""
+    repo_root = require_repo_root(ctx)
+    resolved_package_name = package_name or name
+    resolved_syson_project_name = syson_project_name or f"{name} Review"
+    resolved_output_dir = (output_dir or default_output_dir()).expanduser()
+    package_identifier = sanitize_identifier(resolved_package_name)
+
+    if dry_run:
+        click.echo(f"dry-run: create Flexo project `{name}` at {flexo_url}")
+        click.echo(f"dry-run: commit Package `{resolved_package_name}`")
+        click.echo(f"dry-run: export Flexo JSON to {resolved_output_dir / 'flexo' / '<flexo-project-id>.json'}")
+        click.echo(f"dry-run: render SysML to {resolved_output_dir / 'sysml' / '<flexo-project-id>.sysml'}")
+        click.echo(f"dry-run: create SysON project `{resolved_syson_project_name}` at {syson_url}")
+        click.echo(f"dry-run: import package `{package_identifier}` into the SysON root package")
+        return
+
+    package_id = str(uuid.uuid4())
+    flexo_project = create_flexo_project(flexo_url, name, timeout)
+    flexo_project_id = str(flexo_project["@id"])
+    flexo_commit = commit_flexo_package(flexo_url, flexo_project_id, package_id, resolved_package_name, timeout)
+    flexo_commit_id = str(flexo_commit["@id"])
+
+    export_path = resolved_output_dir / "flexo" / f"{flexo_project_id}.json"
+    sysml_path = resolved_output_dir / "sysml" / f"{flexo_project_id}.sysml"
+    run_command(
+        [
+            "python3",
+            "scripts/flexo_syson_bridge.py",
+            "flexo-export",
+            flexo_project_id,
+            "--commit-id",
+            flexo_commit_id,
+            "--output",
+            str(export_path),
+            "--flexo-url",
+            flexo_url,
+            "--timeout",
+            str(timeout),
+        ],
+        repo_root,
+    )
+    run_command(
+        ["python3", "scripts/flexo_syson_bridge.py", "render-sysml", str(export_path), "--output", str(sysml_path)],
+        repo_root,
+    )
+
+    syson_project = create_syson_project(syson_url, resolved_syson_project_name, timeout)
+    syson_project_id = str(syson_project["id"])
+    editing_context = syson_project.get("currentEditingContext") or {}
+    if not isinstance(editing_context, dict) or not editing_context.get("id"):
+        raise click.ClickException(f"SysON project has no editing context: {syson_project_id}")
+    editing_context_id = str(editing_context["id"])
+    syson_commit_id = syson_latest_commit_id(syson_url, syson_project_id, timeout)
+    namespace_id = syson_root_package_id(syson_url, syson_project_id, syson_commit_id, timeout)
+    import_result = import_sysml_text(
+        syson_url,
+        namespace_id,
+        editing_context_id,
+        sysml_path.read_text(encoding="utf-8"),
+        timeout,
+    )
+
+    summary = {
+        "flexo_project_id": flexo_project_id,
+        "flexo_commit_id": flexo_commit_id,
+        "package_id": package_id,
+        "package_name": resolved_package_name,
+        "export_path": str(export_path),
+        "sysml_path": str(sysml_path),
+        "syson_project_id": syson_project_id,
+        "syson_project_name": resolved_syson_project_name,
+        "syson_commit_id": syson_commit_id,
+        "namespace_id": namespace_id,
+        "editing_context_id": editing_context_id,
+        "import_result": import_result,
+        "syson_url": syson_url,
+    }
+    if json_output:
+        click.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+
+    click.echo("Created first SysML v2 model.")
+    click.echo(f"  Flexo project: {flexo_project_id}")
+    click.echo(f"  Flexo commit:  {flexo_commit_id}")
+    click.echo(f"  Package:       {resolved_package_name} ({package_id})")
+    click.echo(f"  Flexo export:  {export_path}")
+    click.echo(f"  SysML text:    {sysml_path}")
+    click.echo(f"  SysON project: {syson_project_id}")
+    click.echo(f"  SysON root:    {namespace_id}")
+    click.echo(f"  Open SysON:    {trim_url(syson_url)}")
 
 
 @main.command()

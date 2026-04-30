@@ -9,3 +9,41 @@ ignore = ["E501"]
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = [
+    "pre-commit>=3.7",
+]
+
+[tool.hatch.envs.lint.scripts]
+all = "pre-commit run --all-files"
+
+[tool.hatch.envs.test]
+detached = true
+
+[tool.hatch.envs.test.scripts]
+bridge = "python -m unittest discover -s evals -p 'test_bridge_*.py'"
+live = "MBSE_LIVE_EVAL=1 python -m unittest discover -s evals -p 'test_live_*.py'"
+check = "make check"
+
+[tool.hatch.envs.docs]
+detached = true
+dependencies = [
+    "mkdocs~=1.6",
+    "mkdocs-material~=9.5",
+    "mkdocs-git-revision-date-localized-plugin",
+    "mkdocs-glightbox",
+    "mkdocs-include-markdown-plugin",
+    "mkdocs-mermaid2-plugin",
+    "pymdown-extensions~=10.9",
+]
+
+[tool.hatch.envs.docs.env-vars]
+SOURCE_DATE_EPOCH = "1580601600"
+PYTHONUNBUFFERED = "1"
+
+[tool.hatch.envs.docs.scripts]
+build = "mkdocs build --strict"
+serve = "mkdocs serve --dev-addr localhost:8000"
+check = "mkdocs build --strict"

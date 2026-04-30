@@ -71,11 +71,11 @@ Key local references:
 
 Related local MBSE references:
 
-- `docs/sysml-v2-verification-model-setup.md`
-- `docs/sysml-v2-transformation-pipeline-design.md`
-- `docs/rf-to-digital-signal-chain-model-spec.md`
-- `docs/security-architecture-model-spec.md`
-- `docs/enterprise-architecture-model-spec.md`
+- `docs/methodology/sysml-v2-verification-model-setup.md`
+- `docs/methodology/sysml-v2-transformation-pipeline-design.md`
+- `docs/model-specs/rf-to-digital-signal-chain.md`
+- `docs/model-specs/security-architecture.md`
+- `docs/model-specs/enterprise-architecture.md`
 
 ## Model Boundary
 

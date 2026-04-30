@@ -100,12 +100,12 @@ Key local references:
 
 Related local MBSE references:
 
-- `docs/cc-channel-controller-model-spec.md`
-- `docs/gencor-fpga-resource-timing-model-spec.md`
-- `docs/container-deployment-model-spec.md`
-- `docs/security-architecture-model-spec.md`
-- `docs/sysml-v2-transformation-pipeline-design.md`
-- `docs/sysml-v2-verification-model-setup.md`
+- `docs/sergeant/cc-channel-controller.md`
+- `docs/sergeant/gencor-fpga-resource-timing.md`
+- `docs/model-specs/container-deployment.md`
+- `docs/model-specs/security-architecture.md`
+- `docs/methodology/sysml-v2-transformation-pipeline-design.md`
+- `docs/methodology/sysml-v2-verification-model-setup.md`
 
 ## Source-Derived Facts
 

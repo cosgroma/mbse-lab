@@ -61,11 +61,11 @@ The model should be useful as both:
 - NIST Cybersecurity Framework 2.0:
   <https://www.nist.gov/publications/nist-cybersecurity-framework-csf-20>
 - Local verification model setup guide:
-  `docs/sysml-v2-verification-model-setup.md`
+  `docs/methodology/sysml-v2-verification-model-setup.md`
 - Local transformation pipeline design:
-  `docs/sysml-v2-transformation-pipeline-design.md`
+  `docs/methodology/sysml-v2-transformation-pipeline-design.md`
 - Local container deployment model spec:
-  `docs/container-deployment-model-spec.md`
+  `docs/model-specs/container-deployment.md`
 
 ## UAF Security Alignment
 

@@ -45,7 +45,7 @@ Keep durable state in files:
 
 - `README.md` for user-facing operations.
 - `AGENTS.md` for maintainer and fresh-agent guidance.
-- `docs/harness-engineering.md` for harness design.
+- `docs/lab/harness-engineering.md` for harness design.
 - `docs/plans/` for task plans when a task needs persistent planning.
 - `runs/` for ignored workflow run logs.
 - `diagnostics/latest/` for ignored diagnostics bundles.

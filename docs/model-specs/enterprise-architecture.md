@@ -60,13 +60,13 @@ The model should be useful as both:
 - OMG KerML specification: <https://www.omg.org/spec/KerML/1.0>
 - OMG Model Driven Architecture overview: <https://www.omg.org/mda/>
 - Local verification model setup guide:
-  `docs/sysml-v2-verification-model-setup.md`
+  `docs/methodology/sysml-v2-verification-model-setup.md`
 - Local transformation pipeline design:
-  `docs/sysml-v2-transformation-pipeline-design.md`
+  `docs/methodology/sysml-v2-transformation-pipeline-design.md`
 - Local security architecture model spec:
-  `docs/security-architecture-model-spec.md`
+  `docs/model-specs/security-architecture.md`
 - Local container deployment model spec:
-  `docs/container-deployment-model-spec.md`
+  `docs/model-specs/container-deployment.md`
 
 ## UAF Alignment
 

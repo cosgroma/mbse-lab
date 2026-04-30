@@ -32,9 +32,9 @@ Primary objectives:
 - OMG SysML v2 Language specification:
   <https://www.omg.org/spec/SysML/2.0/Language/PDF>
 - OMG MDA overview: <https://www.omg.org/mda/>
-- Local Flexo/SysON bridge notes: `docs/flexo-syson-bridge.md`
+- Local Flexo/SysON bridge notes: `docs/lab/flexo-syson-bridge.md`
 - Local verification model setup guide:
-  `docs/sysml-v2-verification-model-setup.md`
+  `docs/methodology/sysml-v2-verification-model-setup.md`
 
 ## Transformation Types
 

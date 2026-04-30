@@ -219,6 +219,112 @@ def collect_files(output: Path, cwd: Path) -> None:
             write_text(output / "files" / relative, path.read_text(encoding="utf-8"))
 
 
+def read_json_if_exists(path: Path) -> object:
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def build_manifest(output: Path) -> dict[str, object]:
+    metadata = read_json_if_exists(output / "metadata.json") or {}
+    command_index = read_json_if_exists(output / "commands" / "index.json") or []
+    http_index = read_json_if_exists(output / "http" / "index.json") or {}
+    deployment = read_json_if_exists(output / "deployment-verification.json") or {}
+    deployment_summary = deployment.get("summary", {}) if isinstance(deployment, dict) else {}
+
+    return {
+        "metadata": metadata,
+        "artifacts": {
+            "metadata": "metadata.json",
+            "humanIndex": "index.md",
+            "commandIndex": "commands/index.json",
+            "httpIndex": "http/index.json",
+            "deploymentVerification": "deployment-verification.json",
+            "files": "files/",
+        },
+        "commands": {
+            "total": len(command_index),
+            "failed": [
+                item
+                for item in command_index
+                if isinstance(item, dict) and item.get("returncode") not in (0, None)
+            ],
+            "timedOutOrMissing": [
+                item
+                for item in command_index
+                if isinstance(item, dict) and item.get("returncode") is None
+            ],
+        },
+        "http": http_index,
+        "deploymentVerification": {
+            "status": deployment.get("status") if isinstance(deployment, dict) else None,
+            "checkedAt": deployment.get("checkedAt") if isinstance(deployment, dict) else None,
+            "summary": deployment_summary,
+        },
+    }
+
+
+def render_manifest_markdown(manifest: dict[str, object]) -> str:
+    metadata = manifest.get("metadata", {})
+    commands = manifest.get("commands", {})
+    deployment = manifest.get("deploymentVerification", {})
+    deployment_summary = deployment.get("summary", {}) if isinstance(deployment, dict) else {}
+    http = manifest.get("http", {})
+    artifacts = manifest.get("artifacts", {})
+
+    lines = [
+        "# Diagnostics Bundle",
+        "",
+        f"- Created: {metadata.get('created_at', 'unknown') if isinstance(metadata, dict) else 'unknown'}",
+        f"- Working directory: `{metadata.get('cwd', 'unknown') if isinstance(metadata, dict) else 'unknown'}`",
+        f"- Deployment verification: `{deployment.get('status', 'unknown') if isinstance(deployment, dict) else 'unknown'}`",
+        (
+            "- Deployment checks: "
+            f"{deployment_summary.get('passedChecks', 0)} passed, "
+            f"{deployment_summary.get('failedChecks', 0)} failed, "
+            f"{deployment_summary.get('checks', 0)} total"
+        ),
+        (
+            "- Deployment services: "
+            f"{deployment_summary.get('passedServices', 0)} passed, "
+            f"{deployment_summary.get('failedServices', 0)} failed, "
+            f"{deployment_summary.get('services', 0)} total"
+        ),
+        (
+            "- Commands captured: "
+            f"{commands.get('total', 0) if isinstance(commands, dict) else 0} total, "
+            f"{len(commands.get('failed', [])) if isinstance(commands, dict) else 0} failed, "
+            f"{len(commands.get('timedOutOrMissing', [])) if isinstance(commands, dict) else 0} timed out or missing"
+        ),
+        "",
+        "## Start Here",
+        "",
+    ]
+    if isinstance(artifacts, dict):
+        lines.extend(
+            [
+                f"- Deployment evidence: `{artifacts.get('deploymentVerification')}`",
+                f"- Command transcript index: `{artifacts.get('commandIndex')}`",
+                f"- HTTP probe index: `{artifacts.get('httpIndex')}`",
+                f"- Captured config files: `{artifacts.get('files')}`",
+            ]
+        )
+    lines.extend(["", "## HTTP Probes", ""])
+    if isinstance(http, dict):
+        for filename, result in sorted(http.items()):
+            status = result.get("status") if isinstance(result, dict) else "unknown"
+            url = result.get("url") if isinstance(result, dict) else ""
+            lines.append(f"- `{filename}`: status `{status}` from {url}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def collect_manifest(output: Path) -> None:
+    manifest = build_manifest(output)
+    write_json(output / "manifest.json", manifest)
+    write_text(output / "index.md", render_manifest_markdown(manifest))
+
+
 def cmd_collect(args: argparse.Namespace) -> None:
     cwd = Path.cwd()
     output = args.output
@@ -234,6 +340,7 @@ def cmd_collect(args: argparse.Namespace) -> None:
     collect_deployment_verification(output, cwd, args.timeout)
     collect_http(output, args.timeout)
     collect_files(output, cwd)
+    collect_manifest(output)
     print(f"Wrote diagnostics bundle: {output}")
 
 

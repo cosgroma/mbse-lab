@@ -184,7 +184,8 @@ make diagnostics
 `make diagnostics` writes a redacted bundle to `diagnostics/latest/` with git
 state, Docker Compose state, service probes, project lists, selected config
 files, recent logs, and `deployment-verification.json` from the model-driven
-Docker runtime verifier. The diagnostics directory is ignored by git.
+Docker runtime verifier. It also writes `index.md` and `manifest.json` as
+summary entry points. The diagnostics directory is ignored by git.
 
 `flexo-to-syson` writes a structured JSON run log under
 `runs/flexo-to-syson/` by default. Run logs include inputs, generated artifact

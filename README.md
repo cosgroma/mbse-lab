@@ -109,6 +109,18 @@ mbse-lab workspace init ~/work/my-private-models
 The CLI is a user-facing wrapper around the same Flexo, SysON, bridge,
 diagnostics, and deployment-verification workflows documented below.
 
+For first use, run the guided bootstrap:
+
+```bash
+mbse-lab bootstrap --model-workspace ~/work/my-private-models
+```
+
+Preview the bootstrap without changing files or starting containers:
+
+```bash
+mbse-lab bootstrap --dry-run --model-workspace ~/work/my-private-models
+```
+
 ## Credentials
 
 Runtime credential files are intentionally ignored by git:

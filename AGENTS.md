@@ -121,6 +121,10 @@ make diagnostics
 
 The bundle is written to `diagnostics/latest/` and is ignored by git.
 
+`flexo-to-syson` writes structured run logs under `runs/flexo-to-syson/` by
+default. That directory is ignored by git. Use `--run-log <path>` when a task
+needs a stable log file name.
+
 Equivalent explicit commands:
 
 ```bash

@@ -8,9 +8,12 @@ Flexo SysML v2 REST JSON -> SysML v2 textual notation -> SysON GraphQL import.
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import re
 import sys
+import time
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -24,6 +27,7 @@ DEFAULT_LAYER1_URL = "http://localhost:18080"
 DEFAULT_SYSON_URL = "http://localhost:18090"
 DEFAULT_FLEXO_ENV_DIR = Path("deploy/flexo-mms")
 DEFAULT_OUTPUT_DIR = Path("exports")
+DEFAULT_RUN_DIR = Path("runs")
 
 RENDERABLE_TYPES = {
     "Package",
@@ -64,6 +68,40 @@ def read_json(path: Path) -> Any:
 def write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def utc_now() -> str:
+    return dt.datetime.now(dt.timezone.utc).isoformat()
+
+
+def run_log_path(run_dir: Path, workflow: str, run_id: str) -> Path:
+    return run_dir / workflow / f"{run_id}.json"
+
+
+def write_run_log(path: Path, record: dict[str, Any]) -> None:
+    write_json(path, record)
+
+
+def add_step(
+    record: dict[str, Any],
+    name: str,
+    status: str,
+    started_at: str,
+    duration_seconds: float,
+    details: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> None:
+    step: dict[str, Any] = {
+        "name": name,
+        "status": status,
+        "started_at": started_at,
+        "duration_seconds": round(duration_seconds, 6),
+    }
+    if details:
+        step["details"] = details
+    if error:
+        step["error"] = error
+    record.setdefault("steps", []).append(step)
 
 
 def request(
@@ -489,12 +527,18 @@ def syson_editing_context_id(syson_url: str, project_id: str, timeout: int) -> s
     return editing_context["id"]
 
 
-def cmd_syson_import_text(args: argparse.Namespace) -> None:
-    textual_content = args.input.read_text(encoding="utf-8")
-    editing_context_id = args.editing_context_id or syson_editing_context_id(
-        args.syson_url,
-        args.project_id,
-        args.timeout,
+def import_sysml_text(
+    syson_url: str,
+    project_id: str,
+    namespace_id: str,
+    textual_content: str,
+    editing_context_id: str | None,
+    timeout: int,
+) -> dict[str, Any]:
+    resolved_editing_context_id = editing_context_id or syson_editing_context_id(
+        syson_url,
+        project_id,
+        timeout,
     )
     mutation = """
     mutation InsertTextualSysMLv2($input: InsertTextualSysMLv2Input!) {
@@ -508,38 +552,156 @@ def cmd_syson_import_text(args: argparse.Namespace) -> None:
     variables = {
         "input": {
             "id": str(uuid.uuid4()),
-            "editingContextId": editing_context_id,
-            "objectId": args.namespace_id,
+            "editingContextId": resolved_editing_context_id,
+            "objectId": namespace_id,
             "textualContent": textual_content,
         }
     }
-    response = graphql(args.syson_url, mutation, variables, timeout=args.timeout)
+    response = graphql(syson_url, mutation, variables, timeout=timeout)
     result = response["data"]["insertTextualSysMLv2"]
     if result["__typename"] == "ErrorPayload":
         fail(result["message"])
+    return {
+        "editing_context_id": resolved_editing_context_id,
+        "result": result,
+    }
+
+
+def cmd_syson_import_text(args: argparse.Namespace) -> None:
+    import_sysml_text(
+        args.syson_url,
+        args.project_id,
+        args.namespace_id,
+        args.input.read_text(encoding="utf-8"),
+        args.editing_context_id,
+        args.timeout,
+    )
     info(f"Imported {args.input} into SysON project {args.project_id}.")
 
 
 def cmd_flexo_to_syson(args: argparse.Namespace) -> None:
-    snapshot = export_flexo_project(args.flexo_url, args.flexo_project_id, args.commit_id, args.timeout)
+    run_id = str(uuid.uuid4())
+    workflow = "flexo-to-syson"
+    log_path = args.run_log or run_log_path(args.run_log_dir, workflow, run_id)
+    started_at = utc_now()
+    started_perf = time.perf_counter()
+    record: dict[str, Any] = {
+        "run_id": run_id,
+        "workflow": workflow,
+        "status": "running",
+        "started_at": started_at,
+        "inputs": {
+            "flexo_project_id": args.flexo_project_id,
+            "commit_id": args.commit_id,
+            "syson_project_id": args.syson_project_id,
+            "namespace_id": args.namespace_id,
+            "editing_context_id_provided": bool(args.editing_context_id),
+            "output_dir": str(args.output_dir),
+            "flexo_url": args.flexo_url,
+            "syson_url": args.syson_url,
+            "timeout": args.timeout,
+        },
+        "artifacts": {},
+        "flexo": {},
+        "syson": {
+            "project_id": args.syson_project_id,
+            "namespace_id": args.namespace_id,
+        },
+        "steps": [],
+    }
     output_dir = args.output_dir
     export_path = output_dir / "flexo" / f"{args.flexo_project_id}.json"
     sysml_path = output_dir / "sysml" / f"{args.flexo_project_id}.sysml"
-    write_json(export_path, snapshot)
-    sysml_path.parent.mkdir(parents=True, exist_ok=True)
-    sysml_path.write_text(render_snapshot(snapshot), encoding="utf-8")
-    info(f"Wrote Flexo export: {export_path}")
-    info(f"Wrote SysML textual export: {sysml_path}")
+    try:
+        step_start = utc_now()
+        step_perf = time.perf_counter()
+        snapshot = export_flexo_project(args.flexo_url, args.flexo_project_id, args.commit_id, args.timeout)
+        add_step(
+            record,
+            "export-flexo",
+            "succeeded",
+            step_start,
+            time.perf_counter() - step_perf,
+            {
+                "project_id": snapshot.get("project", {}).get("@id"),
+                "commit_id": snapshot.get("commit", {}).get("@id"),
+                "root_count": len(snapshot.get("roots") or []),
+                "element_count": len(snapshot.get("elements") or []),
+            },
+        )
+        record["flexo"] = {
+            "project_id": snapshot.get("project", {}).get("@id"),
+            "project_name": snapshot.get("project", {}).get("name"),
+            "commit_id": snapshot.get("commit", {}).get("@id"),
+            "root_count": len(snapshot.get("roots") or []),
+            "element_count": len(snapshot.get("elements") or []),
+        }
 
-    import_args = argparse.Namespace(
-        input=sysml_path,
-        syson_url=args.syson_url,
-        project_id=args.syson_project_id,
-        namespace_id=args.namespace_id,
-        editing_context_id=args.editing_context_id,
-        timeout=args.timeout,
-    )
-    cmd_syson_import_text(import_args)
+        step_start = utc_now()
+        step_perf = time.perf_counter()
+        write_json(export_path, snapshot)
+        add_step(
+            record,
+            "write-flexo-export",
+            "succeeded",
+            step_start,
+            time.perf_counter() - step_perf,
+            {"path": str(export_path)},
+        )
+        record["artifacts"]["flexo_export"] = str(export_path)
+
+        step_start = utc_now()
+        step_perf = time.perf_counter()
+        sysml_text = render_snapshot(snapshot)
+        sysml_path.parent.mkdir(parents=True, exist_ok=True)
+        sysml_path.write_text(sysml_text, encoding="utf-8")
+        add_step(
+            record,
+            "render-sysml",
+            "succeeded",
+            step_start,
+            time.perf_counter() - step_perf,
+            {"path": str(sysml_path), "bytes": len(sysml_text.encode("utf-8"))},
+        )
+        record["artifacts"]["sysml_text"] = str(sysml_path)
+        info(f"Wrote Flexo export: {export_path}")
+        info(f"Wrote SysML textual export: {sysml_path}")
+
+        step_start = utc_now()
+        step_perf = time.perf_counter()
+        import_result = import_sysml_text(
+            args.syson_url,
+            args.syson_project_id,
+            args.namespace_id,
+            sysml_text,
+            args.editing_context_id,
+            args.timeout,
+        )
+        add_step(
+            record,
+            "import-syson",
+            "succeeded",
+            step_start,
+            time.perf_counter() - step_perf,
+            import_result,
+        )
+        record["syson"]["editing_context_id"] = import_result["editing_context_id"]
+        record["syson"]["import_result"] = import_result["result"]
+        info(f"Imported {sysml_path} into SysON project {args.syson_project_id}.")
+        record["status"] = "succeeded"
+    except BaseException as exc:
+        record["status"] = "failed"
+        record["error"] = {
+            "type": type(exc).__name__,
+            "message": str(exc),
+            "traceback": traceback.format_exc(),
+        }
+        raise
+    finally:
+        record["completed_at"] = utc_now()
+        record["duration_seconds"] = round(time.perf_counter() - started_perf, 6)
+        write_run_log(log_path, record)
+        info(f"Wrote run log: {log_path}")
 
 
 def add_common_url_args(parser: argparse.ArgumentParser) -> None:
@@ -621,6 +783,8 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline.add_argument("--namespace-id", required=True)
     pipeline.add_argument("--editing-context-id")
     pipeline.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    pipeline.add_argument("--run-log", type=Path, help="Write the structured run log to this exact path.")
+    pipeline.add_argument("--run-log-dir", type=Path, default=DEFAULT_RUN_DIR, help="Directory for generated run logs.")
     pipeline.add_argument("--flexo-url", default=DEFAULT_FLEXO_URL)
     pipeline.add_argument("--syson-url", default=DEFAULT_SYSON_URL)
     add_common_url_args(pipeline)

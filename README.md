@@ -25,6 +25,18 @@ deploy/syson/              SysON Docker Compose environment
 docs/flexo-syson-bridge.md Bridge workflow notes
 docs/sysml-v2-verification-model-setup.md
                            SysML v2 model organization guide for verification
+docs/rf-link-budget-model-spec.md
+                           RF link budget SysML v2 model specification
+docs/cca-rollup-model-spec.md
+                           CCA power, mass, and cost rollup model specification
+docs/rf-to-digital-signal-chain-model-spec.md
+                           RF front-end and digital signal chain model specification
+docs/sysml-v2-transformation-pipeline-design.md
+                           SysML v2 transformation and analysis pipeline design
+docs/container-deployment-model-spec.md
+                           Container deployment and volume verification model specification
+docs/security-architecture-model-spec.md
+                           Security architecture model specification aligned to UAF Security
 exports/                   Generated Flexo JSON and SysML textual exports
 scripts/flexo_mms_env.py   Flexo environment manager
 scripts/flexo_syson_bridge.py

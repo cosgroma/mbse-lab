@@ -241,6 +241,41 @@ Recommended practices:
 - Link evidence artifacts from verification results instead of burying evidence
   in free text.
 
+## MDA Methodology Alignment
+
+Model Driven Architecture (MDA) concepts can be applied to SysML v2 models as a
+methodology for separating concerns and governing transformations. SysML v2
+should not be treated as just a UML-profile MDA workflow, but the MDA layering
+pattern is useful for organizing system models.
+
+Recommended interpretation:
+
+```text
+MDA CIM  -> mission context, stakeholder concerns, operational scenarios, needs
+MDA PIM  -> logical system architecture, behavior, interfaces, requirements,
+            analyses, and verification intent
+MDA PSM  -> concrete hardware, software, tools, protocols, part selections,
+            deployment, test articles, and implementation constraints
+Artifacts -> generated analysis inputs, code, HDL, test procedures, reports,
+             evidence records, and external data products
+```
+
+Recommended practices:
+
+- Keep stakeholder needs and operational scenarios independent of specific
+  hardware, software, tools, or vendors.
+- Keep logical architecture and requirements separate from implementation
+  configurations when possible.
+- Treat concrete configurations, selected parts, software stacks, protocols,
+  test equipment, and deployment choices as platform-specific model content.
+- Use transformations, scripts, APIs, or tool adapters to generate analysis
+  inputs, implementation artifacts, and verification assets from the model.
+- Preserve trace links from generated or external artifacts back to the
+  requirements, architecture elements, analysis cases, and verification cases
+  that justified them.
+- Make transformation assumptions explicit so generated artifacts can be
+  reviewed, reproduced, and verified.
+
 ## Traceability Checklist
 
 Use this checklist during model reviews:

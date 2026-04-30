@@ -69,6 +69,11 @@ def run_command(command: list[str], cwd: Path, dry_run: bool = False) -> None:
         raise click.ClickException(f"command failed with exit code {completed.returncode}: {' '.join(command)}")
 
 
+def run_bridge(ctx: click.Context, args: list[str], dry_run: bool = False) -> None:
+    repo_root = require_repo_root(ctx)
+    run_command(["python3", "scripts/flexo_syson_bridge.py", *args], repo_root, dry_run)
+
+
 def trim_url(url: str) -> str:
     return url.rstrip("/")
 
@@ -684,6 +689,245 @@ def diagnostics(ctx: click.Context) -> None:
     """Collect a redacted diagnostics bundle."""
     repo_root = require_repo_root(ctx)
     run_command(["python3", "scripts/collect_diagnostics.py"], repo_root)
+
+
+@main.group()
+def flexo() -> None:
+    """Work with Flexo SysML v2 projects."""
+
+
+@flexo.command("list")
+@click.option("--json-output", is_flag=True, help="Print raw JSON from Flexo.")
+@click.option("--flexo-url", default=DEFAULT_FLEXO_URL, show_default=True)
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def flexo_list(ctx: click.Context, json_output: bool, flexo_url: str, timeout: int, dry_run: bool) -> None:
+    """List Flexo SysML v2 projects."""
+    args = ["flexo-list-projects", "--flexo-url", flexo_url, "--timeout", str(timeout)]
+    if json_output:
+        args.append("--json")
+    run_bridge(ctx, args, dry_run)
+
+
+@flexo.command("create")
+@click.argument("name")
+@click.option("--description")
+@click.option("--flexo-url", default=DEFAULT_FLEXO_URL, show_default=True)
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def flexo_create(
+    ctx: click.Context, name: str, description: str | None, flexo_url: str, timeout: int, dry_run: bool
+) -> None:
+    """Create a Flexo SysML v2 project."""
+    args = ["flexo-create-project", name, "--flexo-url", flexo_url, "--timeout", str(timeout)]
+    if description:
+        args.extend(["--description", description])
+    run_bridge(ctx, args, dry_run)
+
+
+@flexo.command("export")
+@click.argument("project_id")
+@click.option("--commit-id")
+@click.option("--output", type=click.Path(path_type=Path))
+@click.option("--flexo-url", default=DEFAULT_FLEXO_URL, show_default=True)
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def flexo_export(
+    ctx: click.Context,
+    project_id: str,
+    commit_id: str | None,
+    output: Path | None,
+    flexo_url: str,
+    timeout: int,
+    dry_run: bool,
+) -> None:
+    """Export a Flexo project snapshot."""
+    args = ["flexo-export", project_id, "--flexo-url", flexo_url, "--timeout", str(timeout)]
+    if commit_id:
+        args.extend(["--commit-id", commit_id])
+    if output:
+        args.extend(["--output", str(output)])
+    run_bridge(ctx, args, dry_run)
+
+
+@main.group()
+def syson() -> None:
+    """Work with SysON projects and import namespaces."""
+
+
+@syson.command("list")
+@click.option("--syson-url", default=DEFAULT_SYSON_URL, show_default=True)
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def syson_list(ctx: click.Context, syson_url: str, timeout: int, dry_run: bool) -> None:
+    """List SysON projects."""
+    run_bridge(ctx, ["syson-list-projects", "--syson-url", syson_url, "--timeout", str(timeout)], dry_run)
+
+
+@syson.command("create")
+@click.argument("name")
+@click.option("--template-id", default="sysmlv2-template", show_default=True)
+@click.option("--library-id", "library_ids", multiple=True, help="SysON library ID to include. Repeatable.")
+@click.option("--syson-url", default=DEFAULT_SYSON_URL, show_default=True)
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def syson_create(
+    ctx: click.Context,
+    name: str,
+    template_id: str,
+    library_ids: tuple[str, ...],
+    syson_url: str,
+    timeout: int,
+    dry_run: bool,
+) -> None:
+    """Create a SysON project."""
+    args = [
+        "syson-create-project",
+        name,
+        "--template-id",
+        template_id,
+        "--syson-url",
+        syson_url,
+        "--timeout",
+        str(timeout),
+    ]
+    if library_ids:
+        args.append("--library-ids")
+        args.extend(library_ids)
+    run_bridge(ctx, args, dry_run)
+
+
+@syson.command("roots")
+@click.argument("project_id")
+@click.option("--json-output", is_flag=True, help="Print raw JSON roots.")
+@click.option("--syson-url", default=DEFAULT_SYSON_URL, show_default=True)
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def syson_roots(
+    ctx: click.Context, project_id: str, json_output: bool, syson_url: str, timeout: int, dry_run: bool
+) -> None:
+    """List root namespace elements for a SysON project."""
+    args = ["syson-roots", project_id, "--syson-url", syson_url, "--timeout", str(timeout)]
+    if json_output:
+        args.append("--json")
+    run_bridge(ctx, args, dry_run)
+
+
+@main.group()
+def bridge() -> None:
+    """Render and move snapshots between Flexo and SysON."""
+
+
+@bridge.command("render")
+@click.argument("input", type=click.Path(path_type=Path, exists=False))
+@click.option("--output", type=click.Path(path_type=Path))
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def bridge_render(ctx: click.Context, input: Path, output: Path | None, dry_run: bool) -> None:
+    """Render a Flexo export JSON file as SysML textual notation."""
+    args = ["render-sysml", str(input)]
+    if output:
+        args.extend(["--output", str(output)])
+    run_bridge(ctx, args, dry_run)
+
+
+@bridge.command("import")
+@click.argument("input", type=click.Path(path_type=Path, exists=False))
+@click.option("--project-id", required=True)
+@click.option("--namespace-id", required=True)
+@click.option("--editing-context-id")
+@click.option("--syson-url", default=DEFAULT_SYSON_URL, show_default=True)
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def bridge_import(
+    ctx: click.Context,
+    input: Path,
+    project_id: str,
+    namespace_id: str,
+    editing_context_id: str | None,
+    syson_url: str,
+    timeout: int,
+    dry_run: bool,
+) -> None:
+    """Import a .sysml file into a SysON namespace."""
+    args = [
+        "syson-import-text",
+        str(input),
+        "--project-id",
+        project_id,
+        "--namespace-id",
+        namespace_id,
+        "--syson-url",
+        syson_url,
+        "--timeout",
+        str(timeout),
+    ]
+    if editing_context_id:
+        args.extend(["--editing-context-id", editing_context_id])
+    run_bridge(ctx, args, dry_run)
+
+
+@bridge.command("run")
+@click.argument("flexo_project_id")
+@click.option("--commit-id")
+@click.option("--syson-project-id", required=True)
+@click.option("--namespace-id", required=True)
+@click.option("--editing-context-id")
+@click.option("--output-dir", type=click.Path(path_type=Path))
+@click.option("--run-log", type=click.Path(path_type=Path))
+@click.option("--run-log-dir", type=click.Path(path_type=Path))
+@click.option("--flexo-url", default=DEFAULT_FLEXO_URL, show_default=True)
+@click.option("--syson-url", default=DEFAULT_SYSON_URL, show_default=True)
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def bridge_run(
+    ctx: click.Context,
+    flexo_project_id: str,
+    commit_id: str | None,
+    syson_project_id: str,
+    namespace_id: str,
+    editing_context_id: str | None,
+    output_dir: Path | None,
+    run_log: Path | None,
+    run_log_dir: Path | None,
+    flexo_url: str,
+    syson_url: str,
+    timeout: int,
+    dry_run: bool,
+) -> None:
+    """Export from Flexo, render SysML text, and import into SysON."""
+    args = [
+        "flexo-to-syson",
+        flexo_project_id,
+        "--syson-project-id",
+        syson_project_id,
+        "--namespace-id",
+        namespace_id,
+        "--flexo-url",
+        flexo_url,
+        "--syson-url",
+        syson_url,
+        "--timeout",
+        str(timeout),
+    ]
+    for option, value in (
+        ("--commit-id", commit_id),
+        ("--editing-context-id", editing_context_id),
+        ("--output-dir", output_dir),
+        ("--run-log", run_log),
+        ("--run-log-dir", run_log_dir),
+    ):
+        if value:
+            args.extend([option, str(value)])
+    run_bridge(ctx, args, dry_run)
 
 
 @main.group()

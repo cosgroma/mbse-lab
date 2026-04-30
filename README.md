@@ -131,6 +131,16 @@ That command creates a Flexo project with one package, exports and renders the
 model, creates a SysON review project, imports the rendered SysML text, and
 prints the resulting project IDs and artifact paths.
 
+Routine bridge operations are also available through the CLI:
+
+```bash
+mbse-lab flexo list
+mbse-lab syson list
+mbse-lab bridge run <flexo-project-id> \
+  --syson-project-id <syson-project-id> \
+  --namespace-id <syson-root-package-id>
+```
+
 ## Credentials
 
 Runtime credential files are intentionally ignored by git:

@@ -37,6 +37,8 @@ docs/container-deployment-model-spec.md
                            Container deployment and volume verification model specification
 docs/security-architecture-model-spec.md
                            Security architecture model specification aligned to UAF Security
+docs/enterprise-architecture-model-spec.md
+                           Enterprise architecture model specification aligned to UAF concepts
 exports/                   Generated Flexo JSON and SysML textual exports
 scripts/flexo_mms_env.py   Flexo environment manager
 scripts/flexo_syson_bridge.py

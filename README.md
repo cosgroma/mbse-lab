@@ -85,6 +85,30 @@ Serve it locally while editing:
 make docs-serve
 ```
 
+## CLI
+
+Install the local CLI in editable mode:
+
+```bash
+make install-cli
+```
+
+Then inspect the available commands:
+
+```bash
+mbse-lab --help
+```
+
+Start with the environment doctor and private workspace initializer:
+
+```bash
+mbse-lab doctor
+mbse-lab workspace init ~/work/my-private-models
+```
+
+The CLI is a user-facing wrapper around the same Flexo, SysON, bridge,
+diagnostics, and deployment-verification workflows documented below.
+
 ## Credentials
 
 Runtime credential files are intentionally ignored by git:

@@ -24,6 +24,7 @@ nav:
   - Home: index.md
   - User Guide:
       - Private Model Workspaces: user-guide/private-model-workspaces.md
+      - CLI: user-guide/cli.md
   - Local Lab:
       - Bridge Workflow: lab/flexo-syson-bridge.md
       - Harness Engineering: lab/harness-engineering.md

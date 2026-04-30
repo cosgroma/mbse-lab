@@ -108,13 +108,13 @@ syson-status:
 	docker compose -f deploy/syson/docker-compose.yml ps
 
 flexo-list:
-	python3 scripts/flexo_syson_bridge.py flexo-list-projects
+	mbse-lab flexo list
 
 syson-list:
-	python3 scripts/flexo_syson_bridge.py syson-list-projects
+	mbse-lab syson list
 
 deployment-contract:
-	python3 scripts/flexo_syson_bridge.py deployment-contract
+	mbse-lab deployment contract
 
 deployment-verify:
-	python3 scripts/flexo_syson_bridge.py deployment-verify
+	mbse-lab deployment verify

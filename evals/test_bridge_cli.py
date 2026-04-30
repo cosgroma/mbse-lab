@@ -123,6 +123,66 @@ class CliTests(unittest.TestCase):
             self.assertIn("dry-run: create SysON project `Demo Model Review`", result.output)
             self.assertIn("dry-run: import package `Demo_Model`", result.output)
 
+    def test_flexo_export_wrapper_builds_bridge_command(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            [
+                "--repo-root",
+                str(ROOT),
+                "flexo",
+                "export",
+                "project-1",
+                "--commit-id",
+                "commit-1",
+                "--output",
+                "out.json",
+                "--dry-run",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: python3 scripts/flexo_syson_bridge.py flexo-export project-1", result.output)
+        self.assertIn("--commit-id commit-1", result.output)
+        self.assertIn("--output out.json", result.output)
+
+    def test_syson_roots_wrapper_builds_bridge_command(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            ["--repo-root", str(ROOT), "syson", "roots", "syson-project-1", "--json-output", "--dry-run"],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: python3 scripts/flexo_syson_bridge.py syson-roots syson-project-1", result.output)
+        self.assertIn("--json", result.output)
+
+    def test_bridge_run_wrapper_builds_bridge_command(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            [
+                "--repo-root",
+                str(ROOT),
+                "bridge",
+                "run",
+                "flexo-project-1",
+                "--syson-project-id",
+                "syson-project-1",
+                "--namespace-id",
+                "namespace-1",
+                "--output-dir",
+                "exports",
+                "--dry-run",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: python3 scripts/flexo_syson_bridge.py flexo-to-syson flexo-project-1", result.output)
+        self.assertIn("--syson-project-id syson-project-1", result.output)
+        self.assertIn("--namespace-id namespace-1", result.output)
+        self.assertIn("--output-dir exports", result.output)
+
 
 if __name__ == "__main__":
     unittest.main()

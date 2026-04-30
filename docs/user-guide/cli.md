@@ -139,6 +139,34 @@ Collect diagnostics:
 mbse-lab diagnostics
 ```
 
+List or create Flexo projects:
+
+```bash
+mbse-lab flexo list
+mbse-lab flexo create "Example Model"
+mbse-lab flexo export <flexo-project-id>
+```
+
+List or create SysON projects and inspect import roots:
+
+```bash
+mbse-lab syson list
+mbse-lab syson create "Imported From Flexo"
+mbse-lab syson roots <syson-project-id>
+```
+
+Render, import, or run the full bridge:
+
+```bash
+mbse-lab bridge render exports/flexo/<flexo-project-id>.json
+mbse-lab bridge import exports/sysml/<flexo-project-id>.sysml \
+  --project-id <syson-project-id> \
+  --namespace-id <syson-root-package-id>
+mbse-lab bridge run <flexo-project-id> \
+  --syson-project-id <syson-project-id> \
+  --namespace-id <syson-root-package-id>
+```
+
 Inspect and verify the container deployment contract:
 
 ```bash

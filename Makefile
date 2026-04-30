@@ -1,4 +1,4 @@
-.PHONY: help init up down status logs check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list
+.PHONY: help init up down status logs diagnostics check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list
 
 help:
 	@printf '%s\n' 'MBSE local lab commands:'
@@ -6,6 +6,7 @@ help:
 	@printf '  %-16s %s\n' 'up' 'Start Flexo and SysON'
 	@printf '  %-16s %s\n' 'down' 'Stop Flexo and SysON'
 	@printf '  %-16s %s\n' 'status' 'Check local service status'
+	@printf '  %-16s %s\n' 'diagnostics' 'Collect diagnostics/latest bundle'
 	@printf '  %-16s %s\n' 'check' 'Run static validation and secret scan'
 	@printf '  %-16s %s\n' 'eval' 'Run deterministic local evals'
 	@printf '  %-16s %s\n' 'live-eval' 'Run optional live service evals'
@@ -33,8 +34,11 @@ logs:
 	python3 scripts/flexo_mms_env.py logs --tail 100
 	docker compose -f deploy/syson/docker-compose.yml logs --tail 100 app
 
+diagnostics:
+	python3 scripts/collect_diagnostics.py
+
 check:
-	python3 -m py_compile scripts/flexo_mms_env.py scripts/flexo_syson_bridge.py
+	python3 -m py_compile scripts/flexo_mms_env.py scripts/flexo_syson_bridge.py scripts/collect_diagnostics.py
 	docker compose -f deploy/flexo-mms/docker-compose.yml config --quiet
 	docker compose -f deploy/syson/docker-compose.yml config --quiet
 	$(MAKE) eval

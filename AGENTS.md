@@ -113,6 +113,14 @@ Check status:
 make status
 ```
 
+Collect a redacted diagnostics bundle after service failures:
+
+```bash
+make diagnostics
+```
+
+The bundle is written to `diagnostics/latest/` and is ignored by git.
+
 Equivalent explicit commands:
 
 ```bash

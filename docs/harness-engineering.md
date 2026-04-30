@@ -36,6 +36,7 @@ make init
 make up
 make status
 make check
+make live-eval
 make backup
 make flexo-list
 make syson-list
@@ -97,22 +98,32 @@ make check
 That validates Python syntax, Docker Compose config, tracked-secret hygiene, and
 git cleanliness.
 
-The next useful eval layer should be a small deterministic bridge eval:
+The deterministic local eval is:
 
-1. Create or load a tiny Flexo model fixture.
-2. Export it through `flexo-export`.
-3. Render `.sysml`.
-4. Assert expected textual declarations are present.
-5. Optionally import into a disposable SysON project and assert the expected
-   element appears through SysON REST.
+```bash
+make eval
+```
 
-A future eval directory could look like:
+It loads a tiny Flexo model fixture, renders `.sysml`, and asserts expected
+textual declarations are present. It does not require Docker services.
+
+The optional live SysON import eval is:
+
+```bash
+make live-eval
+```
+
+It creates a disposable SysON project, imports rendered `.sysml`, verifies the
+expected package appears through SysON REST, and deletes the disposable project.
+Run it only when the SysON stack is up.
+
+The eval directory is:
 
 ```text
 evals/
-  fixtures/
-  test_bridge_roundtrip.py
-  README.md
+  fixtures/flexo-basic-package.json
+  test_bridge_render.py
+  test_live_syson_import.py
 ```
 
 ## Observability
@@ -131,11 +142,11 @@ so agent traces can be reviewed without scraping terminal output.
 
 ## Recommended Next Steps
 
-1. Add `evals/test_bridge_roundtrip.py` for the Flexo JSON to `.sysml` renderer.
-2. Add a fixture model that does not require live services.
-3. Add an optional live integration eval gated by an environment variable.
-4. Add a `make eval` target once the evals exist.
-5. Add a `docs/modeling-conventions.md` file for supported SysML v2 subsets.
+1. Add a live Flexo export eval that creates a disposable Flexo project.
+2. Add structured JSON diagnostics for `flexo-to-syson` runs.
+3. Add a `docs/modeling-conventions.md` section for each newly supported SysML
+   v2 element type.
+4. Add a doc-gardening check for stale or unlinked workflow docs.
 
 ## Harness Interpretation For This Repo
 

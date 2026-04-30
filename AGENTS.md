@@ -195,6 +195,14 @@ git status --short
 If you changed credential handling, also run the secret scan from the credential
 section.
 
+Run the optional live SysON import eval only when SysON is running:
+
+```bash
+make live-eval
+```
+
+It creates and deletes a disposable SysON project.
+
 ## Known Limitations
 
 - The bridge currently renders only a subset of SysML v2 element types.

@@ -170,6 +170,21 @@ reports/latest/report.json
 The report includes service URLs, doctor/status summaries, container state,
 workspace settings, diagnostics bundle links, and share-check results.
 
+Remove generated local reports, diagnostics, run logs, and temporary output:
+
+```bash
+mbse-lab cleanup
+```
+
+Preview cleanup targets first:
+
+```bash
+mbse-lab cleanup --dry-run
+```
+
+By default cleanup does not touch service data, env files, backups, model
+exports, or MkDocs `site/` output. Use `--include-site` to remove `site/`.
+
 Check that the tooling repo is safe to share:
 
 ```bash

@@ -158,6 +158,14 @@ mbse-lab report
 
 The report writes Markdown, HTML, and JSON snapshots under `reports/latest/`.
 
+Remove generated local reports, diagnostics, run logs, and temporary output:
+
+```bash
+mbse-lab cleanup
+```
+
+Use `mbse-lab cleanup --dry-run` to preview cleanup targets first.
+
 ## Credentials
 
 Runtime credential files are intentionally ignored by git:

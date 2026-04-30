@@ -135,12 +135,185 @@
     {
       "@id": "flexo-mms-stack",
       "@type": "PartUsage",
-      "declaredName": "flexoMmsStack"
+      "declaredName": "flexoMmsStack",
+      "ownedElement": [
+        {
+          "@id": "flexo-openldap-service"
+        },
+        {
+          "@id": "flexo-quad-store-service"
+        },
+        {
+          "@id": "flexo-minio-service"
+        },
+        {
+          "@id": "flexo-auth-service"
+        },
+        {
+          "@id": "flexo-store-service"
+        },
+        {
+          "@id": "flexo-layer1-service"
+        },
+        {
+          "@id": "flexo-sysmlv2-service"
+        }
+      ],
+      "stackName": "flexo-mms"
     },
     {
       "@id": "syson-stack",
       "@type": "PartUsage",
-      "declaredName": "sysonStack"
+      "declaredName": "sysonStack",
+      "ownedElement": [
+        {
+          "@id": "syson-database-service"
+        },
+        {
+          "@id": "syson-app-service"
+        }
+      ],
+      "stackName": "syson"
+    },
+    {
+      "@id": "flexo-openldap-service",
+      "@type": "PartUsage",
+      "declaredName": "openldapServer",
+      "containerName": "openldap-server",
+      "serviceName": "openldap-server"
+    },
+    {
+      "@id": "flexo-quad-store-service",
+      "@type": "PartUsage",
+      "containerName": "quad-server",
+      "declaredName": "quadStoreServer",
+      "mounts": [
+        {
+          "containerPath": "/tmp/mount",
+          "hostPath": "deploy/flexo-mms/mount",
+          "type": "bind"
+        }
+      ],
+      "ports": [
+        {
+          "containerPort": 3030,
+          "defaultHostPort": 3030,
+          "hostPortEnv": "FLEXO_MMS_FUSEKI_HOST_PORT",
+          "protocol": "tcp"
+        }
+      ],
+      "serviceName": "quad-store-server"
+    },
+    {
+      "@id": "flexo-minio-service",
+      "@type": "PartUsage",
+      "containerName": "minio-server",
+      "declaredName": "minioServer",
+      "mounts": [
+        {
+          "containerPath": "/data",
+          "hostPath": "deploy/flexo-mms/data/minio",
+          "type": "bind"
+        }
+      ],
+      "ports": [
+        {
+          "containerPort": 9000,
+          "defaultHostPort": 9000,
+          "hostPortEnv": "FLEXO_MMS_MINIO_HOST_PORT",
+          "protocol": "tcp"
+        }
+      ],
+      "serviceName": "minio-server"
+    },
+    {
+      "@id": "flexo-auth-service",
+      "@type": "PartUsage",
+      "containerName": "auth-service",
+      "declaredName": "authService",
+      "ports": [
+        {
+          "containerPort": 8080,
+          "defaultHostPort": 8082,
+          "hostPortEnv": "FLEXO_MMS_AUTH_HOST_PORT",
+          "protocol": "tcp"
+        }
+      ],
+      "serviceName": "auth-service"
+    },
+    {
+      "@id": "flexo-store-service",
+      "@type": "PartUsage",
+      "containerName": "store-service",
+      "declaredName": "storeService",
+      "ports": [
+        {
+          "containerPort": 8080,
+          "defaultHostPort": 8081,
+          "hostPortEnv": "FLEXO_MMS_STORE_HOST_PORT",
+          "protocol": "tcp"
+        }
+      ],
+      "serviceName": "store-service"
+    },
+    {
+      "@id": "flexo-layer1-service",
+      "@type": "PartUsage",
+      "containerName": "layer1-service",
+      "declaredName": "layer1Service",
+      "ports": [
+        {
+          "containerPort": 8080,
+          "defaultHostPort": 18080,
+          "hostPortEnv": "FLEXO_MMS_LAYER1_HOST_PORT",
+          "protocol": "tcp"
+        }
+      ],
+      "serviceName": "layer1-service"
+    },
+    {
+      "@id": "flexo-sysmlv2-service",
+      "@type": "PartUsage",
+      "containerName": "flexo-sysmlv2",
+      "declaredName": "sysmlv2Service",
+      "ports": [
+        {
+          "containerPort": 8080,
+          "defaultHostPort": 18083,
+          "hostPortEnv": "FLEXO_MMS_SYSMLV2_HOST_PORT",
+          "protocol": "tcp"
+        }
+      ],
+      "serviceName": "sysmlv2-service"
+    },
+    {
+      "@id": "syson-database-service",
+      "@type": "PartUsage",
+      "containerName": "syson-database",
+      "declaredName": "sysonDatabase",
+      "mounts": [
+        {
+          "containerPath": "/var/lib/postgresql/data",
+          "hostPath": "deploy/syson/data/postgres",
+          "type": "bind"
+        }
+      ],
+      "serviceName": "database"
+    },
+    {
+      "@id": "syson-app-service",
+      "@type": "PartUsage",
+      "containerName": "syson-app",
+      "declaredName": "sysonApp",
+      "ports": [
+        {
+          "containerPort": 8080,
+          "defaultHostPort": 18090,
+          "hostPortEnv": "SYSON_HOST_PORT",
+          "protocol": "tcp"
+        }
+      ],
+      "serviceName": "app"
     }
   ],
   "project": {

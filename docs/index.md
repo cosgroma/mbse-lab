@@ -10,6 +10,7 @@ specifications.
 docs/user-guide/private-model-workspaces.md
                                   How to use this tooling repo while keeping
                                   real SysML v2 models private
+docs/user-guide/cli.md            Installable CLI usage
 ```
 
 ## Local Lab

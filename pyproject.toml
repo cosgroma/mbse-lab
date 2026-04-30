@@ -1,7 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mbse-lab"
+version = "0.1.0"
+description = "CLI and local lab tooling for Flexo MMS, SysON, and SysML v2 workflows."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.1",
+]
+
+[project.scripts]
+mbse-lab = "mbse_lab.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mbse_lab"]
+
 [tool.ruff]
 line-length = 120
 target-version = "py310"
-include = ["scripts/**/*.py", "evals/**/*.py"]
+include = ["scripts/**/*.py", "evals/**/*.py", "src/**/*.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "W"]

@@ -1,8 +1,10 @@
-.PHONY: help init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify
+.PHONY: help install-cli doctor init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify
 
 help:
 	@printf '%s\n' 'MBSE local lab commands:'
 	@printf '  %-16s %s\n' 'init' 'Generate Flexo runtime env files and compose setup'
+	@printf '  %-16s %s\n' 'install-cli' 'Install the mbse-lab CLI in editable mode'
+	@printf '  %-16s %s\n' 'doctor' 'Run mbse-lab environment checks'
 	@printf '  %-16s %s\n' 'up' 'Start Flexo and SysON'
 	@printf '  %-16s %s\n' 'down' 'Stop Flexo and SysON'
 	@printf '  %-16s %s\n' 'status' 'Check local service status'
@@ -24,6 +26,12 @@ help:
 init:
 	python3 scripts/flexo_mms_env.py init --with-sysmlv2
 
+install-cli:
+	python3 -m pip install -e .
+
+doctor:
+	mbse-lab doctor
+
 up:
 	python3 scripts/flexo_mms_env.py up --wait --timeout 60
 	docker compose -f deploy/syson/docker-compose.yml up -d
@@ -44,7 +52,7 @@ diagnostics:
 	python3 scripts/collect_diagnostics.py
 
 check:
-	python3 -m py_compile scripts/flexo_mms_env.py scripts/flexo_syson_bridge.py scripts/collect_diagnostics.py scripts/check_docs.py
+	python3 -m py_compile scripts/flexo_mms_env.py scripts/flexo_syson_bridge.py scripts/collect_diagnostics.py scripts/check_docs.py src/mbse_lab/__init__.py src/mbse_lab/cli.py
 	docker compose -f deploy/flexo-mms/docker-compose.yml config --quiet
 	docker compose -f deploy/syson/docker-compose.yml config --quiet
 	$(MAKE) workflow-check

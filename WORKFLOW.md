@@ -16,6 +16,7 @@ validation:
     - make check
   before_publish:
     - hatch run lint:all
+    - make share-check
   docs_when_docs_change:
     - make docs-build
   live_when_services_running:
@@ -103,6 +104,12 @@ after broad mechanical formatting or lint-related changes:
 
 ```bash
 hatch run lint:all
+```
+
+Run the publish-safety check before sharing the tooling repo:
+
+```bash
+make share-check
 ```
 
 The GitHub CI workflow runs pre-commit, the documentation build, and `make

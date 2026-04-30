@@ -102,7 +102,7 @@ Credential guardrails:
 
 - Commit `.example` env files only.
 - Ignore runtime `.env` files and service data.
-- Run `make secret-scan` before publishing.
+- Run `make share-check` before publishing.
 
 Model data guardrails:
 

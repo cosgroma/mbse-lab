@@ -141,6 +141,15 @@ mbse-lab bridge run <flexo-project-id> \
   --namespace-id <syson-root-package-id>
 ```
 
+Before sharing or publishing the tooling repo, run:
+
+```bash
+mbse-lab share-check
+```
+
+It checks for accidentally tracked runtime env files, service data, generated
+private exports, run logs, diagnostics bundles, and known local secret patterns.
+
 ## Credentials
 
 Runtime credential files are intentionally ignored by git:

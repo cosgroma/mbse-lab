@@ -83,10 +83,10 @@ python3 scripts/flexo_mms_env.py rotate-secrets
 ```
 
 After rotating, restart Flexo. If you are preparing a commit or publication,
-run a secret scan:
+run the share check:
 
 ```bash
-git grep -n -E 'thisissomethingreallylon[g]|admi[n]test|adminpasswor[d]|passwor[d]1|passwor[d]2|eyJhb[G]ci|SYSON_POSTGRES_PASSWORD=passwor[d]|JWT_SECRET=thi[s]' HEAD || true
+make share-check
 ```
 
 Expected result: no output.

@@ -19,6 +19,7 @@ this MBSE lab.
 ```text
 AGENTS.md                         Repo-local agent instructions
 README.md                         User-facing environment guide
+WORKFLOW.md                       Repo-owned workflow contract for agent runs
 Makefile                          Stable command surface for agents and humans
 scripts/flexo_mms_env.py          Environment setup, status, backup, rotation
 scripts/flexo_syson_bridge.py     Flexo/SysON workflow automation
@@ -73,6 +74,7 @@ make deployment-verify
 Keep durable context in files, not in chat history:
 
 - `AGENTS.md` for agent operating rules.
+- `WORKFLOW.md` for the repo-owned workflow contract inspired by Symphony.
 - `README.md` for setup and recovery.
 - `docs/` for workflow decisions and architecture notes.
 - `exports/` for representative generated artifacts.

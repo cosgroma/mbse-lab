@@ -12,9 +12,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_FILES = [
     ROOT / "README.md",
+    ROOT / "WORKFLOW.md",
     ROOT / "AGENTS.md",
     ROOT / "docs" / "harness-engineering.md",
 ]
+WORKFLOW_FILE = ROOT / "WORKFLOW.md"
 DOC_GLOBS = ["docs/**/*.md", "deploy/**/README.md"]
 IGNORED_DOCS = {
     "docs/plans/active/.gitkeep",
@@ -37,7 +39,7 @@ def tracked_and_untracked_docs() -> list[Path]:
     docs: set[Path] = set()
     for pattern in DOC_GLOBS:
         docs.update(ROOT.glob(pattern))
-    docs.update([ROOT / "AGENTS.md", ROOT / "README.md"])
+    docs.update([ROOT / "AGENTS.md", ROOT / "README.md", WORKFLOW_FILE])
     return sorted(path for path in docs if path.is_file())
 
 
@@ -135,11 +137,32 @@ def check_python_commands(failures: list[str]) -> None:
                     )
 
 
+def check_workflow_contract(failures: list[str]) -> None:
+    if not WORKFLOW_FILE.exists():
+        fail("WORKFLOW.md is missing", failures)
+        return
+    text = WORKFLOW_FILE.read_text(encoding="utf-8")
+    required_fragments = [
+        "commit_after_chunk: true",
+        "trusted-local-lab",
+        "make check",
+        "make diagnostics",
+        "make deployment-verify",
+        "make live-eval",
+        "explicit user intent",
+        "recommended next chunk",
+    ]
+    for fragment in required_fragments:
+        if fragment not in text:
+            fail(f"WORKFLOW.md must mention `{fragment}`", failures)
+
+
 def main() -> None:
     failures: list[str] = []
     check_discoverability(failures)
     check_make_commands(failures)
     check_python_commands(failures)
+    check_workflow_contract(failures)
     if failures:
         print("docs-check failed:", file=sys.stderr)
         for failure in failures:

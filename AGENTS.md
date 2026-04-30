@@ -195,13 +195,13 @@ git status --short
 If you changed credential handling, also run the secret scan from the credential
 section.
 
-Run the optional live SysON import eval only when SysON is running:
+Run the optional live service evals only when Flexo and SysON are running:
 
 ```bash
 make live-eval
 ```
 
-It creates and deletes a disposable SysON project.
+They create and delete disposable Flexo/SysON projects.
 
 ## Known Limitations
 

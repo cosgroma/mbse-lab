@@ -144,6 +144,51 @@ def collect_commands(output: Path, cwd: Path, timeout: int, log_tail: int) -> No
     write_json(output / "commands" / "index.json", summary)
 
 
+def collect_deployment_verification(output: Path, cwd: Path, timeout: int) -> None:
+    report_path = output / "deployment-verification.json"
+    command = [
+        "python3",
+        "scripts/flexo_syson_bridge.py",
+        "deployment-verify",
+        "--json",
+        "--output",
+        str(report_path),
+        "--timeout",
+        str(timeout),
+    ]
+    result = run(command, cwd, timeout)
+    command_file = f"commands/{command_to_filename(command)}"
+    content = (
+        f"$ {' '.join(command)}\n"
+        f"returncode: {result['returncode']}\n\n"
+        "## stdout\n"
+        f"{result['stdout']}\n\n"
+        "## stderr\n"
+        f"{result['stderr']}\n"
+    )
+    write_text(output / command_file, content)
+    command_index = output / "commands" / "index.json"
+    if command_index.exists():
+        summary = json.loads(command_index.read_text(encoding="utf-8"))
+        summary.append(
+            {
+                "command": command,
+                "returncode": result["returncode"],
+                "file": command_file,
+            }
+        )
+        write_json(command_index, summary)
+    if not report_path.exists():
+        write_json(
+            report_path,
+            {
+                "status": "failed",
+                "error": "deployment-verify did not write a report",
+                "returncode": result["returncode"],
+            },
+        )
+
+
 def collect_http(output: Path, timeout: int) -> None:
     endpoints = {
         "flexo-projects.json": "http://localhost:18083/projects",
@@ -186,6 +231,7 @@ def cmd_collect(args: argparse.Namespace) -> None:
     }
     write_json(output / "metadata.json", metadata)
     collect_commands(output, cwd, args.timeout, args.log_tail)
+    collect_deployment_verification(output, cwd, args.timeout)
     collect_http(output, args.timeout)
     collect_files(output, cwd)
     print(f"Wrote diagnostics bundle: {output}")

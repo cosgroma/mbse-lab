@@ -1,0 +1,142 @@
+---
+workflow:
+  name: mbse-local-lab-agent-workflow
+  version: 1
+tracker:
+  kind: manual
+workspace:
+  mode: shared-repo
+  plans_dir: docs/plans
+agent:
+  commit_after_chunk: true
+  max_chunk_scope: focused
+validation:
+  required:
+    - make check
+  live_when_services_running:
+    - make live-eval
+    - make deployment-verify
+observability:
+  diagnostics: make diagnostics
+  run_logs: runs/
+trust:
+  environment: trusted-local-lab
+  destructive_actions_require_explicit_intent: true
+---
+
+# MBSE Local Lab Workflow
+
+This repository uses a lightweight Symphony-style workflow contract: runtime
+policy and agent operating expectations live in this repo, next to the code,
+docs, evals, and Docker deployment files they govern. This file is not a
+daemon configuration yet. It is the authoritative workflow prompt and policy
+for Codex work in this MBSE local lab.
+
+## Operating Model
+
+Use this repo as a shared local workspace for MBSE environment setup, Flexo MMS
+automation, SysON import/review, bridge workflows, deployment verification, and
+diagnostics. Work in small chunks that land independently. Commit each chunk
+after implementation and validation when the user has asked to continue in this
+mode.
+
+Keep durable state in files:
+
+- `README.md` for user-facing operations.
+- `AGENTS.md` for maintainer and fresh-agent guidance.
+- `docs/harness-engineering.md` for harness design.
+- `docs/plans/` for task plans when a task needs persistent planning.
+- `runs/` for ignored workflow run logs.
+- `diagnostics/latest/` for ignored diagnostics bundles.
+
+## Required Validation
+
+Run the full deterministic baseline before committing normal code or docs
+changes:
+
+```bash
+make check
+```
+
+For targeted documentation changes, `make docs-check` may be used during
+iteration, but the final chunk should still pass `make check` unless there is a
+clear blocker.
+
+```bash
+make docs-check
+```
+
+Run deterministic evals directly when editing renderers, fixtures, workflow
+contracts, diagnostics formatting, or harness behavior:
+
+```bash
+make eval
+```
+
+## Live Validation
+
+When Flexo and SysON are running, verify live service behavior before committing
+changes that affect deployment, bridge workflows, service state, or model
+imports:
+
+```bash
+make live-eval
+```
+
+Inspect and verify the model-driven deployment contract with:
+
+```bash
+make deployment-contract
+make deployment-verify
+```
+
+## Diagnostics And Evidence
+
+Collect diagnostics after service failures, unexpected port/mount behavior, or
+before handoff when runtime state matters:
+
+```bash
+make diagnostics
+```
+
+Start triage from:
+
+```text
+diagnostics/latest/index.md
+diagnostics/latest/manifest.json
+diagnostics/latest/deployment-verification.json
+```
+
+Bridge runs should use structured run logs when evidence needs to be preserved:
+
+```bash
+python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
+  --syson-project-id <syson-project-id> \
+  --namespace-id <syson-root-package-id>
+```
+
+## Data And Credential Boundaries
+
+Runtime secrets and local service data are intentionally ignored. Do not commit
+runtime `.env` files, Flexo backup data, SysON database files, diagnostics
+bundles, or run logs. Commit publishable examples and deterministic fixtures
+only.
+
+Before destructive reset actions, such as deleting service data, removing
+containers with volumes, or rewriting persisted Flexo startup data, get
+explicit user intent. When Flexo graph state matters, back it up first:
+
+```bash
+make backup
+```
+
+## Handoff
+
+A chunk is complete when:
+
+- The intended change is implemented.
+- Relevant deterministic and live checks have passed, or blockers are stated.
+- Unrelated working-tree changes are left untouched.
+- The chunk is committed with a focused message.
+- The final note reports the commit, validation, residual uncommitted state, and
+  the recommended next chunk.

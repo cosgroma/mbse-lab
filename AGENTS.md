@@ -24,6 +24,7 @@ review/editing path. Direct live repository sync is not implemented.
 
 ```text
 README.md                         User-facing setup and workflows
+WORKFLOW.md                       Repo-owned workflow contract for agent work
 docs/flexo-syson-bridge.md        Bridge-specific notes
 docs/harness-engineering.md        Harness design and eval/diagnostics guidance
 docs/modeling-conventions.md       Supported SysML v2 rendering subset

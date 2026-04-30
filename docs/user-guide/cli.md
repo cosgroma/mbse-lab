@@ -151,6 +151,25 @@ Collect diagnostics:
 mbse-lab diagnostics
 ```
 
+Generate a static local lab report:
+
+```bash
+mbse-lab report
+```
+
+The report writes:
+
+```text
+reports/latest/index.md
+reports/latest/index.html
+reports/latest/doctor.json
+reports/latest/status.json
+reports/latest/report.json
+```
+
+The report includes service URLs, doctor/status summaries, container state,
+workspace settings, diagnostics bundle links, and share-check results.
+
 Check that the tooling repo is safe to share:
 
 ```bash

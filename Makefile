@@ -1,4 +1,4 @@
-.PHONY: help install-cli bootstrap first-model doctor share-check init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify
+.PHONY: help install-cli bootstrap first-model doctor report share-check init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify
 
 help:
 	@printf '%s\n' 'MBSE local lab commands:'
@@ -7,6 +7,7 @@ help:
 	@printf '  %-16s %s\n' 'bootstrap' 'Prepare and start the local SysML v2 lab'
 	@printf '  %-16s %s\n' 'first-model' 'Create a tiny Flexo model and import it into SysON'
 	@printf '  %-16s %s\n' 'doctor' 'Run mbse-lab environment checks'
+	@printf '  %-16s %s\n' 'report' 'Generate reports/latest local lab report'
 	@printf '  %-16s %s\n' 'share-check' 'Check for accidental private data before sharing'
 	@printf '  %-16s %s\n' 'up' 'Start Flexo and SysON'
 	@printf '  %-16s %s\n' 'down' 'Stop Flexo and SysON'
@@ -40,6 +41,9 @@ first-model:
 
 doctor:
 	mbse-lab doctor
+
+report:
+	mbse-lab report
 
 share-check:
 	mbse-lab share-check

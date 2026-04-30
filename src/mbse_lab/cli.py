@@ -22,6 +22,19 @@ from mbse_lab import __version__
 
 DEFAULT_FLEXO_URL = "http://localhost:18083"
 DEFAULT_SYSON_URL = "http://localhost:18090"
+FLEXO_CONTAINERS = (
+    "openldap-server",
+    "quad-server",
+    "minio-server",
+    "auth-service",
+    "store-service",
+    "layer1-service",
+    "flexo-sysmlv2",
+)
+SYSON_CONTAINERS = (
+    "syson-database",
+    "syson-app",
+)
 
 REQUIRED_MARKERS = (
     Path("deploy/flexo-mms/docker-compose.yml"),
@@ -105,6 +118,10 @@ def run_capture(command: list[str], cwd: Path) -> str:
     if completed.returncode != 0:
         raise click.ClickException(f"command failed with exit code {completed.returncode}: {' '.join(command)}")
     return completed.stdout
+
+
+def run_capture_result(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(command, cwd=cwd, text=True, capture_output=True)
 
 
 def run_bridge(ctx: click.Context, args: list[str], dry_run: bool = False) -> None:
@@ -369,6 +386,106 @@ def fetch_status(url: str, timeout: float = 2.0) -> int | None:
         return exc.code
     except (OSError, urllib.error.URLError):
         return None
+
+
+def docker_container_report(name: str, repo_root: Path) -> dict[str, object]:
+    result = run_capture_result(["docker", "inspect", name], repo_root)
+    if result.returncode != 0:
+        return {
+            "name": name,
+            "exists": False,
+            "running": False,
+            "status": "missing",
+            "health": "none",
+            "ports": {},
+        }
+    data = json.loads(result.stdout)
+    container = data[0] if data else {}
+    state = container.get("State", {})
+    ports: dict[str, list[str]] = {}
+    for container_port, bindings in sorted((container.get("NetworkSettings", {}).get("Ports") or {}).items()):
+        ports[container_port] = [
+            f"{binding.get('HostIp', '')}:{binding.get('HostPort', '')}".strip(":") for binding in (bindings or [])
+        ]
+    return {
+        "name": name,
+        "exists": True,
+        "running": bool(state.get("Running")),
+        "status": state.get("Status", "unknown"),
+        "health": state.get("Health", {}).get("Status", "none"),
+        "ports": ports,
+    }
+
+
+def service_report(repo_root: Path) -> dict[str, object]:
+    containers = [docker_container_report(name, repo_root) for name in (*FLEXO_CONTAINERS, *SYSON_CONTAINERS)]
+    http_checks = {
+        "flexo_projects": {
+            "url": f"{DEFAULT_FLEXO_URL}/projects",
+            "status": fetch_status(f"{DEFAULT_FLEXO_URL}/projects"),
+        },
+        "syson_web": {
+            "url": f"{DEFAULT_SYSON_URL}/",
+            "status": fetch_status(f"{DEFAULT_SYSON_URL}/"),
+        },
+    }
+    all_containers_running = all(bool(container["running"]) for container in containers)
+    unhealthy = [container for container in containers if container["health"] == "unhealthy"]
+    return {
+        "status": "passed" if all_containers_running and not unhealthy else "warning",
+        "containers": containers,
+        "http": http_checks,
+    }
+
+
+def doctor_report(repo_root: Path | None) -> dict[str, object]:
+    docker_ok = command_exists("docker")
+    compose_ok = bool(
+        docker_ok and subprocess.run(["docker", "compose", "version"], capture_output=True, text=True).returncode == 0
+    )
+    markers = []
+    if repo_root:
+        markers = [
+            {
+                "path": marker.as_posix(),
+                "exists": (repo_root / marker).exists(),
+            }
+            for marker in REQUIRED_MARKERS
+        ]
+    workspace = os.environ.get("MBSE_MODEL_WORKSPACE")
+    workspace_path = Path(workspace).expanduser() if workspace else None
+    checks = {
+        "python": {"ok": command_exists("python3"), "version": sys.version.split()[0]},
+        "docker": {"ok": docker_ok},
+        "docker_compose": {"ok": compose_ok},
+        "repo_root": {"ok": repo_root is not None, "path": str(repo_root) if repo_root else None},
+        "markers": markers,
+        "flexo_env": {"ok": bool(repo_root and (repo_root / "deploy/flexo-mms/.env").exists())},
+        "syson_env": {"ok": bool(repo_root and (repo_root / "deploy/syson/.env").exists())},
+        "model_workspace": {
+            "ok": bool(workspace_path and workspace_path.exists()),
+            "path": str(workspace_path) if workspace_path else None,
+        },
+        "ports": {
+            "flexo_sysmlv2": {"ok": tcp_connects("localhost", 18083), "host": "localhost", "port": 18083},
+            "syson_web": {"ok": tcp_connects("localhost", 18090), "host": "localhost", "port": 18090},
+        },
+        "http": {
+            "flexo_projects": {"status": fetch_status(f"{DEFAULT_FLEXO_URL}/projects")},
+            "syson_web": {"status": fetch_status(f"{DEFAULT_SYSON_URL}/")},
+        },
+    }
+    required_ok = (
+        checks["python"]["ok"]
+        and checks["docker"]["ok"]
+        and checks["docker_compose"]["ok"]
+        and checks["repo_root"]["ok"]
+        and all(marker["exists"] for marker in markers)
+    )
+    return {
+        "status": "passed" if required_ok else "failed",
+        "checks": checks,
+    }
 
 
 def tracked_files(repo_root: Path) -> list[str]:
@@ -700,10 +817,18 @@ def first_model(
 
 
 @main.command()
+@click.option("--json-output", is_flag=True, help="Print a machine-readable JSON report.")
 @click.pass_context
-def doctor(ctx: click.Context) -> None:
+def doctor(ctx: click.Context, json_output: bool) -> None:
     """Check local prerequisites, repo layout, workspace settings, and service reachability."""
     repo_root = ctx.find_object(CliContext).repo_root
+    report = doctor_report(repo_root)
+    if json_output:
+        click.echo(json.dumps(report, indent=2, sort_keys=True))
+        if report["status"] == "failed":
+            raise click.ClickException("doctor found required failure(s)")
+        return
+
     failures = 0
 
     check_mark("python", command_exists("python3"), sys.version.split()[0])
@@ -758,10 +883,14 @@ def doctor(ctx: click.Context) -> None:
 
 
 @main.command()
+@click.option("--json-output", is_flag=True, help="Print a machine-readable JSON report.")
 @click.pass_context
-def status(ctx: click.Context) -> None:
+def status(ctx: click.Context, json_output: bool) -> None:
     """Run the existing Flexo and SysON status checks."""
     repo_root = require_repo_root(ctx)
+    if json_output:
+        click.echo(json.dumps(service_report(repo_root), indent=2, sort_keys=True))
+        return
     run_command(["python3", "scripts/flexo_mms_env.py", "status", "--with-sysmlv2", "--strict"], repo_root)
     run_command(["docker", "compose", "-f", "deploy/syson/docker-compose.yml", "ps"], repo_root)
 

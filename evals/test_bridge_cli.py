@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
 import tempfile
@@ -54,6 +55,44 @@ class CliTests(unittest.TestCase):
     def test_fetch_status_treats_timeout_as_unreachable(self) -> None:
         with mock.patch("urllib.request.urlopen", side_effect=TimeoutError("timed out")):
             self.assertIsNone(cli.fetch_status("http://localhost:1/"))
+
+    def test_doctor_json_outputs_structured_report(self) -> None:
+        runner = CliRunner()
+        with (
+            mock.patch.object(cli, "command_exists", return_value=True),
+            mock.patch.object(cli.subprocess, "run", return_value=mock.Mock(returncode=0)),
+            mock.patch.object(cli, "tcp_connects", return_value=False),
+            mock.patch.object(cli, "fetch_status", return_value=None),
+        ):
+            result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "doctor", "--json-output"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        report = json.loads(result.output)
+        self.assertEqual(report["status"], "passed")
+        self.assertTrue(report["checks"]["repo_root"]["ok"])
+        self.assertIn("markers", report["checks"])
+
+    def test_status_json_outputs_structured_report(self) -> None:
+        runner = CliRunner()
+        container = {
+            "name": "demo",
+            "exists": True,
+            "running": True,
+            "status": "running",
+            "health": "none",
+            "ports": {},
+        }
+        with (
+            mock.patch.object(cli, "docker_container_report", return_value=container),
+            mock.patch.object(cli, "fetch_status", return_value=200),
+        ):
+            result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "status", "--json-output"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        report = json.loads(result.output)
+        self.assertEqual(report["status"], "passed")
+        self.assertEqual(len(report["containers"]), len(cli.FLEXO_CONTAINERS) + len(cli.SYSON_CONTAINERS))
+        self.assertEqual(report["http"]["flexo_projects"]["status"], 200)
 
     def test_bootstrap_dry_run_prints_planned_setup_without_touching_workspace(self) -> None:
         runner = CliRunner()

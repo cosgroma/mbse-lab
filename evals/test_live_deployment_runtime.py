@@ -3,12 +3,19 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys_path = str(ROOT / "scripts")
+if sys_path not in sys.path:
+    sys.path.insert(0, sys_path)
+
+import flexo_syson_bridge  # noqa: E402
+
 FIXTURE = ROOT / "evals" / "fixtures" / "container-deployment-basic.json"
 
 
@@ -30,7 +37,7 @@ class LiveDeploymentRuntimeTests(unittest.TestCase):
         self.assertIn("sysonStack", names)
 
     def test_running_containers_match_compose_runtime_contract(self) -> None:
-        expectations = self.container_expectations_from_fixture()
+        expectations = flexo_syson_bridge.deployment_contract_from_snapshot(self.snapshot)["services"]
         self.assertEqual(9, len(expectations), "deployment fixture should model the expected local lab containers")
 
         for expected in expectations:
@@ -67,27 +74,6 @@ class LiveDeploymentRuntimeTests(unittest.TestCase):
             self.assertIsNotNone(actual, f"{expected['containerName']} should mount {mount['containerPath']}")
             self.assertEqual(mount.get("type", "bind"), actual.get("Type"))
             self.assertEqual(os.path.abspath(ROOT / mount["hostPath"]), actual.get("Source"))
-
-    def container_expectations_from_fixture(self) -> list[dict[str, Any]]:
-        expectations = [
-            element
-            for element in self.snapshot["elements"]
-            if element.get("@type") == "PartUsage" and element.get("containerName")
-        ]
-        expectations.sort(key=lambda element: element["containerName"])
-        for element in expectations:
-            self.assertIsInstance(element.get("serviceName"), str)
-            self.assertIsInstance(element.get("containerName"), str)
-            for port in element.get("ports", []):
-                self.assertIsInstance(port.get("containerPort"), int)
-                self.assertIsInstance(port.get("defaultHostPort"), int)
-                self.assertIsInstance(port.get("hostPortEnv"), str)
-                self.assertIsInstance(port.get("protocol", "tcp"), str)
-            for mount in element.get("mounts", []):
-                self.assertIsInstance(mount.get("containerPath"), str)
-                self.assertIsInstance(mount.get("hostPath"), str)
-                self.assertIsInstance(mount.get("type", "bind"), str)
-        return expectations
 
     def inspect_container(self, name: str) -> dict[str, Any]:
         try:

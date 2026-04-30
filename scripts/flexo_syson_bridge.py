@@ -28,6 +28,7 @@ DEFAULT_SYSON_URL = "http://localhost:18090"
 DEFAULT_FLEXO_ENV_DIR = Path("deploy/flexo-mms")
 DEFAULT_OUTPUT_DIR = Path("exports")
 DEFAULT_RUN_DIR = Path("runs")
+DEFAULT_DEPLOYMENT_FIXTURE = Path("evals/fixtures/container-deployment-basic.json")
 
 RENDERABLE_TYPES = {
     "Package",
@@ -430,6 +431,95 @@ def render_snapshot(snapshot: dict[str, Any]) -> str:
     return "\n".join(lines + rendered) + "\n"
 
 
+def deployment_contract_from_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
+    elements = snapshot.get("elements") or []
+    stack_by_child: dict[str, dict[str, Any]] = {}
+    for element in elements:
+        if not isinstance(element, dict) or not element.get("stackName"):
+            continue
+        for child_id in child_ids(element):
+            stack_by_child[child_id] = element
+
+    services: list[dict[str, Any]] = []
+    for element in elements:
+        if not isinstance(element, dict):
+            continue
+        container_name = element.get("containerName")
+        if element.get("@type") != "PartUsage" or not container_name:
+            continue
+        service = {
+            "id": element.get("@id"),
+            "declaredName": element.get("declaredName"),
+            "stackName": stack_by_child.get(element.get("@id"), {}).get("stackName"),
+            "serviceName": element.get("serviceName"),
+            "containerName": container_name,
+            "ports": element.get("ports", []),
+            "mounts": element.get("mounts", []),
+        }
+        services.append(service)
+
+    services.sort(key=lambda service: str(service["containerName"]))
+    return {
+        "project": snapshot.get("project", {}),
+        "commit": snapshot.get("commit", {}),
+        "serviceCount": len(services),
+        "services": services,
+    }
+
+
+def format_deployment_contract_table(contract: dict[str, Any]) -> str:
+    rows = [
+        [
+            "CONTAINER",
+            "SERVICE",
+            "STACK",
+            "PORTS",
+            "MOUNTS",
+        ]
+    ]
+    for service in contract["services"]:
+        rows.append(
+            [
+                str(service.get("containerName") or ""),
+                str(service.get("serviceName") or ""),
+                str(service.get("stackName") or ""),
+                format_contract_ports(service.get("ports", [])),
+                format_contract_mounts(service.get("mounts", [])),
+            ]
+        )
+
+    widths = [max(len(row[index]) for row in rows) for index in range(len(rows[0]))]
+    lines = []
+    for index, row in enumerate(rows):
+        lines.append("  ".join(value.ljust(widths[column]) for column, value in enumerate(row)).rstrip())
+        if index == 0:
+            lines.append("  ".join("-" * width for width in widths).rstrip())
+    return "\n".join(lines)
+
+
+def format_contract_ports(ports: list[dict[str, Any]]) -> str:
+    formatted = []
+    for port in ports:
+        protocol = port.get("protocol", "tcp")
+        host = f"${{{port['hostPortEnv']}:-{port['defaultHostPort']}}}"
+        formatted.append(f"{host}->{port['containerPort']}/{protocol}")
+    return ", ".join(formatted)
+
+
+def format_contract_mounts(mounts: list[dict[str, Any]]) -> str:
+    return ", ".join(f"{mount['hostPath']}->{mount['containerPath']}" for mount in mounts)
+
+
+def cmd_deployment_contract(args: argparse.Namespace) -> None:
+    contract = deployment_contract_from_snapshot(read_json(args.fixture))
+    if not contract["services"]:
+        fail(f"no container services found in deployment fixture: {args.fixture}")
+    if args.json:
+        print(json.dumps(contract, indent=2, sort_keys=True))
+        return
+    print(format_deployment_contract_table(contract))
+
+
 def cmd_render_sysml(args: argparse.Namespace) -> None:
     snapshot = read_json(args.input)
     text = render_snapshot(snapshot)
@@ -746,6 +836,11 @@ def build_parser() -> argparse.ArgumentParser:
     render.add_argument("input", type=Path)
     render.add_argument("--output", type=Path)
     render.set_defaults(func=cmd_render_sysml)
+
+    contract = subparsers.add_parser("deployment-contract", help="Print the fixture-derived deployment runtime contract")
+    contract.add_argument("--fixture", type=Path, default=DEFAULT_DEPLOYMENT_FIXTURE)
+    contract.add_argument("--json", action="store_true")
+    contract.set_defaults(func=cmd_deployment_contract)
 
     list_syson = subparsers.add_parser("syson-list-projects", help="List SysON projects")
     list_syson.add_argument("--syson-url", default=DEFAULT_SYSON_URL)

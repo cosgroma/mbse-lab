@@ -172,6 +172,12 @@ Render `.sysml`:
 python3 scripts/flexo_syson_bridge.py render-sysml exports/flexo/<flexo-project-id>.json
 ```
 
+Inspect the fixture-derived deployment runtime contract:
+
+```bash
+python3 scripts/flexo_syson_bridge.py deployment-contract
+```
+
 Create a SysON project:
 
 ```bash

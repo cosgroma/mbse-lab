@@ -131,12 +131,10 @@ class BridgeRenderTests(unittest.TestCase):
         fixture = ROOT / "evals" / "fixtures" / "container-deployment-basic.json"
         snapshot = json.loads(fixture.read_text(encoding="utf-8"))
 
-        services = {
-            element["containerName"]: element
-            for element in snapshot["elements"]
-            if element.get("@type") == "PartUsage" and element.get("containerName")
-        }
+        contract = flexo_syson_bridge.deployment_contract_from_snapshot(snapshot)
+        services = {service["containerName"]: service for service in contract["services"]}
 
+        self.assertEqual(9, contract["serviceCount"])
         self.assertEqual(
             {
                 "auth-service",
@@ -155,6 +153,19 @@ class BridgeRenderTests(unittest.TestCase):
         self.assertEqual(18083, services["flexo-sysmlv2"]["ports"][0]["defaultHostPort"])
         self.assertEqual("/data", services["minio-server"]["mounts"][0]["containerPath"])
         self.assertEqual("deploy/syson/data/postgres", services["syson-database"]["mounts"][0]["hostPath"])
+        self.assertEqual("syson", services["syson-app"]["stackName"])
+
+    def test_deployment_contract_table_is_inspectable(self) -> None:
+        fixture = ROOT / "evals" / "fixtures" / "container-deployment-basic.json"
+        snapshot = json.loads(fixture.read_text(encoding="utf-8"))
+
+        contract = flexo_syson_bridge.deployment_contract_from_snapshot(snapshot)
+        rendered = flexo_syson_bridge.format_deployment_contract_table(contract)
+
+        self.assertIn("CONTAINER", rendered)
+        self.assertIn("flexo-sysmlv2", rendered)
+        self.assertIn("${FLEXO_MMS_SYSMLV2_HOST_PORT:-18083}->8080/tcp", rendered)
+        self.assertIn("deploy/syson/data/postgres->/var/lib/postgresql/data", rendered)
 
 
 if __name__ == "__main__":

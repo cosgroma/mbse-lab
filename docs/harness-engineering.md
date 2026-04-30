@@ -55,6 +55,13 @@ python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
   --namespace-id <syson-root-package-id>
 ```
 
+Inspect the fixture-derived deployment runtime contract before running Docker
+checks with:
+
+```bash
+make deployment-contract
+```
+
 ## Context And Working State
 
 Keep durable context in files, not in chat history:

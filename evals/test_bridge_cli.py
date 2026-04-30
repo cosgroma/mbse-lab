@@ -183,6 +183,55 @@ class CliTests(unittest.TestCase):
         self.assertIn("--namespace-id namespace-1", result.output)
         self.assertIn("--output-dir exports", result.output)
 
+    def test_share_check_passes_for_clean_git_repo(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            cli.run_capture(["git", "init", "-b", "main"], repo)
+            cli.run_capture(["git", "config", "user.email", "test@example.invalid"], repo)
+            cli.run_capture(["git", "config", "user.name", "Test User"], repo)
+            (repo / "README.md").write_text("# Clean\n", encoding="utf-8")
+            cli.run_capture(["git", "add", "README.md"], repo)
+            cli.run_capture(["git", "commit", "-m", "init"], repo)
+
+            result = runner.invoke(cli.main, ["--repo-root", str(repo), "share-check"])
+
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("share-check passed", result.output)
+
+    def test_share_check_flags_tracked_runtime_env(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            cli.run_capture(["git", "init", "-b", "main"], repo)
+            cli.run_capture(["git", "config", "user.email", "test@example.invalid"], repo)
+            cli.run_capture(["git", "config", "user.name", "Test User"], repo)
+            env = repo / "deploy" / "syson" / ".env"
+            env.parent.mkdir(parents=True)
+            env.write_text("SYSON_POSTGRES_PASSWORD=pass" "word\n", encoding="utf-8")
+            cli.run_capture(["git", "add", "-f", "deploy/syson/.env"], repo)
+
+            issues = cli.scan_share_issues(repo)
+
+            self.assertTrue(any("tracked publish-blocked path: deploy/syson/.env" in issue for issue in issues))
+            self.assertTrue(any("tracked secret-like pattern" in issue for issue in issues))
+
+    def test_share_check_flags_untracked_generated_export(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            cli.run_capture(["git", "init", "-b", "main"], repo)
+            cli.run_capture(["git", "config", "user.email", "test@example.invalid"], repo)
+            cli.run_capture(["git", "config", "user.name", "Test User"], repo)
+            export = repo / "exports" / "flexo" / "private.json"
+            export.parent.mkdir(parents=True)
+            export.write_text("{}", encoding="utf-8")
+
+            issues = cli.scan_share_issues(repo)
+
+            self.assertIn("untracked generated export: exports/flexo/private.json", issues)
+
 
 if __name__ == "__main__":
     unittest.main()

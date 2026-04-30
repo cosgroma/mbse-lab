@@ -1,4 +1,4 @@
-.PHONY: help install-cli bootstrap first-model doctor init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify
+.PHONY: help install-cli bootstrap first-model doctor share-check init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify
 
 help:
 	@printf '%s\n' 'MBSE local lab commands:'
@@ -7,11 +7,12 @@ help:
 	@printf '  %-16s %s\n' 'bootstrap' 'Prepare and start the local SysML v2 lab'
 	@printf '  %-16s %s\n' 'first-model' 'Create a tiny Flexo model and import it into SysON'
 	@printf '  %-16s %s\n' 'doctor' 'Run mbse-lab environment checks'
+	@printf '  %-16s %s\n' 'share-check' 'Check for accidental private data before sharing'
 	@printf '  %-16s %s\n' 'up' 'Start Flexo and SysON'
 	@printf '  %-16s %s\n' 'down' 'Stop Flexo and SysON'
 	@printf '  %-16s %s\n' 'status' 'Check local service status'
 	@printf '  %-16s %s\n' 'diagnostics' 'Collect diagnostics/latest bundle'
-	@printf '  %-16s %s\n' 'check' 'Run static validation and secret scan'
+	@printf '  %-16s %s\n' 'check' 'Run static validation and share checks'
 	@printf '  %-16s %s\n' 'docs-check' 'Validate docs links and command snippets'
 	@printf '  %-16s %s\n' 'docs-build' 'Build the MkDocs documentation site'
 	@printf '  %-16s %s\n' 'docs-serve' 'Serve the MkDocs documentation site locally'
@@ -40,6 +41,9 @@ first-model:
 doctor:
 	mbse-lab doctor
 
+share-check:
+	mbse-lab share-check
+
 up:
 	python3 scripts/flexo_mms_env.py up --wait --timeout 60
 	docker compose -f deploy/syson/docker-compose.yml up -d
@@ -66,7 +70,7 @@ check:
 	$(MAKE) workflow-check
 	$(MAKE) docs-check
 	$(MAKE) eval
-	$(MAKE) secret-scan
+	$(MAKE) share-check
 	git status --short
 
 docs-check:

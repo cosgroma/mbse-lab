@@ -39,6 +39,37 @@ WORKSPACE_DIRS = (
     "runs",
 )
 
+SECRET_PATTERNS = (
+    re.compile("thisissomethingreally" "long"),
+    re.compile("admin" "test"),
+    re.compile("admin" "password"),
+    re.compile("password" "1"),
+    re.compile("password" "2"),
+    re.compile("eyJhb" "Gci"),
+    re.compile("SYSON_POSTGRES_PASSWORD=pass" "word"),
+    re.compile("JWT_SECRET=thi" "s"),
+)
+
+FORBIDDEN_TRACKED_PATHS = (
+    "deploy/flexo-mms/.env",
+    "deploy/syson/.env",
+    "diagnostics/",
+    "runs/",
+    "tmp/",
+    "site/",
+)
+
+FORBIDDEN_TRACKED_PREFIXES = (
+    "deploy/flexo-mms/env/",
+    "deploy/flexo-mms/data/",
+    "deploy/syson/data/postgres/",
+)
+
+FORBIDDEN_UNTRACKED_PREFIXES = (
+    "exports/flexo/",
+    "exports/sysml/",
+)
+
 
 @dataclass(frozen=True)
 class CliContext:
@@ -67,6 +98,13 @@ def run_command(command: list[str], cwd: Path, dry_run: bool = False) -> None:
     completed = subprocess.run(command, cwd=cwd)
     if completed.returncode != 0:
         raise click.ClickException(f"command failed with exit code {completed.returncode}: {' '.join(command)}")
+
+
+def run_capture(command: list[str], cwd: Path) -> str:
+    completed = subprocess.run(command, cwd=cwd, text=True, capture_output=True)
+    if completed.returncode != 0:
+        raise click.ClickException(f"command failed with exit code {completed.returncode}: {' '.join(command)}")
+    return completed.stdout
 
 
 def run_bridge(ctx: click.Context, args: list[str], dry_run: bool = False) -> None:
@@ -331,6 +369,51 @@ def fetch_status(url: str, timeout: float = 2.0) -> int | None:
         return exc.code
     except (OSError, urllib.error.URLError):
         return None
+
+
+def tracked_files(repo_root: Path) -> list[str]:
+    output = run_capture(["git", "ls-files"], repo_root)
+    return [line for line in output.splitlines() if line]
+
+
+def untracked_files(repo_root: Path) -> list[str]:
+    output = run_capture(["git", "ls-files", "--others", "--exclude-standard"], repo_root)
+    return [line for line in output.splitlines() if line]
+
+
+def path_matches(path: str, exact_or_prefix: tuple[str, ...]) -> bool:
+    return any(path == pattern.rstrip("/") or path.startswith(pattern) for pattern in exact_or_prefix)
+
+
+def scan_share_issues(repo_root: Path) -> list[str]:
+    issues: list[str] = []
+    tracked = tracked_files(repo_root)
+    untracked = untracked_files(repo_root)
+
+    for path in tracked:
+        if path_matches(path, FORBIDDEN_TRACKED_PATHS) or path.startswith(FORBIDDEN_TRACKED_PREFIXES):
+            if path.endswith(".example") or path.endswith(".gitkeep"):
+                continue
+            issues.append(f"tracked publish-blocked path: {path}")
+
+    for path in untracked:
+        if path.startswith(FORBIDDEN_UNTRACKED_PREFIXES):
+            issues.append(f"untracked generated export: {path}")
+
+    for path in tracked:
+        full_path = repo_root / path
+        if not full_path.is_file() or full_path.stat().st_size > 1_000_000:
+            continue
+        try:
+            text = full_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        for pattern in SECRET_PATTERNS:
+            if pattern.search(text):
+                issues.append(f"tracked secret-like pattern `{pattern.pattern}` in {path}")
+                break
+
+    return issues
 
 
 def ensure_syson_env(repo_root: Path, dry_run: bool = False) -> None:
@@ -689,6 +772,20 @@ def diagnostics(ctx: click.Context) -> None:
     """Collect a redacted diagnostics bundle."""
     repo_root = require_repo_root(ctx)
     run_command(["python3", "scripts/collect_diagnostics.py"], repo_root)
+
+
+@main.command("share-check")
+@click.pass_context
+def share_check(ctx: click.Context) -> None:
+    """Check for accidental private data before sharing the tooling repo."""
+    repo_root = require_repo_root(ctx)
+    issues = scan_share_issues(repo_root)
+    if issues:
+        click.echo("share-check failed:")
+        for issue in issues:
+            click.echo(f"  - {issue}")
+        raise click.ClickException(f"found {len(issues)} sharing issue(s)")
+    click.echo("share-check passed")
 
 
 @main.group()

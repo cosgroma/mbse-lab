@@ -40,6 +40,6 @@ repos:
 
   - id: secret-scan
     name: Repository secret pattern scan
-    entry: make secret-scan
+    entry: make share-check
     language: system
     pass_filenames: false

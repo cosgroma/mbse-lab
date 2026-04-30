@@ -139,6 +139,15 @@ Collect diagnostics:
 mbse-lab diagnostics
 ```
 
+Check that the tooling repo is safe to share:
+
+```bash
+mbse-lab share-check
+```
+
+The share check flags tracked runtime env files, service data, run logs,
+diagnostics bundles, generated private exports, and known local secret patterns.
+
 List or create Flexo projects:
 
 ```bash

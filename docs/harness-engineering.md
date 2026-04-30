@@ -35,6 +35,7 @@ make help
 make init
 make up
 make status
+make diagnostics
 make check
 make live-eval
 make backup
@@ -141,16 +142,19 @@ Current observability is command/log based:
 ```bash
 make status
 make logs
-docker compose -f deploy/syson/docker-compose.yml logs --tail 100 app
-python3 scripts/flexo_mms_env.py logs --tail 100
+make diagnostics
 ```
 
-If the bridge grows, prefer structured JSON logs for export/render/import runs
-so agent traces can be reviewed without scraping terminal output.
+`make diagnostics` writes a redacted bundle to `diagnostics/latest/` with git
+state, Docker Compose state, service probes, project lists, selected config
+files, and recent logs. The diagnostics directory is ignored by git.
+
+If the bridge grows further, prefer structured JSON logs for export/render/import
+runs so agent traces can be reviewed without scraping terminal output.
 
 ## Recommended Next Steps
 
-1. Add structured JSON diagnostics for `flexo-to-syson` runs.
+1. Add structured JSON run logs for `flexo-to-syson` itself.
 2. Add a doc-gardening check for stale or unlinked workflow docs.
 3. Add a `docs/modeling-conventions.md` section for each newly supported SysML
    v2 element type.

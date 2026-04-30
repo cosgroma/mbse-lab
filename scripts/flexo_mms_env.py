@@ -18,11 +18,9 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-
 DEFAULT_ENV_DIR = Path("deploy/flexo-mms")
 CLUSTER_TRIG_URL = (
-    "https://raw.githubusercontent.com/Open-MBEE/flexo-mms-deployment/"
-    "develop/docker-compose/mount/cluster.trig"
+    "https://raw.githubusercontent.com/Open-MBEE/flexo-mms-deployment/" "develop/docker-compose/mount/cluster.trig"
 )
 
 CORE_CONTAINERS = [
@@ -207,8 +205,7 @@ def run(command: list[str], cwd: Path | None = None, check: bool = True) -> subp
         command,
         cwd=cwd,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
     if check and result.returncode != 0:
         if result.stdout:
@@ -451,7 +448,7 @@ def ensure_initialized(env_dir: Path) -> None:
 def cmd_up(args: argparse.Namespace) -> None:
     ensure_initialized(args.env_dir)
     compose = docker_compose_command()
-    command = compose + ["-f", compose_file_arg(args.env_dir), "up", "-d"]
+    command = [*compose, "-f", compose_file_arg(args.env_dir), "up", "-d"]
     info("Starting Flexo MMS services...")
     result = run(command)
     if result.stdout:
@@ -464,7 +461,7 @@ def cmd_up(args: argparse.Namespace) -> None:
 def cmd_down(args: argparse.Namespace) -> None:
     ensure_initialized(args.env_dir)
     compose = docker_compose_command()
-    command = compose + ["-f", compose_file_arg(args.env_dir), "down"]
+    command = [*compose, "-f", compose_file_arg(args.env_dir), "down"]
     if args.volumes:
         command.append("--volumes")
     result = run(command)
@@ -536,7 +533,7 @@ def wait_for_containers(containers: list[str], timeout: int) -> None:
 def cmd_logs(args: argparse.Namespace) -> None:
     ensure_initialized(args.env_dir)
     compose = docker_compose_command()
-    command = compose + ["-f", compose_file_arg(args.env_dir), "logs"]
+    command = [*compose, "-f", compose_file_arg(args.env_dir), "logs"]
     if args.follow:
         command.append("--follow")
     if args.tail:
@@ -554,7 +551,7 @@ def cmd_token(args: argparse.Namespace) -> None:
     password = args.password or read_env_value(args.env_dir / ".env", "FLEXO_MMS_LDAP_USER01_PASSWORD", "")
     if not password:
         fail("no password provided and FLEXO_MMS_LDAP_USER01_PASSWORD was not found in the generated .env")
-    credentials = f"{args.username}:{password}".encode("utf-8")
+    credentials = f"{args.username}:{password}".encode()
     request = urllib.request.Request(url)
     request.add_header("Authorization", "Basic " + base64.b64encode(credentials).decode("ascii"))
     try:
@@ -650,7 +647,9 @@ def build_parser() -> argparse.ArgumentParser:
     down_parser.set_defaults(func=cmd_down)
 
     status_parser = subparsers.add_parser("status", help="Check expected Docker container status.")
-    status_parser.add_argument("--strict", action="store_true", help="Exit non-zero if any expected container is not running.")
+    status_parser.add_argument(
+        "--strict", action="store_true", help="Exit non-zero if any expected container is not running."
+    )
     status_parser.add_argument("--with-sysmlv2", action="store_true", help="Also check the SysML v2 container.")
     status_parser.set_defaults(func=cmd_status)
 
@@ -669,7 +668,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     backup_parser = subparsers.add_parser("backup", help="Export the live Fuseki dataset to a durable N-Quads file.")
     backup_parser.add_argument("--url", help="Fuseki dataset URL. Defaults to the generated Fuseki host port.")
-    backup_parser.add_argument("--output", type=Path, help="Backup file path. Defaults to deploy/flexo-mms/backups/*.nq.")
+    backup_parser.add_argument(
+        "--output", type=Path, help="Backup file path. Defaults to deploy/flexo-mms/backups/*.nq."
+    )
     backup_parser.add_argument("--timeout", type=int, default=60, help="HTTP timeout in seconds.")
     backup_parser.add_argument(
         "--no-update-init",

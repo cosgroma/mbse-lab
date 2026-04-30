@@ -919,4 +919,3 @@ The model should provide these stakeholder views:
    release-readiness views.
 9. Add security and supply-chain trace fields for artifact repositories,
    container images, boot artifacts, checksums, and secret-handling policies.
-

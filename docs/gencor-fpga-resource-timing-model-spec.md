@@ -954,4 +954,3 @@ The model should provide these stakeholder views:
 7. Import parsed results as SysML analysis result and evidence records.
 8. Build comparison views for utilization, power, timing closure, and
    sample-rate feasibility.
-

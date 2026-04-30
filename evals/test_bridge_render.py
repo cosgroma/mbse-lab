@@ -88,6 +88,45 @@ class BridgeRenderTests(unittest.TestCase):
             ),
         )
 
+    def test_container_deployment_fixture_renders_spec_backbone(self) -> None:
+        fixture = ROOT / "evals" / "fixtures" / "container-deployment-basic.json"
+        snapshot = json.loads(fixture.read_text(encoding="utf-8"))
+
+        rendered = flexo_syson_bridge.render_snapshot(snapshot)
+
+        self.assertEqual(
+            rendered,
+            "\n".join(
+                [
+                    "// Generated from a Flexo SysML v2 REST export.",
+                    "// Project: Container Deployment Fixture",
+                    "// Commit: deployment-commit-1",
+                    "",
+                    "package Container_Deployment_Model {",
+                    "  package Definitions {",
+                    "    part def DeploymentEnvironment;",
+                    "    part def DockerComposeStack;",
+                    "    part def ContainerService;",
+                    "    part def VolumeMount;",
+                    "    part def ApiProbe;",
+                    "  }",
+                    "  package Deployment_Requirements {",
+                    "    requirement def ApiReachabilityRequired;",
+                    "    requirement def VolumePersistenceRequired;",
+                    "    requirement def BackupReadinessRequired;",
+                    "  }",
+                    "  package Deployment_Architecture {",
+                    "    part def MBSELocalLabDeployment {",
+                    "      part flexoMmsStack;",
+                    "      part sysonStack;",
+                    "    }",
+                    "  }",
+                    "}",
+                    "",
+                ]
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

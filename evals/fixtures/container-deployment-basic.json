@@ -1,0 +1,157 @@
+{
+  "branches": [
+    {
+      "@id": "deployment-branch-1",
+      "@type": "Branch",
+      "head": {
+        "@id": "deployment-commit-1"
+      },
+      "name": "Initial"
+    }
+  ],
+  "commit": {
+    "@id": "deployment-commit-1",
+    "@type": "Commit",
+    "description": "Container deployment fixture commit"
+  },
+  "elements": [
+    {
+      "@id": "deployment-package-root",
+      "@type": "Package",
+      "declaredName": "Container Deployment Model",
+      "ownedElement": [
+        {
+          "@id": "deployment-package-definitions"
+        },
+        {
+          "@id": "deployment-package-requirements"
+        },
+        {
+          "@id": "deployment-package-architecture"
+        }
+      ]
+    },
+    {
+      "@id": "deployment-package-definitions",
+      "@type": "Package",
+      "declaredName": "Definitions",
+      "ownedElement": [
+        {
+          "@id": "deployment-environment-definition"
+        },
+        {
+          "@id": "docker-compose-stack-definition"
+        },
+        {
+          "@id": "container-service-definition"
+        },
+        {
+          "@id": "volume-mount-definition"
+        },
+        {
+          "@id": "api-probe-definition"
+        }
+      ]
+    },
+    {
+      "@id": "deployment-environment-definition",
+      "@type": "PartDefinition",
+      "declaredName": "DeploymentEnvironment"
+    },
+    {
+      "@id": "docker-compose-stack-definition",
+      "@type": "PartDefinition",
+      "declaredName": "DockerComposeStack"
+    },
+    {
+      "@id": "container-service-definition",
+      "@type": "PartDefinition",
+      "declaredName": "ContainerService"
+    },
+    {
+      "@id": "volume-mount-definition",
+      "@type": "PartDefinition",
+      "declaredName": "VolumeMount"
+    },
+    {
+      "@id": "api-probe-definition",
+      "@type": "PartDefinition",
+      "declaredName": "ApiProbe"
+    },
+    {
+      "@id": "deployment-package-requirements",
+      "@type": "Package",
+      "declaredName": "Deployment Requirements",
+      "ownedElement": [
+        {
+          "@id": "api-reachability-requirement"
+        },
+        {
+          "@id": "volume-persistence-requirement"
+        },
+        {
+          "@id": "backup-readiness-requirement"
+        }
+      ]
+    },
+    {
+      "@id": "api-reachability-requirement",
+      "@type": "RequirementDefinition",
+      "declaredName": "ApiReachabilityRequired"
+    },
+    {
+      "@id": "volume-persistence-requirement",
+      "@type": "RequirementDefinition",
+      "declaredName": "VolumePersistenceRequired"
+    },
+    {
+      "@id": "backup-readiness-requirement",
+      "@type": "RequirementDefinition",
+      "declaredName": "BackupReadinessRequired"
+    },
+    {
+      "@id": "deployment-package-architecture",
+      "@type": "Package",
+      "declaredName": "Deployment Architecture",
+      "ownedElement": [
+        {
+          "@id": "mbse-local-lab-deployment"
+        }
+      ]
+    },
+    {
+      "@id": "mbse-local-lab-deployment",
+      "@type": "PartDefinition",
+      "declaredName": "MBSELocalLabDeployment",
+      "ownedElement": [
+        {
+          "@id": "flexo-mms-stack"
+        },
+        {
+          "@id": "syson-stack"
+        }
+      ]
+    },
+    {
+      "@id": "flexo-mms-stack",
+      "@type": "PartUsage",
+      "declaredName": "flexoMmsStack"
+    },
+    {
+      "@id": "syson-stack",
+      "@type": "PartUsage",
+      "declaredName": "sysonStack"
+    }
+  ],
+  "project": {
+    "@id": "deployment-project-1",
+    "@type": "Project",
+    "name": "Container Deployment Fixture"
+  },
+  "roots": [
+    {
+      "@id": "deployment-package-root"
+    }
+  ],
+  "source": "flexo-sysmlv2"
+}

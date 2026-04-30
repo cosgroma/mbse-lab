@@ -54,6 +54,15 @@ WORKSPACE_DIRS = (
     "runs",
 )
 
+CLEANUP_PATHS = (
+    "reports",
+    "diagnostics",
+    "runs",
+    "tmp",
+)
+
+OPTIONAL_CLEANUP_PATHS = ("site",)
+
 SECRET_PATTERNS = (
     re.compile("thisissomethingreally" "long"),
     re.compile("admin" "test"),
@@ -568,6 +577,28 @@ def write_report(output_dir: Path, data: dict[str, object]) -> None:
     (output_dir / "index.html").write_text(render_report_html(data), encoding="utf-8")
 
 
+def cleanup_generated(repo_root: Path, include_site: bool, dry_run: bool) -> list[Path]:
+    names = [*CLEANUP_PATHS]
+    if include_site:
+        names.extend(OPTIONAL_CLEANUP_PATHS)
+    removed: list[Path] = []
+    for name in names:
+        path = repo_root / name
+        if not path.exists():
+            continue
+        resolved = path.resolve()
+        if repo_root.resolve() not in (resolved, *resolved.parents):
+            raise click.ClickException(f"refusing to clean path outside repo: {path}")
+        if dry_run:
+            click.echo(f"dry-run: remove {path.relative_to(repo_root)}")
+        elif path.is_dir():
+            shutil.rmtree(path)
+        else:
+            path.unlink()
+        removed.append(path)
+    return removed
+
+
 def doctor_report(repo_root: Path | None) -> dict[str, object]:
     docker_ok = command_exists("docker")
     compose_ok = bool(
@@ -1050,6 +1081,21 @@ def report(ctx: click.Context, output_dir: Path) -> None:
     write_report(resolved_output_dir, data)
     click.echo(f"Wrote report: {resolved_output_dir / 'index.md'}")
     click.echo(f"Wrote report: {resolved_output_dir / 'index.html'}")
+
+
+@main.command()
+@click.option("--include-site", is_flag=True, help="Also remove MkDocs build output under site/.")
+@click.option("--dry-run", is_flag=True, help="Print cleanup targets without removing files.")
+@click.pass_context
+def cleanup(ctx: click.Context, include_site: bool, dry_run: bool) -> None:
+    """Remove generated local reports, diagnostics, run logs, and temporary output."""
+    repo_root = require_repo_root(ctx)
+    removed = cleanup_generated(repo_root, include_site, dry_run)
+    if not removed:
+        click.echo("No generated cleanup targets found.")
+        return
+    verb = "Would remove" if dry_run else "Removed"
+    click.echo(f"{verb} {len(removed)} generated cleanup target(s).")
 
 
 @main.command("share-check")

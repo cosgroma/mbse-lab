@@ -118,6 +118,51 @@ class CliTests(unittest.TestCase):
             self.assertEqual(json.loads((output_dir / "doctor.json").read_text(encoding="utf-8")), doctor)
             self.assertIn("# MBSE Lab Report", (output_dir / "index.md").read_text(encoding="utf-8"))
 
+    def test_cleanup_dry_run_keeps_generated_files(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            generated = repo / "reports" / "latest" / "index.md"
+            generated.parent.mkdir(parents=True)
+            generated.write_text("# Report\n", encoding="utf-8")
+
+            result = runner.invoke(cli.main, ["--repo-root", str(repo), "cleanup", "--dry-run"])
+
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("dry-run: remove reports", result.output)
+            self.assertTrue(generated.exists())
+
+    def test_cleanup_removes_safe_generated_paths_only(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            for relative in (
+                "reports/latest/index.md",
+                "diagnostics/latest/index.md",
+                "runs/flexo-to-syson/run.json",
+                "tmp/scratch.txt",
+                "site/index.html",
+                "exports/flexo/private.json",
+            ):
+                path = repo / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("generated\n", encoding="utf-8")
+
+            result = runner.invoke(cli.main, ["--repo-root", str(repo), "cleanup"])
+
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertFalse((repo / "reports").exists())
+            self.assertFalse((repo / "diagnostics").exists())
+            self.assertFalse((repo / "runs").exists())
+            self.assertFalse((repo / "tmp").exists())
+            self.assertTrue((repo / "site").exists())
+            self.assertTrue((repo / "exports" / "flexo" / "private.json").exists())
+
+            site_result = runner.invoke(cli.main, ["--repo-root", str(repo), "cleanup", "--include-site"])
+
+            self.assertEqual(site_result.exit_code, 0, site_result.output)
+            self.assertFalse((repo / "site").exists())
+
     def test_bootstrap_dry_run_prints_planned_setup_without_touching_workspace(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:

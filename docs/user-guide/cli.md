@@ -36,6 +36,12 @@ The doctor checks Python, Docker, Docker Compose, expected repo files, local
 runtime env files, `MBSE_MODEL_WORKSPACE`, common service ports, and basic Flexo
 and SysON reachability.
 
+Print a structured report for automation:
+
+```bash
+mbse-lab doctor --json-output
+```
+
 ## Bootstrap
 
 Prepare the local lab for first use:
@@ -131,6 +137,12 @@ Run status checks:
 
 ```bash
 mbse-lab status
+```
+
+Print service status as JSON:
+
+```bash
+mbse-lab status --json-output
 ```
 
 Collect diagnostics:

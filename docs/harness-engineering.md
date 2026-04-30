@@ -149,14 +149,18 @@ make diagnostics
 state, Docker Compose state, service probes, project lists, selected config
 files, and recent logs. The diagnostics directory is ignored by git.
 
-If the bridge grows further, prefer structured JSON logs for export/render/import
-runs so agent traces can be reviewed without scraping terminal output.
+`flexo-to-syson` writes a structured JSON run log under
+`runs/flexo-to-syson/` by default. Run logs include inputs, generated artifact
+paths, Flexo project/commit metadata, SysON import metadata, step timings, final
+status, and failure details when a run fails. The `runs/` directory is ignored
+by git.
+
+Use `--run-log <path>` to pin a specific log path for a workflow run.
 
 ## Recommended Next Steps
 
-1. Add structured JSON run logs for `flexo-to-syson` itself.
-2. Add a doc-gardening check for stale or unlinked workflow docs.
-3. Add a `docs/modeling-conventions.md` section for each newly supported SysML
+1. Add a doc-gardening check for stale or unlinked workflow docs.
+2. Add a `docs/modeling-conventions.md` section for each newly supported SysML
    v2 element type.
 
 ## Harness Interpretation For This Repo

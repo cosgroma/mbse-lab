@@ -125,6 +125,8 @@ make diagnostics
 ```
 
 The bundle is written to `diagnostics/latest/` and is ignored by git.
+It includes `deployment-verification.json`, a structured report from the
+fixture-driven Docker runtime verifier.
 
 `flexo-to-syson` writes structured run logs under `runs/flexo-to-syson/` by
 default. That directory is ignored by git. Use `--run-log <path>` when a task

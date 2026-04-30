@@ -1,0 +1,33 @@
+services:
+  database:
+    image: "${SYSON_POSTGRES_IMAGE:-postgres:15}"
+    container_name: syson-database
+    environment:
+      POSTGRES_DB: "${SYSON_POSTGRES_DB:-postgres}"
+      POSTGRES_USER: "${SYSON_POSTGRES_USER:-username}"
+      POSTGRES_PASSWORD: "${SYSON_POSTGRES_PASSWORD:?set SYSON_POSTGRES_PASSWORD in deploy/syson/.env}"
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - syson
+
+  app:
+    image: "${SYSON_IMAGE:-eclipsesyson/syson:v2026.1.0}"
+    container_name: syson-app
+    ports:
+      - "${SYSON_HOST_PORT:-18090}:8080"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://database/${SYSON_POSTGRES_DB:-postgres}
+      SPRING_DATASOURCE_USERNAME: "${SYSON_POSTGRES_USER:-username}"
+      SPRING_DATASOURCE_PASSWORD: "${SYSON_POSTGRES_PASSWORD:?set SYSON_POSTGRES_PASSWORD in deploy/syson/.env}"
+      SIRIUS_COMPONENTS_CORS_ALLOWEDORIGINPATTERNS: "*"
+      SERVER_PORT: 8080
+    depends_on:
+      - database
+    networks:
+      - syson
+
+networks:
+  syson:
+    name: syson-test-network
+    driver: bridge

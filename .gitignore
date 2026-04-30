@@ -31,6 +31,7 @@ deploy/flexo-mms/backups/*
 
 # Temporary output
 tmp/
+site/
 diagnostics/
 runs/
 *.log

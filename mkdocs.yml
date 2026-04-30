@@ -1,0 +1,68 @@
+site_name: MBSE Local Lab
+site_description: Local MBSE lab for Flexo MMS, SysON, SysML v2 model experiments, and SERGEANT model specifications.
+repo_name: mbse
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - toc.follow
+
+plugins:
+  - search
+  - mermaid2
+  - include-markdown
+  - git-revision-date-localized:
+      enable_creation_date: true
+      fallback_to_build_date: true
+  - glightbox
+
+nav:
+  - Home: index.md
+  - Local Lab:
+      - Bridge Workflow: lab/flexo-syson-bridge.md
+      - Harness Engineering: lab/harness-engineering.md
+      - Modeling Conventions: lab/modeling-conventions.md
+  - Methodology:
+      - Verification Model Setup: methodology/sysml-v2-verification-model-setup.md
+      - Transformation Pipeline: methodology/sysml-v2-transformation-pipeline-design.md
+  - Model Specs:
+      - RF Link Budget: model-specs/rf-link-budget.md
+      - CCA Rollup: model-specs/cca-rollup.md
+      - RF to Digital Signal Chain: model-specs/rf-to-digital-signal-chain.md
+      - Container Deployment: model-specs/container-deployment.md
+      - Security Architecture: model-specs/security-architecture.md
+      - Enterprise Architecture: model-specs/enterprise-architecture.md
+  - SERGEANT:
+      - Channel Controller: sergeant/cc-channel-controller.md
+      - GEnCor FPGA Resource and Timing: sergeant/gencor-fpga-resource-timing.md
+      - PGM SDRx Design: sergeant/pgm-sdrx-design.md
+      - Product Line: sergeant/sergeant-enterprise-product-line.md
+  - Plans: plans/README.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - toc:
+      permalink: true
+  - tables

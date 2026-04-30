@@ -24,8 +24,8 @@ Makefile                          Stable command surface for agents and humans
 scripts/flexo_mms_env.py          Environment setup, status, backup, rotation
 scripts/flexo_syson_bridge.py     Flexo/SysON workflow automation
 scripts/check_docs.py             Documentation link and command hygiene checks
-docs/flexo-syson-bridge.md        Bridge details
-docs/modeling-conventions.md       Supported SysML v2 bridge subset
+docs/lab/flexo-syson-bridge.md        Bridge details
+docs/lab/modeling-conventions.md       Supported SysML v2 bridge subset
 docs/plans/README.md               Execution plan conventions
 deploy/*/*.example                Publishable config templates
 ```
@@ -163,12 +163,12 @@ evals/
 ```
 
 The RF link-budget fixture is the first model-spec-derived fixture. It captures
-the backbone of `docs/rf-link-budget-model-spec.md`: a root package,
+the backbone of `docs/model-specs/rf-link-budget.md`: a root package,
 definitions, the `RFLink` part definition, core attributes and parts,
 `MinimumLinkMargin`, and a simple architecture package.
 
 The container deployment fixture captures the backbone of
-`docs/container-deployment-model-spec.md`: deployment definitions, reachability
+`docs/model-specs/container-deployment.md`: deployment definitions, reachability
 and persistence requirements, and a local lab deployment with Flexo and SysON
 stacks. It also carries the runtime contract used by the live deployment eval:
 container names, Compose service names, published port expectations, host port
@@ -201,7 +201,7 @@ Use `--run-log <path>` to pin a specific log path for a workflow run.
 ## Recommended Next Steps
 
 1. Add a doc-gardening check for stale or unlinked workflow docs.
-2. Add a `docs/modeling-conventions.md` section for each newly supported SysML
+2. Add a `docs/lab/modeling-conventions.md` section for each newly supported SysML
    v2 element type.
 
 ## Harness Interpretation For This Repo

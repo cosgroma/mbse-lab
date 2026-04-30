@@ -14,7 +14,8 @@ INDEX_FILES = [
     ROOT / "README.md",
     ROOT / "WORKFLOW.md",
     ROOT / "AGENTS.md",
-    ROOT / "docs" / "harness-engineering.md",
+    ROOT / "docs" / "index.md",
+    ROOT / "docs" / "lab" / "harness-engineering.md",
 ]
 WORKFLOW_FILE = ROOT / "WORKFLOW.md"
 DOC_GLOBS = ["docs/**/*.md", "deploy/**/README.md"]
@@ -105,7 +106,7 @@ def check_discoverability(failures: list[str]) -> None:
         if relative.startswith("docs/plans/active/") or relative.startswith("docs/plans/completed/"):
             continue
         if relative not in index:
-            fail(f"{relative} is not referenced by README.md, AGENTS.md, or docs/harness-engineering.md", failures)
+            fail(f"{relative} is not referenced by README.md, AGENTS.md, docs/index.md, or harness guidance", failures)
 
 
 def check_make_commands(failures: list[str]) -> None:

@@ -1,4 +1,4 @@
-.PHONY: help init up down status logs diagnostics check docs-check workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify
+.PHONY: help init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify
 
 help:
 	@printf '%s\n' 'MBSE local lab commands:'
@@ -9,6 +9,8 @@ help:
 	@printf '  %-16s %s\n' 'diagnostics' 'Collect diagnostics/latest bundle'
 	@printf '  %-16s %s\n' 'check' 'Run static validation and secret scan'
 	@printf '  %-16s %s\n' 'docs-check' 'Validate docs links and command snippets'
+	@printf '  %-16s %s\n' 'docs-build' 'Build the MkDocs documentation site'
+	@printf '  %-16s %s\n' 'docs-serve' 'Serve the MkDocs documentation site locally'
 	@printf '  %-16s %s\n' 'workflow-check' 'Validate WORKFLOW.md policy contract'
 	@printf '  %-16s %s\n' 'eval' 'Run deterministic local evals'
 	@printf '  %-16s %s\n' 'live-eval' 'Run optional live service evals'
@@ -53,6 +55,12 @@ check:
 
 docs-check:
 	python3 scripts/check_docs.py
+
+docs-build:
+	hatch run docs:build
+
+docs-serve:
+	hatch run docs:serve
 
 workflow-check:
 	python3 scripts/check_docs.py --workflow-only

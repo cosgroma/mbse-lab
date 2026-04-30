@@ -25,10 +25,16 @@ review/editing path. Direct live repository sync is not implemented.
 ```text
 README.md                         User-facing setup and workflows
 WORKFLOW.md                       Repo-owned workflow contract for agent work
-docs/flexo-syson-bridge.md        Bridge-specific notes
-docs/harness-engineering.md        Harness design and eval/diagnostics guidance
-docs/modeling-conventions.md       Supported SysML v2 rendering subset
-docs/plans/README.md               Execution plan conventions
+mkdocs.yml                        MkDocs site navigation and build configuration
+pyproject.toml                    Ruff and Hatch environment configuration
+docs/index.md                     Documentation landing page
+docs/lab/flexo-syson-bridge.md   Bridge-specific notes
+docs/lab/harness-engineering.md   Harness design and eval/diagnostics guidance
+docs/lab/modeling-conventions.md  Supported SysML v2 rendering subset
+docs/methodology/                 Reusable SysML v2 method guidance
+docs/model-specs/                 General-purpose model specifications
+docs/sergeant/                    SERGEANT-specific model specifications
+docs/plans/README.md              Execution plan conventions
 deploy/flexo-mms/docker-compose.yml
 deploy/flexo-mms/README.md        Flexo deployment-specific operations
 deploy/syson/docker-compose.yml

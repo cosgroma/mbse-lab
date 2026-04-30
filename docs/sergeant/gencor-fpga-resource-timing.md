@@ -91,10 +91,10 @@ Key local references:
 
 Related local MBSE references:
 
-- `docs/cc-channel-controller-model-spec.md`
-- `docs/rf-to-digital-signal-chain-model-spec.md`
-- `docs/sysml-v2-transformation-pipeline-design.md`
-- `docs/sysml-v2-verification-model-setup.md`
+- `docs/sergeant/cc-channel-controller.md`
+- `docs/model-specs/rf-to-digital-signal-chain.md`
+- `docs/methodology/sysml-v2-transformation-pipeline-design.md`
+- `docs/methodology/sysml-v2-verification-model-setup.md`
 
 ## Source-Derived Facts
 

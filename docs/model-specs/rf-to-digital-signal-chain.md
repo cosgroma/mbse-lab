@@ -53,9 +53,9 @@ The model should be useful as both:
 - OMG SDRP Component Framework volume:
   <https://www.omg.org/spec/SDRP/1.0/Vol3/PDF>
 - Local verification model setup guide:
-  `docs/sysml-v2-verification-model-setup.md`
+  `docs/methodology/sysml-v2-verification-model-setup.md`
 - Local RF link budget model spec:
-  `docs/rf-link-budget-model-spec.md`
+  `docs/model-specs/rf-link-budget.md`
 
 ## MDA Methodology Alignment
 

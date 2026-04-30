@@ -75,14 +75,14 @@ Key local references:
 
 Related local MBSE model specs:
 
-- `docs/pgm-sdrx-design-model-spec.md`
-- `docs/cc-channel-controller-model-spec.md`
-- `docs/gencor-fpga-resource-timing-model-spec.md`
-- `docs/container-deployment-model-spec.md`
-- `docs/security-architecture-model-spec.md`
-- `docs/enterprise-architecture-model-spec.md`
-- `docs/sysml-v2-transformation-pipeline-design.md`
-- `docs/sysml-v2-verification-model-setup.md`
+- `docs/sergeant/pgm-sdrx-design.md`
+- `docs/sergeant/cc-channel-controller.md`
+- `docs/sergeant/gencor-fpga-resource-timing.md`
+- `docs/model-specs/container-deployment.md`
+- `docs/model-specs/security-architecture.md`
+- `docs/model-specs/enterprise-architecture.md`
+- `docs/methodology/sysml-v2-transformation-pipeline-design.md`
+- `docs/methodology/sysml-v2-verification-model-setup.md`
 
 ## Modeling Principle
 
@@ -846,7 +846,7 @@ Example reusable asset summary:
   "repository": "/home/cosgroma/workspace/sergeant/engines/gencor",
   "usedByProducts": ["PGM_SDRx"],
   "usedByVariants": ["magnompgm_sgt_mopd_reprog"],
-  "linkedModel": "docs/gencor-fpga-resource-timing-model-spec.md",
+  "linkedModel": "docs/sergeant/gencor-fpga-resource-timing.md",
   "evidenceStatus": "partial"
 }
 ```

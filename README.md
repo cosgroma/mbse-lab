@@ -22,31 +22,12 @@ editing of imported SysML v2 textual content.
 ```text
 deploy/flexo-mms/          Flexo MMS Docker Compose environment
 deploy/syson/              SysON Docker Compose environment
-docs/flexo-syson-bridge.md Bridge workflow notes
-docs/sysml-v2-verification-model-setup.md
-                           SysML v2 model organization guide for verification
-docs/rf-link-budget-model-spec.md
-                           RF link budget SysML v2 model specification
-docs/cca-rollup-model-spec.md
-                           CCA power, mass, and cost rollup model specification
-docs/rf-to-digital-signal-chain-model-spec.md
-                           RF front-end and digital signal chain model specification
-docs/sysml-v2-transformation-pipeline-design.md
-                           SysML v2 transformation and analysis pipeline design
-docs/container-deployment-model-spec.md
-                           Container deployment and volume verification model specification
-docs/security-architecture-model-spec.md
-                           Security architecture model specification aligned to UAF Security
-docs/enterprise-architecture-model-spec.md
-                           Enterprise architecture model specification aligned to UAF concepts
-docs/cc-channel-controller-model-spec.md
-                           Sergeant PGM Channel Controller SysML v2 model specification
-docs/gencor-fpga-resource-timing-model-spec.md
-                           GEnCor FPGA resource, power, timing, and target trade-study model specification
-docs/pgm-sdrx-design-model-spec.md
-                           PGM SDRx end-to-end software, FPGA, build, deployment, and evidence model specification
-docs/sergeant-enterprise-product-line-model-spec.md
-                           SERGEANT enterprise product-line, reusable asset, build, deployment, and evidence model specification
+docs/index.md              Documentation landing page
+docs/lab/                  Local lab operations and bridge guidance
+docs/methodology/          Reusable SysML v2 setup and transformation guidance
+docs/model-specs/          General-purpose model specifications
+docs/sergeant/             SERGEANT-specific model specifications
+docs/plans/                Active and completed execution plans
 exports/                   Generated Flexo JSON and SysML textual exports
 scripts/flexo_mms_env.py   Flexo environment manager
 scripts/flexo_syson_bridge.py
@@ -57,10 +38,26 @@ scripts/flexo_syson_bridge.py
 
 - Docker with the Compose plugin
 - Python 3.10+
+- Hatch for reproducible Python tooling and MkDocs environments
 - `curl` and `jq` are useful for inspection, but not required by the Python
   scripts
 
 No Python packages are required for the scripts; they use the standard library.
+
+## Documentation Site
+
+The Markdown documentation under `docs/` is organized for MkDocs. Build the site
+through the Hatch-managed docs environment:
+
+```bash
+make docs-build
+```
+
+Serve it locally while editing:
+
+```bash
+make docs-serve
+```
 
 ## Credentials
 

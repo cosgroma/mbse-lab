@@ -46,10 +46,10 @@ The model should be useful as both:
   <https://www.omg.org/spec/SysML/2.0/Language/PDF>
 - OMG KerML specification: <https://www.omg.org/spec/KerML/1.0>
 - Local verification model setup guide:
-  `docs/sysml-v2-verification-model-setup.md`
+  `docs/methodology/sysml-v2-verification-model-setup.md`
 - Local transformation pipeline design:
-  `docs/sysml-v2-transformation-pipeline-design.md`
-- Flexo/SysON bridge notes: `docs/flexo-syson-bridge.md`
+  `docs/methodology/sysml-v2-transformation-pipeline-design.md`
+- Flexo/SysON bridge notes: `docs/lab/flexo-syson-bridge.md`
 - Flexo deployment compose file: `deploy/flexo-mms/docker-compose.yml`
 - SysON deployment compose file: `deploy/syson/docker-compose.yml`
 

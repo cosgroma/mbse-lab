@@ -45,7 +45,7 @@ The model should be useful as both:
 - SysML v2 release repository and examples:
   <https://github.com/Systems-Modeling/SysML-v2-Release>
 - Local verification model setup guide:
-  `docs/sysml-v2-verification-model-setup.md`
+  `docs/methodology/sysml-v2-verification-model-setup.md`
 
 ## MDA Methodology Alignment
 

@@ -1,0 +1,76 @@
+{
+  "branches": [
+    {
+      "@id": "branch-1",
+      "@type": "Branch",
+      "head": {
+        "@id": "commit-1"
+      },
+      "name": "Initial"
+    }
+  ],
+  "commit": {
+    "@id": "commit-1",
+    "@type": "Commit",
+    "description": "Fixture commit"
+  },
+  "elements": [
+    {
+      "@id": "pkg-1",
+      "@type": "Package",
+      "declaredName": "Vehicle Model",
+      "ownedElement": [
+        {
+          "@id": "part-def-1"
+        },
+        {
+          "@id": "req-def-1"
+        }
+      ]
+    },
+    {
+      "@id": "part-def-1",
+      "@type": "PartDefinition",
+      "declaredName": "Transceiver",
+      "ownedElement": [
+        {
+          "@id": "port-1"
+        },
+        {
+          "@id": "attribute-1"
+        }
+      ]
+    },
+    {
+      "@id": "port-1",
+      "@type": "PortUsage",
+      "declaredName": "rf in"
+    },
+    {
+      "@id": "attribute-1",
+      "@type": "AttributeUsage",
+      "declaredName": "gain dB"
+    },
+    {
+      "@id": "req-def-1",
+      "@type": "RequirementDefinition",
+      "declaredName": "Link Budget Requirement"
+    },
+    {
+      "@id": "ignored-1",
+      "@type": "OwningMembership",
+      "declaredName": "NotRendered"
+    }
+  ],
+  "project": {
+    "@id": "project-1",
+    "@type": "Project",
+    "name": "Fixture Project"
+  },
+  "roots": [
+    {
+      "@id": "pkg-1"
+    }
+  ],
+  "source": "flexo-sysmlv2"
+}

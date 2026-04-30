@@ -126,6 +126,10 @@ They currently cover:
 - SysON import: create a disposable SysON project, import rendered `.sysml`,
   verify the expected package appears through SysON REST, and delete the
   project.
+- Deployment runtime: inspect the Flexo and SysON Docker containers, verify the
+  expected containers are running, confirm configured host ports are published,
+  and check persisted bind mounts for Fuseki seed data, MinIO data, and SysON
+  Postgres data.
 
 Run `make live-eval` only when the required local stacks are up.
 
@@ -137,6 +141,7 @@ evals/
   fixtures/container-deployment-basic.json
   fixtures/rf-link-budget-basic.json
   test_bridge_render.py
+  test_live_deployment_runtime.py
   test_live_flexo_export.py
   test_live_syson_import.py
 ```

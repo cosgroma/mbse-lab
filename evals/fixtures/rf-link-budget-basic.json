@@ -1,0 +1,165 @@
+{
+  "branches": [
+    {
+      "@id": "rf-branch-1",
+      "@type": "Branch",
+      "head": {
+        "@id": "rf-commit-1"
+      },
+      "name": "Initial"
+    }
+  ],
+  "commit": {
+    "@id": "rf-commit-1",
+    "@type": "Commit",
+    "description": "RF link budget fixture commit"
+  },
+  "elements": [
+    {
+      "@id": "rf-package-root",
+      "@type": "Package",
+      "declaredName": "RF Link Budget Model",
+      "ownedElement": [
+        {
+          "@id": "rf-package-definitions"
+        },
+        {
+          "@id": "rf-package-requirements"
+        },
+        {
+          "@id": "rf-package-architecture"
+        }
+      ]
+    },
+    {
+      "@id": "rf-package-definitions",
+      "@type": "Package",
+      "declaredName": "Definitions",
+      "ownedElement": [
+        {
+          "@id": "rf-link-definition"
+        }
+      ]
+    },
+    {
+      "@id": "rf-link-definition",
+      "@type": "PartDefinition",
+      "declaredName": "RFLink",
+      "ownedElement": [
+        {
+          "@id": "rf-link-frequency"
+        },
+        {
+          "@id": "rf-link-range"
+        },
+        {
+          "@id": "rf-link-margin"
+        },
+        {
+          "@id": "rf-link-transmitter"
+        },
+        {
+          "@id": "rf-link-tx-antenna"
+        },
+        {
+          "@id": "rf-link-channel"
+        },
+        {
+          "@id": "rf-link-rx-antenna"
+        },
+        {
+          "@id": "rf-link-receiver"
+        },
+        {
+          "@id": "rf-link-modem"
+        }
+      ]
+    },
+    {
+      "@id": "rf-link-frequency",
+      "@type": "AttributeUsage",
+      "declaredName": "frequency_MHz"
+    },
+    {
+      "@id": "rf-link-range",
+      "@type": "AttributeUsage",
+      "declaredName": "range_km"
+    },
+    {
+      "@id": "rf-link-margin",
+      "@type": "AttributeUsage",
+      "declaredName": "linkMargin_dB"
+    },
+    {
+      "@id": "rf-link-transmitter",
+      "@type": "PartUsage",
+      "declaredName": "transmitter"
+    },
+    {
+      "@id": "rf-link-tx-antenna",
+      "@type": "PartUsage",
+      "declaredName": "txAntenna"
+    },
+    {
+      "@id": "rf-link-channel",
+      "@type": "PartUsage",
+      "declaredName": "channel"
+    },
+    {
+      "@id": "rf-link-rx-antenna",
+      "@type": "PartUsage",
+      "declaredName": "rxAntenna"
+    },
+    {
+      "@id": "rf-link-receiver",
+      "@type": "PartUsage",
+      "declaredName": "receiver"
+    },
+    {
+      "@id": "rf-link-modem",
+      "@type": "PartUsage",
+      "declaredName": "modem"
+    },
+    {
+      "@id": "rf-package-requirements",
+      "@type": "Package",
+      "declaredName": "Link Performance Requirements",
+      "ownedElement": [
+        {
+          "@id": "rf-minimum-link-margin"
+        }
+      ]
+    },
+    {
+      "@id": "rf-minimum-link-margin",
+      "@type": "RequirementDefinition",
+      "declaredName": "MinimumLinkMargin"
+    },
+    {
+      "@id": "rf-package-architecture",
+      "@type": "Package",
+      "declaredName": "RF Link Architecture",
+      "ownedElement": [
+        {
+          "@id": "rf-uhf-downlink"
+        }
+      ]
+    },
+    {
+      "@id": "rf-uhf-downlink",
+      "@type": "PartUsage",
+      "declaredName": "uhfDownlink"
+    }
+  ],
+  "project": {
+    "@id": "rf-project-1",
+    "@type": "Project",
+    "name": "RF Link Budget Fixture"
+  },
+  "roots": [
+    {
+      "@id": "rf-package-root"
+    }
+  ],
+  "source": "flexo-sysmlv2"
+}

@@ -134,10 +134,16 @@ The eval directory is:
 ```text
 evals/
   fixtures/flexo-basic-package.json
+  fixtures/rf-link-budget-basic.json
   test_bridge_render.py
   test_live_flexo_export.py
   test_live_syson_import.py
 ```
+
+The RF link-budget fixture is the first model-spec-derived fixture. It captures
+the backbone of `docs/rf-link-budget-model-spec.md`: a root package,
+definitions, the `RFLink` part definition, core attributes and parts,
+`MinimumLinkMargin`, and a simple architecture package.
 
 ## Observability
 

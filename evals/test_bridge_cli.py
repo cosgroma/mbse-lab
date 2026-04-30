@@ -94,6 +94,30 @@ class CliTests(unittest.TestCase):
         self.assertEqual(len(report["containers"]), len(cli.FLEXO_CONTAINERS) + len(cli.SYSON_CONTAINERS))
         self.assertEqual(report["http"]["flexo_projects"]["status"], 200)
 
+    def test_report_command_writes_markdown_html_and_json(self) -> None:
+        runner = CliRunner()
+        doctor = {"status": "passed", "checks": {}}
+        status = {"status": "passed", "containers": [], "http": {}}
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "report"
+            with (
+                mock.patch.object(cli, "doctor_report", return_value=doctor),
+                mock.patch.object(cli, "service_report", return_value=status),
+                mock.patch.object(cli, "scan_share_issues", return_value=[]),
+            ):
+                result = runner.invoke(
+                    cli.main,
+                    ["--repo-root", str(ROOT), "report", "--output-dir", str(output_dir)],
+                )
+
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertTrue((output_dir / "index.md").exists())
+            self.assertTrue((output_dir / "index.html").exists())
+            self.assertTrue((output_dir / "doctor.json").exists())
+            self.assertTrue((output_dir / "status.json").exists())
+            self.assertEqual(json.loads((output_dir / "doctor.json").read_text(encoding="utf-8")), doctor)
+            self.assertIn("# MBSE Lab Report", (output_dir / "index.md").read_text(encoding="utf-8"))
+
     def test_bootstrap_dry_run_prints_planned_setup_without_touching_workspace(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:

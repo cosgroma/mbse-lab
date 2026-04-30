@@ -39,5 +39,6 @@ exports/**
 tmp/
 site/
 diagnostics/
+reports/
 runs/
 *.log

@@ -150,6 +150,14 @@ mbse-lab share-check
 It checks for accidentally tracked runtime env files, service data, generated
 private exports, run logs, diagnostics bundles, and known local secret patterns.
 
+Generate a static local lab report:
+
+```bash
+mbse-lab report
+```
+
+The report writes Markdown, HTML, and JSON snapshots under `reports/latest/`.
+
 ## Credentials
 
 Runtime credential files are intentionally ignored by git:

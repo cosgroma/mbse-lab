@@ -8,7 +8,7 @@ help:
 	@printf '  %-16s %s\n' 'status' 'Check local service status'
 	@printf '  %-16s %s\n' 'check' 'Run static validation and secret scan'
 	@printf '  %-16s %s\n' 'eval' 'Run deterministic local evals'
-	@printf '  %-16s %s\n' 'live-eval' 'Run optional live SysON import eval'
+	@printf '  %-16s %s\n' 'live-eval' 'Run optional live service evals'
 	@printf '  %-16s %s\n' 'backup' 'Export Flexo Fuseki data and refresh startup dataset'
 	@printf '  %-16s %s\n' 'rotate-secrets' 'Regenerate ignored local Flexo runtime secrets'
 	@printf '  %-16s %s\n' 'flexo-list' 'List Flexo SysML v2 projects'

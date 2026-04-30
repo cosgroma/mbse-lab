@@ -107,15 +107,22 @@ make eval
 It loads a tiny Flexo model fixture, renders `.sysml`, and asserts expected
 textual declarations are present. It does not require Docker services.
 
-The optional live SysON import eval is:
+The optional live service evals are:
 
 ```bash
 make live-eval
 ```
 
-It creates a disposable SysON project, imports rendered `.sysml`, verifies the
-expected package appears through SysON REST, and deletes the disposable project.
-Run it only when the SysON stack is up.
+They currently cover:
+
+- Flexo export/render: create a disposable Flexo project, commit a minimal
+  package payload, export through the bridge, render `.sysml`, and delete the
+  project.
+- SysON import: create a disposable SysON project, import rendered `.sysml`,
+  verify the expected package appears through SysON REST, and delete the
+  project.
+
+Run `make live-eval` only when the required local stacks are up.
 
 The eval directory is:
 
@@ -123,6 +130,7 @@ The eval directory is:
 evals/
   fixtures/flexo-basic-package.json
   test_bridge_render.py
+  test_live_flexo_export.py
   test_live_syson_import.py
 ```
 
@@ -142,11 +150,10 @@ so agent traces can be reviewed without scraping terminal output.
 
 ## Recommended Next Steps
 
-1. Add a live Flexo export eval that creates a disposable Flexo project.
-2. Add structured JSON diagnostics for `flexo-to-syson` runs.
+1. Add structured JSON diagnostics for `flexo-to-syson` runs.
+2. Add a doc-gardening check for stale or unlinked workflow docs.
 3. Add a `docs/modeling-conventions.md` section for each newly supported SysML
    v2 element type.
-4. Add a doc-gardening check for stale or unlinked workflow docs.
 
 ## Harness Interpretation For This Repo
 

@@ -4,71 +4,12 @@ import json
 import os
 import subprocess
 import unittest
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-@dataclass(frozen=True)
-class PortExpectation:
-    container_port: str
-    env_name: str
-    default_host_port: str
-
-
-@dataclass(frozen=True)
-class MountExpectation:
-    source: Path
-    destination: str
-
-
-@dataclass(frozen=True)
-class ContainerExpectation:
-    name: str
-    ports: tuple[PortExpectation, ...] = ()
-    mounts: tuple[MountExpectation, ...] = ()
-
-
-EXPECTED_CONTAINERS = (
-    ContainerExpectation("openldap-server"),
-    ContainerExpectation(
-        "quad-server",
-        ports=(PortExpectation("3030/tcp", "FLEXO_MMS_FUSEKI_HOST_PORT", "3030"),),
-        mounts=(MountExpectation(ROOT / "deploy" / "flexo-mms" / "mount", "/tmp/mount"),),
-    ),
-    ContainerExpectation(
-        "minio-server",
-        ports=(PortExpectation("9000/tcp", "FLEXO_MMS_MINIO_HOST_PORT", "9000"),),
-        mounts=(MountExpectation(ROOT / "deploy" / "flexo-mms" / "data" / "minio", "/data"),),
-    ),
-    ContainerExpectation(
-        "auth-service",
-        ports=(PortExpectation("8080/tcp", "FLEXO_MMS_AUTH_HOST_PORT", "8082"),),
-    ),
-    ContainerExpectation(
-        "store-service",
-        ports=(PortExpectation("8080/tcp", "FLEXO_MMS_STORE_HOST_PORT", "8081"),),
-    ),
-    ContainerExpectation(
-        "layer1-service",
-        ports=(PortExpectation("8080/tcp", "FLEXO_MMS_LAYER1_HOST_PORT", "18080"),),
-    ),
-    ContainerExpectation(
-        "flexo-sysmlv2",
-        ports=(PortExpectation("8080/tcp", "FLEXO_MMS_SYSMLV2_HOST_PORT", "18083"),),
-    ),
-    ContainerExpectation(
-        "syson-database",
-        mounts=(MountExpectation(ROOT / "deploy" / "syson" / "data" / "postgres", "/var/lib/postgresql/data"),),
-    ),
-    ContainerExpectation(
-        "syson-app",
-        ports=(PortExpectation("8080/tcp", "SYSON_HOST_PORT", "18090"),),
-    ),
-)
+FIXTURE = ROOT / "evals" / "fixtures" / "container-deployment-basic.json"
 
 
 class LiveDeploymentRuntimeTests(unittest.TestCase):
@@ -76,14 +17,12 @@ class LiveDeploymentRuntimeTests(unittest.TestCase):
         if os.environ.get("MBSE_LIVE_EVAL") != "1":
             self.skipTest("set MBSE_LIVE_EVAL=1 or run `make live-eval` to enable live deployment evals")
         self.env = self.load_compose_env()
+        self.snapshot = json.loads(FIXTURE.read_text(encoding="utf-8"))
 
     def test_container_deployment_fixture_names_runtime_stacks(self) -> None:
-        snapshot = json.loads(
-            (ROOT / "evals" / "fixtures" / "container-deployment-basic.json").read_text(encoding="utf-8")
-        )
         names = {
             element.get("declaredName")
-            for element in snapshot["elements"]
+            for element in self.snapshot["elements"]
             if isinstance(element.get("declaredName"), str)
         }
 
@@ -91,35 +30,64 @@ class LiveDeploymentRuntimeTests(unittest.TestCase):
         self.assertIn("sysonStack", names)
 
     def test_running_containers_match_compose_runtime_contract(self) -> None:
-        for expected in EXPECTED_CONTAINERS:
-            with self.subTest(container=expected.name):
-                container = self.inspect_container(expected.name)
+        expectations = self.container_expectations_from_fixture()
+        self.assertEqual(9, len(expectations), "deployment fixture should model the expected local lab containers")
+
+        for expected in expectations:
+            with self.subTest(container=expected["containerName"]):
+                container = self.inspect_container(expected["containerName"])
                 state = container.get("State", {})
-                self.assertTrue(state.get("Running"), f"{expected.name} is not running: {state.get('Status')}")
+                self.assertTrue(
+                    state.get("Running"),
+                    f"{expected['containerName']} is not running: {state.get('Status')}",
+                )
                 self.assert_expected_ports(container, expected)
                 self.assert_expected_mounts(container, expected)
 
-    def assert_expected_ports(self, container: dict[str, Any], expected: ContainerExpectation) -> None:
+    def assert_expected_ports(self, container: dict[str, Any], expected: dict[str, Any]) -> None:
         published_ports = container.get("NetworkSettings", {}).get("Ports") or {}
-        for port in expected.ports:
-            bindings = published_ports.get(port.container_port) or []
+        for port in expected.get("ports", []):
+            protocol = port.get("protocol", "tcp")
+            container_port = f"{port['containerPort']}/{protocol}"
+            bindings = published_ports.get(container_port) or []
             host_ports = {binding.get("HostPort") for binding in bindings}
-            expected_host_port = self.env.get(port.env_name, port.default_host_port)
+            expected_host_port = self.env.get(port["hostPortEnv"], str(port["defaultHostPort"]))
             self.assertIn(
                 expected_host_port,
                 host_ports,
-                f"{expected.name} should publish {port.container_port} on host port {expected_host_port}; "
+                f"{expected['containerName']} should publish {container_port} on host port {expected_host_port}; "
                 f"found {sorted(host_ports)}",
             )
 
-    def assert_expected_mounts(self, container: dict[str, Any], expected: ContainerExpectation) -> None:
+    def assert_expected_mounts(self, container: dict[str, Any], expected: dict[str, Any]) -> None:
         mounts = container.get("Mounts") or []
         by_destination = {mount.get("Destination"): mount for mount in mounts}
-        for mount in expected.mounts:
-            actual = by_destination.get(mount.destination)
-            self.assertIsNotNone(actual, f"{expected.name} should mount {mount.destination}")
-            self.assertEqual("bind", actual.get("Type"))
-            self.assertEqual(os.path.abspath(mount.source), actual.get("Source"))
+        for mount in expected.get("mounts", []):
+            actual = by_destination.get(mount["containerPath"])
+            self.assertIsNotNone(actual, f"{expected['containerName']} should mount {mount['containerPath']}")
+            self.assertEqual(mount.get("type", "bind"), actual.get("Type"))
+            self.assertEqual(os.path.abspath(ROOT / mount["hostPath"]), actual.get("Source"))
+
+    def container_expectations_from_fixture(self) -> list[dict[str, Any]]:
+        expectations = [
+            element
+            for element in self.snapshot["elements"]
+            if element.get("@type") == "PartUsage" and element.get("containerName")
+        ]
+        expectations.sort(key=lambda element: element["containerName"])
+        for element in expectations:
+            self.assertIsInstance(element.get("serviceName"), str)
+            self.assertIsInstance(element.get("containerName"), str)
+            for port in element.get("ports", []):
+                self.assertIsInstance(port.get("containerPort"), int)
+                self.assertIsInstance(port.get("defaultHostPort"), int)
+                self.assertIsInstance(port.get("hostPortEnv"), str)
+                self.assertIsInstance(port.get("protocol", "tcp"), str)
+            for mount in element.get("mounts", []):
+                self.assertIsInstance(mount.get("containerPath"), str)
+                self.assertIsInstance(mount.get("hostPath"), str)
+                self.assertIsInstance(mount.get("type", "bind"), str)
+        return expectations
 
     def inspect_container(self, name: str) -> dict[str, Any]:
         try:

@@ -127,6 +127,35 @@ class BridgeRenderTests(unittest.TestCase):
             ),
         )
 
+    def test_container_deployment_fixture_models_runtime_contract(self) -> None:
+        fixture = ROOT / "evals" / "fixtures" / "container-deployment-basic.json"
+        snapshot = json.loads(fixture.read_text(encoding="utf-8"))
+
+        services = {
+            element["containerName"]: element
+            for element in snapshot["elements"]
+            if element.get("@type") == "PartUsage" and element.get("containerName")
+        }
+
+        self.assertEqual(
+            {
+                "auth-service",
+                "flexo-sysmlv2",
+                "layer1-service",
+                "minio-server",
+                "openldap-server",
+                "quad-server",
+                "store-service",
+                "syson-app",
+                "syson-database",
+            },
+            set(services),
+        )
+        self.assertEqual("FLEXO_MMS_SYSMLV2_HOST_PORT", services["flexo-sysmlv2"]["ports"][0]["hostPortEnv"])
+        self.assertEqual(18083, services["flexo-sysmlv2"]["ports"][0]["defaultHostPort"])
+        self.assertEqual("/data", services["minio-server"]["mounts"][0]["containerPath"])
+        self.assertEqual("deploy/syson/data/postgres", services["syson-database"]["mounts"][0]["hostPath"])
+
 
 if __name__ == "__main__":
     unittest.main()

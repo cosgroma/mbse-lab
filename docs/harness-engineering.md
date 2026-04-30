@@ -127,9 +127,9 @@ They currently cover:
   verify the expected package appears through SysON REST, and delete the
   project.
 - Deployment runtime: inspect the Flexo and SysON Docker containers, verify the
-  expected containers are running, confirm configured host ports are published,
-  and check persisted bind mounts for Fuseki seed data, MinIO data, and SysON
-  Postgres data.
+  containers modeled in `fixtures/container-deployment-basic.json` are running,
+  confirm configured host ports are published, and check persisted bind mounts
+  for Fuseki seed data, MinIO data, and SysON Postgres data.
 
 Run `make live-eval` only when the required local stacks are up.
 
@@ -154,7 +154,9 @@ definitions, the `RFLink` part definition, core attributes and parts,
 The container deployment fixture captures the backbone of
 `docs/container-deployment-model-spec.md`: deployment definitions, reachability
 and persistence requirements, and a local lab deployment with Flexo and SysON
-stacks.
+stacks. It also carries the runtime contract used by the live deployment eval:
+container names, Compose service names, published port expectations, host port
+environment overrides, and persisted bind mounts.
 
 ## Observability
 

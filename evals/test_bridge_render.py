@@ -48,6 +48,46 @@ class BridgeRenderTests(unittest.TestCase):
         self.assertNotIn("OwningMembership", rendered)
         self.assertNotIn("NotRendered", rendered)
 
+    def test_rf_link_budget_fixture_renders_spec_backbone(self) -> None:
+        fixture = ROOT / "evals" / "fixtures" / "rf-link-budget-basic.json"
+        snapshot = json.loads(fixture.read_text(encoding="utf-8"))
+
+        rendered = flexo_syson_bridge.render_snapshot(snapshot)
+
+        self.assertEqual(
+            rendered,
+            "\n".join(
+                [
+                    "// Generated from a Flexo SysML v2 REST export.",
+                    "// Project: RF Link Budget Fixture",
+                    "// Commit: rf-commit-1",
+                    "",
+                    "package RF_Link_Budget_Model {",
+                    "  package Definitions {",
+                    "    part def RFLink {",
+                    "      attribute frequency_MHz;",
+                    "      attribute range_km;",
+                    "      attribute linkMargin_dB;",
+                    "      part transmitter;",
+                    "      part txAntenna;",
+                    "      part channel;",
+                    "      part rxAntenna;",
+                    "      part receiver;",
+                    "      part modem;",
+                    "    }",
+                    "  }",
+                    "  package Link_Performance_Requirements {",
+                    "    requirement def MinimumLinkMargin;",
+                    "  }",
+                    "  package RF_Link_Architecture {",
+                    "    part uhfDownlink;",
+                    "  }",
+                    "}",
+                    "",
+                ]
+            ),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

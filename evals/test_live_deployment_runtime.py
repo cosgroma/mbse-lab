@@ -6,7 +6,6 @@ import sys
 import unittest
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys_path = str(ROOT / "scripts")
 if sys_path not in sys.path:
@@ -35,7 +34,9 @@ class LiveDeploymentRuntimeTests(unittest.TestCase):
 
     def test_running_containers_match_compose_runtime_contract(self) -> None:
         contract = flexo_syson_bridge.deployment_contract_from_snapshot(self.snapshot)
-        self.assertEqual(9, contract["serviceCount"], "deployment fixture should model the expected local lab containers")
+        self.assertEqual(
+            9, contract["serviceCount"], "deployment fixture should model the expected local lab containers"
+        )
 
         report = flexo_syson_bridge.verify_deployment_contract(
             contract,

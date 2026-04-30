@@ -1042,4 +1042,3 @@ The model should provide these stakeholder views:
    verification evidence.
 8. Build initial views for variant catalog, build graph, artifact trace, and
    deployment readiness.
-

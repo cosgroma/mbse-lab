@@ -13,7 +13,6 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-
 DEFAULT_OUTPUT = Path("diagnostics/latest")
 DEFAULT_TIMEOUT = 10
 DEFAULT_LOG_TAIL = 120
@@ -54,8 +53,7 @@ def run(command: list[str], cwd: Path, timeout: int) -> dict[str, object]:
             command,
             cwd=cwd,
             text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             timeout=timeout,
         )
         return {
@@ -245,14 +243,10 @@ def build_manifest(output: Path) -> dict[str, object]:
         "commands": {
             "total": len(command_index),
             "failed": [
-                item
-                for item in command_index
-                if isinstance(item, dict) and item.get("returncode") not in (0, None)
+                item for item in command_index if isinstance(item, dict) and item.get("returncode") not in (0, None)
             ],
             "timedOutOrMissing": [
-                item
-                for item in command_index
-                if isinstance(item, dict) and item.get("returncode") is None
+                item for item in command_index if isinstance(item, dict) and item.get("returncode") is None
             ],
         },
         "http": http_index,

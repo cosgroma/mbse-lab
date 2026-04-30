@@ -23,7 +23,6 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_FLEXO_URL = "http://localhost:18083"
 DEFAULT_LAYER1_URL = "http://localhost:18080"
 DEFAULT_SYSON_URL = "http://localhost:18090"
@@ -179,10 +178,7 @@ def cmd_init_flexo_org(args: argparse.Namespace) -> None:
     if not token:
         fail("no token provided and no FLEXO_AUTH token found in deploy/flexo-mms/env/flexo-sysmlv2.env")
 
-    body = (
-        "@prefix dct: <http://purl.org/dc/terms/> .\n"
-        f'<> dct:title "{args.title}" .\n'
-    ).encode("utf-8")
+    body = ("@prefix dct: <http://purl.org/dc/terms/> .\n" f'<> dct:title "{args.title}" .\n').encode()
     status, raw, _ = request(
         "PUT",
         f"{trim_url(args.layer1_url)}/orgs/{urllib.parse.quote(args.org_id)}",
@@ -403,20 +399,12 @@ def render_snapshot(snapshot: dict[str, Any]) -> str:
     elements = snapshot.get("elements") or []
     roots = snapshot.get("roots") or []
     elements_by_id = {
-        element["@id"]: element
-        for element in elements
-        if isinstance(element, dict) and element.get("@id")
+        element["@id"]: element for element in elements if isinstance(element, dict) and element.get("@id")
     }
-    root_elements = [
-        elements_by_id.get(root.get("@id"), root)
-        for root in roots
-        if isinstance(root, dict)
-    ]
+    root_elements = [elements_by_id.get(root.get("@id"), root) for root in roots if isinstance(root, dict)]
     if not root_elements:
         root_elements = [
-            element
-            for element in elements
-            if isinstance(element, dict) and element.get("@type") in RENDERABLE_TYPES
+            element for element in elements if isinstance(element, dict) and element.get("@type") in RENDERABLE_TYPES
         ]
 
     lines = [
@@ -692,8 +680,7 @@ def verify_deployment_ports(
                 None
                 if passed
                 else (
-                    f"{expected['containerName']} should publish {container_port} "
-                    f"on host port {expected_host_port}"
+                    f"{expected['containerName']} should publish {container_port} " f"on host port {expected_host_port}"
                 ),
             )
         )
@@ -1100,7 +1087,9 @@ def build_parser() -> argparse.ArgumentParser:
     render.add_argument("--output", type=Path)
     render.set_defaults(func=cmd_render_sysml)
 
-    contract = subparsers.add_parser("deployment-contract", help="Print the fixture-derived deployment runtime contract")
+    contract = subparsers.add_parser(
+        "deployment-contract", help="Print the fixture-derived deployment runtime contract"
+    )
     contract.add_argument("--fixture", type=Path, default=DEFAULT_DEPLOYMENT_FIXTURE)
     contract.add_argument("--json", action="store_true")
     contract.set_defaults(func=cmd_deployment_contract)

@@ -9,7 +9,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_FILES = [
     ROOT / "README.md",
@@ -29,7 +28,7 @@ MAKE_TARGET = re.compile(r"\bmake\s+([A-Za-z0-9_.-]+)")
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, cwd=ROOT, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return subprocess.run(command, cwd=ROOT, text=True, capture_output=True)
 
 
 def fail(message: str, failures: list[str]) -> None:

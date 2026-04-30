@@ -1,0 +1,44 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.6.0
+  hooks:
+  - id: trailing-whitespace
+  - id: end-of-file-fixer
+  - id: mixed-line-ending
+    args: [--fix=lf]
+  - id: check-added-large-files
+    args: [--maxkb=2000]
+  - id: check-merge-conflict
+  - id: check-json
+  - id: check-yaml
+  - id: check-toml
+  - id: check-ast
+  - id: debug-statements
+  - id: check-shebang-scripts-are-executable
+
+- repo: https://github.com/charliermarsh/ruff-pre-commit
+  rev: v0.5.7
+  hooks:
+  - id: ruff
+    args: [--fix]
+  - id: ruff-format
+
+- repo: local
+  hooks:
+  - id: py-compile
+    name: Python compile check
+    entry: python3 -m py_compile scripts/flexo_mms_env.py scripts/flexo_syson_bridge.py scripts/collect_diagnostics.py scripts/check_docs.py
+    language: system
+    pass_filenames: false
+
+  - id: docs-check
+    name: Documentation contract check
+    entry: make docs-check
+    language: system
+    pass_filenames: false
+
+  - id: secret-scan
+    name: Repository secret pattern scan
+    entry: make secret-scan
+    language: system
+    pass_filenames: false

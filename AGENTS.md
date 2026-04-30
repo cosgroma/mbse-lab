@@ -25,8 +25,13 @@ review/editing path. Direct live repository sync is not implemented.
 ```text
 README.md                         User-facing setup and workflows
 docs/flexo-syson-bridge.md        Bridge-specific notes
+docs/harness-engineering.md        Harness design and eval/diagnostics guidance
+docs/modeling-conventions.md       Supported SysML v2 rendering subset
+docs/plans/README.md               Execution plan conventions
 deploy/flexo-mms/docker-compose.yml
+deploy/flexo-mms/README.md        Flexo deployment-specific operations
 deploy/syson/docker-compose.yml
+deploy/syson/README.md            SysON deployment-specific operations
 scripts/flexo_mms_env.py          Flexo environment manager
 scripts/flexo_syson_bridge.py     Flexo/SysON bridge CLI
 Makefile                          Stable command targets for routine workflows

@@ -22,7 +22,10 @@ README.md                         User-facing environment guide
 Makefile                          Stable command surface for agents and humans
 scripts/flexo_mms_env.py          Environment setup, status, backup, rotation
 scripts/flexo_syson_bridge.py     Flexo/SysON workflow automation
+scripts/check_docs.py             Documentation link and command hygiene checks
 docs/flexo-syson-bridge.md        Bridge details
+docs/modeling-conventions.md       Supported SysML v2 bridge subset
+docs/plans/README.md               Execution plan conventions
 deploy/*/*.example                Publishable config templates
 ```
 
@@ -37,6 +40,7 @@ make up
 make status
 make diagnostics
 make check
+make docs-check
 make live-eval
 make backup
 make flexo-list

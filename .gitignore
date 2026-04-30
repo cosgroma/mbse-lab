@@ -29,6 +29,12 @@ deploy/syson/.env
 deploy/flexo-mms/backups/*
 !deploy/flexo-mms/backups/.gitkeep
 
+# Generated model snapshots are private by default. Force-add only curated,
+# publishable examples.
+exports/**
+!exports/
+!exports/README.md
+
 # Temporary output
 tmp/
 site/

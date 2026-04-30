@@ -9,6 +9,27 @@ Flexo SysML v2 REST JSON -> SysML v2 textual .sysml -> SysON GraphQL import
 The script is intentionally conservative. It preserves the Flexo JSON export and
 renders a supported subset of SysML v2 textual notation for import into SysON.
 
+## Private Model Workspaces
+
+This repo is the shared tooling repo. Real model data should normally live in a
+separate private workspace or private repository.
+
+Set `MBSE_MODEL_WORKSPACE` before generating artifacts:
+
+```bash
+export MBSE_MODEL_WORKSPACE=~/work/my-private-models
+```
+
+When set, `flexo-export`, `render-sysml`, and `flexo-to-syson` default generated
+artifacts to:
+
+```text
+$MBSE_MODEL_WORKSPACE/exports/
+```
+
+Use explicit `--output` or `--output-dir` paths when a run needs a different
+location.
+
 ## Preflight
 
 Make sure both stacks are running:

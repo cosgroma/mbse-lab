@@ -1,8 +1,9 @@
 # Agent Guide
 
-This repo is a local MBSE lab for OpenMBEE Flexo MMS, Eclipse SysON, and the
-bridge workflow between them. Read `README.md` first for user-facing operations;
-this file is the shorter maintainer guide for future agents.
+This repo is a local SysML v2 lab kit for OpenMBEE Flexo MMS, Eclipse SysON, and
+the bridge workflow between them. It is tooling, not the long-term home for
+private SysML v2 models. Read `README.md` first for user-facing operations; this
+file is the shorter maintainer guide for future agents.
 
 ## What This Repo Does
 
@@ -10,6 +11,8 @@ this file is the shorter maintainer guide for future agents.
 - Runs Eclipse SysON as a graphical SysML v2 editor.
 - Provides `scripts/flexo_syson_bridge.py` to export from Flexo, render a
   conservative SysML v2 textual snapshot, and import it into SysON.
+- Documents a private model workspace pattern so users can keep real models
+  outside this shared tooling repo.
 
 Primary workflow:
 
@@ -28,12 +31,13 @@ WORKFLOW.md                       Repo-owned workflow contract for agent work
 mkdocs.yml                        MkDocs site navigation and build configuration
 pyproject.toml                    Ruff and Hatch environment configuration
 docs/index.md                     Documentation landing page
+docs/user-guide/private-model-workspaces.md
+                                  Private model workspace guidance
 docs/lab/flexo-syson-bridge.md   Bridge-specific notes
 docs/lab/harness-engineering.md   Harness design and eval/diagnostics guidance
 docs/lab/modeling-conventions.md  Supported SysML v2 rendering subset
 docs/methodology/                 Reusable SysML v2 method guidance
 docs/model-specs/                 General-purpose model specifications
-docs/sergeant/                    SERGEANT-specific model specifications
 docs/plans/README.md              Execution plan conventions
 deploy/flexo-mms/docker-compose.yml
 deploy/flexo-mms/README.md        Flexo deployment-specific operations
@@ -44,7 +48,9 @@ scripts/flexo_syson_bridge.py     Flexo/SysON bridge CLI
 Makefile                          Stable command targets for routine workflows
 ```
 
-Generated example output currently lives under `exports/`.
+Only curated, publishable example output should live under `exports/`. Real
+model exports should go to a private model workspace, usually through
+`MBSE_MODEL_WORKSPACE`.
 
 ## Credential Rules
 
@@ -93,6 +99,21 @@ Do not commit service runtime data:
 deploy/flexo-mms/data/
 deploy/flexo-mms/backups/*.nq
 deploy/syson/data/postgres/
+```
+
+Do not commit private model data:
+
+```text
+real .sysml model source
+private Flexo JSON exports
+private rendered SysML snapshots
+private run logs or evidence bundles
+```
+
+Use a separate private workspace for real models:
+
+```bash
+export MBSE_MODEL_WORKSPACE=~/work/my-private-models
 ```
 
 The tracked `deploy/flexo-mms/mount/cluster.trig` is the local startup dataset.

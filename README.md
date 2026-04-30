@@ -1,6 +1,7 @@
-# MBSE Local Lab
+# SysML v2 Local Lab Kit
 
-This directory contains a local MBSE experimentation environment built around:
+This repo is a reusable local lab kit for starting SysML v2 work without making
+this repo the home for the models themselves. It provides:
 
 - OpenMBEE Flexo MMS as the graph-backed model repository and SysML v2 API service.
 - Eclipse SysON as a graphical open-source SysML v2 editor.
@@ -17,18 +18,43 @@ SysON and Flexo are separate repository stacks. Treat Flexo as the durable
 repository path for API-driven experiments, and use SysON for graphical review or
 editing of imported SysML v2 textual content.
 
+## Tooling Repo, Not Model Repo
+
+Use this repo for the container deployment, setup scripts, bridge workflow,
+diagnostics, documentation, and public synthetic fixtures. Keep real SysML v2
+models in a separate private workspace or private repository.
+
+Recommended layout:
+
+```text
+~/work/sysmlv2-lab/             this shared tooling repo
+~/work/my-private-models/       private model workspace or private repo
+```
+
+Set `MBSE_MODEL_WORKSPACE` when you want generated bridge artifacts to default
+outside this repo:
+
+```bash
+export MBSE_MODEL_WORKSPACE=~/work/my-private-models
+```
+
+With that variable set, `flexo-export`, `render-sysml`, and `flexo-to-syson`
+write generated artifacts under `$MBSE_MODEL_WORKSPACE/exports/` unless you pass
+explicit `--output` or `--output-dir` paths. See
+`docs/user-guide/private-model-workspaces.md` for the full boundary.
+
 ## Layout
 
 ```text
 deploy/flexo-mms/          Flexo MMS Docker Compose environment
 deploy/syson/              SysON Docker Compose environment
 docs/index.md              Documentation landing page
+docs/user-guide/           User guidance for private model workspaces
 docs/lab/                  Local lab operations and bridge guidance
 docs/methodology/          Reusable SysML v2 setup and transformation guidance
 docs/model-specs/          General-purpose model specifications
-docs/sergeant/             SERGEANT-specific model specifications
 docs/plans/                Active and completed execution plans
-exports/                   Generated Flexo JSON and SysML textual exports
+exports/                   Curated publishable example exports only
 scripts/flexo_mms_env.py   Flexo environment manager
 scripts/flexo_syson_bridge.py
                            Flexo/SysON bridge and helper CLI

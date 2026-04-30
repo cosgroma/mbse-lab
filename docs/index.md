@@ -1,7 +1,16 @@
-# MBSE Local Lab Documentation
+# SysML v2 Local Lab Documentation
 
-This documentation set supports the local MBSE lab, SysML v2 modeling guidance,
-model specifications, and SERGEANT-specific model planning.
+This documentation set supports the shareable SysML v2 local lab kit, private
+model workspace usage, SysML v2 modeling guidance, and publishable model
+specifications.
+
+## User Guide
+
+```text
+docs/user-guide/private-model-workspaces.md
+                                  How to use this tooling repo while keeping
+                                  real SysML v2 models private
+```
 
 ## Local Lab
 
@@ -34,19 +43,6 @@ docs/model-specs/security-architecture.md
                                   Security architecture model specification aligned to UAF Security
 docs/model-specs/enterprise-architecture.md
                                   Enterprise architecture model specification aligned to UAF concepts
-```
-
-## SERGEANT
-
-```text
-docs/sergeant/cc-channel-controller.md
-                                  Sergeant PGM Channel Controller SysML v2 model specification
-docs/sergeant/gencor-fpga-resource-timing.md
-                                  GEnCor FPGA resource, power, timing, and target trade-study model specification
-docs/sergeant/pgm-sdrx-design.md
-                                  PGM SDRx software, FPGA, build, deployment, and evidence model specification
-docs/sergeant/sergeant-enterprise-product-line.md
-                                  SERGEANT enterprise product-line, reusable asset, build, deployment, and evidence model specification
 ```
 
 ## Plans

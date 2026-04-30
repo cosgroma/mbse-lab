@@ -9,6 +9,8 @@ this MBSE lab.
 ## Harness Goals
 
 - Make a fresh agent productive without rediscovering the repo.
+- Keep this repo shareable as tooling, not as the home for private SysML v2
+  models.
 - Keep runtime credentials and service data out of published history.
 - Make common operations executable through stable commands.
 - Preserve enough state to resume long-running Flexo/SysON experiments.
@@ -24,6 +26,8 @@ Makefile                          Stable command surface for agents and humans
 scripts/flexo_mms_env.py          Environment setup, status, backup, rotation
 scripts/flexo_syson_bridge.py     Flexo/SysON workflow automation
 scripts/check_docs.py             Documentation link and command hygiene checks
+docs/user-guide/private-model-workspaces.md
+                                  Tooling repo versus private model workspace boundary
 docs/lab/flexo-syson-bridge.md        Bridge details
 docs/lab/modeling-conventions.md       Supported SysML v2 bridge subset
 docs/plans/README.md               Execution plan conventions
@@ -80,6 +84,10 @@ Keep durable context in files, not in chat history:
 - `docs/` for workflow decisions and architecture notes.
 - `exports/` for representative generated artifacts.
 
+Keep private SysML v2 model source, Flexo exports, rendered `.sysml` snapshots,
+run evidence, and program-specific analysis results in a separate private
+workspace. Set `MBSE_MODEL_WORKSPACE` when bridge defaults should write there.
+
 When a workflow produces an important Flexo graph state, run:
 
 ```bash
@@ -95,6 +103,14 @@ Credential guardrails:
 - Commit `.example` env files only.
 - Ignore runtime `.env` files and service data.
 - Run `make secret-scan` before publishing.
+
+Model data guardrails:
+
+- Treat this repo as reusable tooling, not a private model repository.
+- Keep real model data outside the repo or in a private repo.
+- Use `MBSE_MODEL_WORKSPACE` or explicit bridge output paths for generated
+  Flexo JSON and `.sysml` files.
+- Commit only synthetic fixtures and curated publishable examples.
 
 Environment guardrails:
 

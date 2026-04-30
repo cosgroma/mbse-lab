@@ -30,12 +30,15 @@ class WorkflowContractTests(unittest.TestCase):
             "make workflow-check",
             "make check",
             "make docs-check",
+            "make docs-build",
+            "make docs-serve",
             "make eval",
             "make live-eval",
             "make deployment-contract",
             "make deployment-verify",
             "make diagnostics",
             "make backup",
+            "hatch run lint:all",
         ):
             with self.subTest(command=command):
                 self.assertIn(command, text)
@@ -48,6 +51,10 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("committed with a focused message", text)
         self.assertIn("recommended next chunk", text)
         self.assertIn("Runtime secrets and local service data are intentionally ignored", text)
+        self.assertIn("docs/plans/active/", text)
+        self.assertIn("docs/plans/completed/", text)
+        self.assertIn("GitHub CI workflow runs pre-commit", text)
+        self.assertIn("documentation is organized for MkDocs", text)
 
 
 if __name__ == "__main__":

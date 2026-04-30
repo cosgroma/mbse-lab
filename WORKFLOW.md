@@ -14,6 +14,10 @@ validation:
   required:
     - make workflow-check
     - make check
+  before_publish:
+    - hatch run lint:all
+  docs_when_docs_change:
+    - make docs-build
   live_when_services_running:
     - make live-eval
     - make deployment-verify
@@ -50,6 +54,18 @@ Keep durable state in files:
 - `runs/` for ignored workflow run logs.
 - `diagnostics/latest/` for ignored diagnostics bundles.
 
+## Task Plans
+
+Small changes do not need checked-in plans. Create a plan under
+`docs/plans/active/` when the task spans multiple chunks, changes persistence
+or credential handling, changes live-service workflows, or needs durable
+decisions beyond chat history.
+
+Each active plan should capture objective, relevant files, planned steps,
+progress, validation commands, decisions, tradeoffs, and follow-up debt. When
+the work is complete, move the plan to `docs/plans/completed/` with the final
+validation and outcome recorded.
+
 ## Required Validation
 
 Run the full deterministic baseline before committing normal code or docs
@@ -79,6 +95,31 @@ contracts, diagnostics formatting, or harness behavior:
 
 ```bash
 make eval
+```
+
+Run the local pre-commit suite before publishing branches or pull requests, and
+after broad mechanical formatting or lint-related changes:
+
+```bash
+hatch run lint:all
+```
+
+The GitHub CI workflow runs pre-commit, the documentation build, and `make
+check`. Local validation should match that before publishing when practical.
+
+## Documentation Site
+
+The documentation is organized for MkDocs. When changing `mkdocs.yml`, docs
+navigation, documentation paths, or MkDocs dependencies, build the site locally:
+
+```bash
+make docs-build
+```
+
+For interactive review of larger documentation changes:
+
+```bash
+make docs-serve
 ```
 
 ## Live Validation

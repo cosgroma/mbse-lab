@@ -39,6 +39,14 @@ docs/security-architecture-model-spec.md
                            Security architecture model specification aligned to UAF Security
 docs/enterprise-architecture-model-spec.md
                            Enterprise architecture model specification aligned to UAF concepts
+docs/cc-channel-controller-model-spec.md
+                           Sergeant PGM Channel Controller SysML v2 model specification
+docs/gencor-fpga-resource-timing-model-spec.md
+                           GEnCor FPGA resource, power, timing, and target trade-study model specification
+docs/pgm-sdrx-design-model-spec.md
+                           PGM SDRx end-to-end software, FPGA, build, deployment, and evidence model specification
+docs/sergeant-enterprise-product-line-model-spec.md
+                           SERGEANT enterprise product-line, reusable asset, build, deployment, and evidence model specification
 exports/                   Generated Flexo JSON and SysML textual exports
 scripts/flexo_mms_env.py   Flexo environment manager
 scripts/flexo_syson_bridge.py

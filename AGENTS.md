@@ -43,6 +43,8 @@ deploy/flexo-mms/docker-compose.yml
 deploy/flexo-mms/README.md        Flexo deployment-specific operations
 deploy/syson/docker-compose.yml
 deploy/syson/README.md            SysON deployment-specific operations
+deploy/view-editor/docker-compose.yml
+deploy/view-editor/README.md      Experimental View Editor compatibility probe
 scripts/flexo_mms_env.py          Flexo environment manager
 scripts/flexo_syson_bridge.py     Flexo/SysON bridge CLI
 Makefile                          Stable command targets for routine workflows

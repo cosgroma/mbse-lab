@@ -85,6 +85,7 @@ the full boundary.
 | --- | --- |
 | [deploy/flexo-mms/](deploy/flexo-mms/README.md) | Flexo MMS Docker Compose environment. |
 | [deploy/syson/](deploy/syson/README.md) | SysON Docker Compose environment. |
+| [deploy/view-editor/](deploy/view-editor/README.md) | Experimental OpenMBEE View Editor compatibility probe. |
 | [docs/index.md](docs/index.md) | Documentation landing page and task router. |
 | [docs/user-guide/](docs/user-guide/cli.md) | CLI, release, and private workspace guidance. |
 | [docs/lab/](docs/lab/flexo-syson-bridge.md) | Local lab operations, bridge behavior, and harness notes. |

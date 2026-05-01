@@ -43,7 +43,8 @@ Primary references:
 - `deploy/flexo-mms/README.md`
 - `scripts/flexo_mms_env.py`
 - `scripts/flexo_syson_bridge.py`
-- Future candidate: `deploy/view-editor/docker-compose.yml`
+- `deploy/view-editor/docker-compose.yml`
+- `deploy/view-editor/README.md`
 - Future candidate: `docs/lab/view-editor-flexo-experiment.md`
 
 ## View Editor Runtime Inventory
@@ -152,6 +153,12 @@ Out of scope for the first spike:
    - Avoid changing the supported Flexo compose file until compatibility is
      proven.
 
+   Status: complete as of 2026-05-01 for the legacy published image. The
+   compose file runs `openmbee/view-editor:3.6.1-omg` on host port `18091`,
+   joins the external `flexo-mms-test-network`, and defaults the View Editor
+   proxy target to `layer1-service:8080`. The target can be changed with
+   `VIEW_EDITOR_MMS_HOST` and `VIEW_EDITOR_MMS_PORT`.
+
 4. Probe backend targets in this order:
 
    - `http://layer1-service:8080` from inside Docker.
@@ -241,12 +248,19 @@ make live-eval
   document/view, element, artifact, and search endpoints. A quick local path
   check found `/authentication` is not present on the Flexo Layer1 or SysML v2
   ports.
+- 2026-05-01: Added the isolated `deploy/view-editor/` experiment for the
+  published `openmbee/view-editor:3.6.1-omg` image. Image inspection showed the
+  container serves on port `9000` and rewrites its proxy config from `VE_HOST`,
+  `VE_MMS_HOST`, and `VE_MMS_PORT`; the compose file exposes it on
+  `http://localhost:18091/` and joins the existing Flexo Docker network without
+  changing the supported Flexo deployment. A runtime smoke check started the
+  container and `curl http://localhost:18091/` returned HTTP 200 after the image
+  completed its Grunt asset build. Validation passed with `docker compose -f
+  deploy/view-editor/docker-compose.yml config --quiet`, `make docs-build`, and
+  `make check`.
 
 ## Follow-Up Debt
 
-- Decide whether the next runtime probe should build View Editor 5.x from
-  source or start with the older published `openmbee/view-editor:3.6.1-omg`
-  image as a legacy baseline.
 - Decide where to store redacted request-trace summaries.
 - If an adapter is needed, define the minimal legacy MMS document/view facade
   required by View Editor.

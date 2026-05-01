@@ -207,6 +207,47 @@ def completion(shell: str) -> None:
     default=True,
     help="Initialize git in --model-workspace when needed.",
 )
+@click.option("--dry-run", is_flag=True, help="Print the planned setup without changing files.")
+@click.pass_context
+def init(
+    ctx: click.Context,
+    model_workspace: Path | None,
+    force_workspace: bool,
+    workspace_git: bool,
+    dry_run: bool,
+) -> None:
+    """Create local runtime env files and optional private workspace layout."""
+    repo_root = require_repo_root(ctx)
+    click.echo(f"Initializing SysML v2 lab files at {repo_root}")
+
+    run_flexo_env(ctx, ["init", "--with-sysmlv2"], dry_run)
+    ensure_syson_env(repo_root, dry_run)
+
+    if model_workspace:
+        workspace_root = initialize_model_workspace(model_workspace, force_workspace, workspace_git, dry_run)
+        click.echo(f"Model workspace: {workspace_root}")
+        click.echo(f"Set it for bridge defaults with: export MBSE_MODEL_WORKSPACE={workspace_root}")
+    elif not os.environ.get("MBSE_MODEL_WORKSPACE"):
+        click.echo("No model workspace configured. Set MBSE_MODEL_WORKSPACE or pass --model-workspace.")
+
+    click.echo("")
+    click.echo("Next:")
+    click.echo("  mbse-lab doctor")
+    click.echo("  mbse-lab services up")
+
+
+@main.command()
+@click.option(
+    "--model-workspace",
+    type=click.Path(path_type=Path),
+    help="Initialize a private model workspace and print the export command.",
+)
+@click.option("--force-workspace", is_flag=True, help="Overwrite generated workspace README.md and .gitignore files.")
+@click.option(
+    "--workspace-git/--no-workspace-git",
+    default=True,
+    help="Initialize git in --model-workspace when needed.",
+)
 @click.option("--skip-start", is_flag=True, help="Prepare files but do not start Flexo or SysON containers.")
 @click.option("--skip-flexo-org", is_flag=True, help="Do not initialize the Flexo SysML v2 org.")
 @click.option("--skip-backup", is_flag=True, help="Do not back up Flexo after org initialization.")

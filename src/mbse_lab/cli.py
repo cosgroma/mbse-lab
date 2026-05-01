@@ -58,6 +58,8 @@ __all__ = (
     "scan_share_issues",
 )
 
+COMPLETION_ENVVAR = "_MBSE_LAB_COMPLETE"
+
 
 @dataclass(frozen=True)
 class CliContext:
@@ -163,6 +165,15 @@ def apply_doctor_fixes(repo_root: Path | None) -> tuple[list[str], list[str]]:
     return fixed, unique_lines(next_steps)
 
 
+def completion_snippet(shell: str) -> str:
+    snippets = {
+        "bash": f'eval "$({COMPLETION_ENVVAR}=bash_source mbse-lab)"',
+        "zsh": f"source <({COMPLETION_ENVVAR}=zsh_source mbse-lab)",
+        "fish": f"{COMPLETION_ENVVAR}=fish_source mbse-lab | source",
+    }
+    return snippets[shell]
+
+
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(__version__, prog_name="mbse-lab")
 @click.option(
@@ -175,6 +186,13 @@ def main(ctx: click.Context, repo_root: Path | None) -> None:
     """Operate the local SysML v2 lab and private model workspaces."""
     resolved_root = repo_root.resolve() if repo_root else find_repo_root()
     ctx.obj = CliContext(repo_root=resolved_root)
+
+
+@main.command()
+@click.argument("shell", type=click.Choice(("bash", "zsh", "fish")))
+def completion(shell: str) -> None:
+    """Print shell completion setup for Bash, Zsh, or Fish."""
+    click.echo(completion_snippet(shell))
 
 
 @main.command()

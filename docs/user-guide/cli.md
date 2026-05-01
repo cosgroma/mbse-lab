@@ -24,6 +24,18 @@ Check the command surface:
 mbse-lab --help
 ```
 
+Print shell completion setup:
+
+```bash
+mbse-lab completion bash
+mbse-lab completion zsh
+mbse-lab completion fish
+```
+
+For the current shell session, evaluate the printed command. To enable
+completion permanently, add the printed line to the matching shell startup file,
+such as `~/.bashrc`, `~/.zshrc`, or `~/.config/fish/config.fish`.
+
 ## Doctor
 
 Run a local environment check:

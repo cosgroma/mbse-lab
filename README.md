@@ -99,6 +99,12 @@ Then inspect the available commands:
 mbse-lab --help
 ```
 
+Print shell completion setup:
+
+```bash
+mbse-lab completion bash
+```
+
 Start with the environment doctor and private workspace initializer:
 
 ```bash

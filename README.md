@@ -89,6 +89,7 @@ the full boundary.
 | [docs/index.md](docs/index.md) | Documentation landing page and task router. |
 | [docs/user-guide/](docs/user-guide/cli.md) | CLI, release, and private workspace guidance. |
 | [docs/lab/](docs/lab/flexo-syson-bridge.md) | Local lab operations, bridge behavior, and harness notes. |
+| [docs/lab/view-editor-flexo-experiment.md](docs/lab/view-editor-flexo-experiment.md) | View Editor compatibility evidence. |
 | [docs/methodology/](docs/methodology/sysml-v2-verification-model-setup.md) | Reusable SysML v2 setup and transformation guidance. |
 | [docs/model-specs/](docs/model-specs/rf-link-budget.md) | General-purpose model specifications. |
 | [docs/plans/](docs/plans/README.md) | Active and completed execution plans. |

@@ -30,6 +30,7 @@ nav:
       - Bridge Workflow: lab/flexo-syson-bridge.md
       - Harness Engineering: lab/harness-engineering.md
       - Modeling Conventions: lab/modeling-conventions.md
+      - View Editor Flexo Experiment: lab/view-editor-flexo-experiment.md
   - Methodology:
       - Verification Model Setup: methodology/sysml-v2-verification-model-setup.md
       - Transformation Pipeline: methodology/sysml-v2-transformation-pipeline-design.md

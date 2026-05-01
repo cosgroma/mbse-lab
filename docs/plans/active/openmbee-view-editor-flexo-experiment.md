@@ -45,7 +45,7 @@ Primary references:
 - `scripts/flexo_syson_bridge.py`
 - `deploy/view-editor/docker-compose.yml`
 - `deploy/view-editor/README.md`
-- Future candidate: `docs/lab/view-editor-flexo-experiment.md`
+- `docs/lab/view-editor-flexo-experiment.md`
 
 ## View Editor Runtime Inventory
 
@@ -166,12 +166,24 @@ Out of scope for the first spike:
    - `http://localhost:18080` from the browser.
    - `http://localhost:18083` from the browser.
 
+   Status: complete as of 2026-05-01 for HTTP-level proxy and backend shape
+   probes. The published View Editor image served the HTML shell for legacy
+   `GET /alfresco/service/...` paths and rejected legacy login POSTs locally.
+   Direct Flexo probes confirmed that Layer1 and SysML v2 do not expose the
+   legacy Alfresco MMS paths; SysML v2 does expose `/projects` as OMG-style
+   project JSON.
+
 5. Capture evidence:
 
    - Browser console errors.
    - Network request method, path, status, and response summary.
    - Container logs from View Editor and Flexo services.
    - Whether any operation reaches a useful model view.
+
+   Status: partial as of 2026-05-01. HTTP and container-log summaries are
+   captured in `docs/lab/view-editor-flexo-experiment.md`. Browser console
+   evidence is still pending and may not add much until a proxying or baseline
+   View Editor setup is available.
 
 6. If direct Flexo integration fails, run or inspect a known legacy MMS/View
    Editor baseline to separate View Editor setup issues from API mismatch.
@@ -258,9 +270,20 @@ make live-eval
   completed its Grunt asset build. Validation passed with `docker compose -f
   deploy/view-editor/docker-compose.yml config --quiet`, `make docs-build`, and
   `make check`.
+- 2026-05-01: Captured request evidence for the published View Editor image
+  against both `layer1-service:8080` and `flexo-sysmlv2:8080`. The image
+  generated the expected proxy config for each target, but legacy
+  `GET /alfresco/service/...` calls returned the View Editor HTML shell and the
+  legacy login POST returned `Cannot POST /alfresco/service/api/login`,
+  indicating the requests did not reach the configured backend. Direct backend
+  probes confirmed the legacy Alfresco MMS paths are absent from both Flexo
+  targets; SysML v2 only returned project data from `/projects` in OMG API
+  shape. The redacted evidence summary is in
+  `docs/lab/view-editor-flexo-experiment.md`. Validation passed with `docker
+  compose -f deploy/view-editor/docker-compose.yml config --quiet`, `make
+  docs-build`, and `make check`.
 
 ## Follow-Up Debt
 
-- Decide where to store redacted request-trace summaries.
 - If an adapter is needed, define the minimal legacy MMS document/view facade
   required by View Editor.

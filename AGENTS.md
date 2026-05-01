@@ -36,6 +36,8 @@ docs/user-guide/private-model-workspaces.md
 docs/lab/flexo-syson-bridge.md   Bridge-specific notes
 docs/lab/harness-engineering.md   Harness design and eval/diagnostics guidance
 docs/lab/modeling-conventions.md  Supported SysML v2 rendering subset
+docs/lab/view-editor-flexo-experiment.md
+                                  View Editor compatibility evidence
 docs/methodology/                 Reusable SysML v2 method guidance
 docs/model-specs/                 General-purpose model specifications
 docs/plans/README.md              Execution plan conventions

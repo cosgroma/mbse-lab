@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_FILES = [
@@ -26,6 +27,7 @@ IGNORED_DOCS = {
 COMMAND_LINE = re.compile(r"^\s*(?:[A-Z0-9_./-]+=\\S+\s+)*(make|python3|docker|curl|git|cp|jq)\b(.+)?$")
 PYTHON_SCRIPT = re.compile(r"python3\s+(scripts/[A-Za-z0-9_.\-/]+\.py)(?:\s+([A-Za-z0-9_-]+))?")
 MAKE_TARGET = re.compile(r"\bmake\s+([A-Za-z0-9_.-]+)")
+MARKDOWN_LINK = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -44,12 +46,26 @@ def tracked_and_untracked_docs() -> list[Path]:
     return sorted(path for path in docs if path.is_file())
 
 
-def visible_index_text() -> str:
-    parts = []
-    for path in INDEX_FILES:
-        if path.exists():
-            parts.append(path.read_text(encoding="utf-8"))
-    return "\n".join(parts)
+def linked_index_paths() -> set[str]:
+    linked: set[str] = set()
+    for source in INDEX_FILES:
+        if not source.exists():
+            continue
+        text = source.read_text(encoding="utf-8")
+        for raw_target in MARKDOWN_LINK.findall(text):
+            target = raw_target.strip().split()[0]
+            if not target or target.startswith("#") or re.match(r"^[a-z][a-z0-9+.-]*:", target, re.IGNORECASE):
+                continue
+            target = unquote(target.split("#", 1)[0].split("?", 1)[0])
+            if not target:
+                continue
+            resolved = (source.parent / target).resolve()
+            try:
+                relative = resolved.relative_to(ROOT)
+            except ValueError:
+                continue
+            linked.add(relative.as_posix())
+    return linked
 
 
 def make_targets() -> set[str]:
@@ -98,15 +114,19 @@ def command_blocks(path: Path) -> list[str]:
 
 
 def check_discoverability(failures: list[str]) -> None:
-    index = visible_index_text()
+    linked_paths = linked_index_paths()
     for path in tracked_and_untracked_docs():
         relative = path.relative_to(ROOT).as_posix()
         if relative in {"README.md", "AGENTS.md"} or relative in IGNORED_DOCS:
             continue
         if relative.startswith("docs/plans/active/") or relative.startswith("docs/plans/completed/"):
             continue
-        if relative not in index:
-            fail(f"{relative} is not referenced by README.md, AGENTS.md, docs/index.md, or harness guidance", failures)
+        if relative not in linked_paths:
+            fail(
+                f"{relative} is not linked from README.md, WORKFLOW.md, AGENTS.md, "
+                "docs/index.md, or harness guidance",
+                failures,
+            )
 
 
 def check_make_commands(failures: list[str]) -> None:

@@ -30,6 +30,19 @@ SysON and Flexo are separate repository stacks. Treat Flexo as the durable
 repository path for API-driven experiments, and use SysON for graphical review or
 editing of imported SysML v2 textual content.
 
+## Common Goals
+
+| I want to... | Use this | Details |
+| --- | --- | --- |
+| Install and inspect the command surface | `make install-cli` and `mbse-lab --help` | [CLI guide](docs/user-guide/cli.md) |
+| Bootstrap the local lab for first use | `mbse-lab bootstrap --model-workspace ~/work/my-private-models` | [CLI bootstrap](docs/user-guide/cli.md#bootstrap) |
+| Keep real model data outside this repo | `export MBSE_MODEL_WORKSPACE=~/work/my-private-models` | [Private model workspaces](docs/user-guide/private-model-workspaces.md) |
+| Create a tiny end-to-end model | `mbse-lab first-model "My First Model"` | [First model](docs/user-guide/cli.md#first-model) |
+| Move a Flexo snapshot into SysON | `mbse-lab bridge run <flexo-project-id>` | [Bridge workflow](docs/lab/flexo-syson-bridge.md) |
+| Check what the bridge can render | Review supported element mappings | [Modeling conventions](docs/lab/modeling-conventions.md) |
+| Collect failure evidence | `mbse-lab diagnostics` | [Harness engineering](docs/lab/harness-engineering.md#observability) |
+| Prepare a release | Run the release checklist | [Release process](docs/user-guide/release-process.md) |
+
 ## Tooling Repo, Not Model Repo
 
 Use this repo for the container deployment, setup scripts, bridge workflow,
@@ -62,25 +75,26 @@ export MBSE_MODEL_WORKSPACE=~/work/my-private-models
 
 With that variable set, `flexo-export`, `render-sysml`, and `flexo-to-syson`
 write generated artifacts under `$MBSE_MODEL_WORKSPACE/exports/` unless you pass
-explicit `--output` or `--output-dir` paths. See
-`docs/user-guide/private-model-workspaces.md` for the full boundary.
+explicit `--output` or `--output-dir` paths. See the
+[private model workspace guide](docs/user-guide/private-model-workspaces.md) for
+the full boundary.
 
 ## Layout
 
-```text
-deploy/flexo-mms/          Flexo MMS Docker Compose environment
-deploy/syson/              SysON Docker Compose environment
-docs/index.md              Documentation landing page
-docs/user-guide/           User guidance for private model workspaces
-docs/lab/                  Local lab operations and bridge guidance
-docs/methodology/          Reusable SysML v2 setup and transformation guidance
-docs/model-specs/          General-purpose model specifications
-docs/plans/                Active and completed execution plans
-exports/                   Curated publishable example exports only
-scripts/flexo_mms_env.py   Flexo environment manager
-scripts/flexo_syson_bridge.py
-                           Flexo/SysON bridge and helper CLI
-```
+| Path | Purpose |
+| --- | --- |
+| [deploy/flexo-mms/](deploy/flexo-mms/README.md) | Flexo MMS Docker Compose environment. |
+| [deploy/syson/](deploy/syson/README.md) | SysON Docker Compose environment. |
+| [docs/index.md](docs/index.md) | Documentation landing page and task router. |
+| [docs/user-guide/](docs/user-guide/cli.md) | CLI, release, and private workspace guidance. |
+| [docs/lab/](docs/lab/flexo-syson-bridge.md) | Local lab operations, bridge behavior, and harness notes. |
+| [docs/methodology/](docs/methodology/sysml-v2-verification-model-setup.md) | Reusable SysML v2 setup and transformation guidance. |
+| [docs/model-specs/](docs/model-specs/rf-link-budget.md) | General-purpose model specifications. |
+| [docs/plans/](docs/plans/README.md) | Active and completed execution plans. |
+| [exports/](exports/README.md) | Curated publishable example exports only. |
+| [WORKFLOW.md](WORKFLOW.md) | Repo-owned workflow contract for agent work. |
+| `scripts/flexo_mms_env.py` | Flexo environment manager. |
+| `scripts/flexo_syson_bridge.py` | Flexo/SysON bridge and helper CLI. |
 
 ## Requirements
 
@@ -101,7 +115,8 @@ through the Hatch-managed docs environment:
 make docs-build
 ```
 
-Release steps are documented in `docs/user-guide/release-process.md`.
+Release steps are documented in the
+[release process](docs/user-guide/release-process.md).
 
 Serve it locally while editing:
 
@@ -246,23 +261,16 @@ cp deploy/syson/.env.example deploy/syson/.env
 
 ## Services
 
-Flexo MMS:
-
-```text
-Layer1 API:     http://localhost:18080
-SysML v2 API:   http://localhost:18083
-Auth login:     http://localhost:8082/login
-Fuseki:         http://localhost:3030
-MinIO:          http://localhost:9000
-```
-
-SysON:
-
-```text
-Web UI:         http://localhost:18090
-GraphQL API:   http://localhost:18090/api/graphql
-REST API docs: http://localhost:18090/v3/api-docs/rest-apis
-```
+| Stack | Endpoint | URL |
+| --- | --- | --- |
+| Flexo MMS | Layer1 API | <http://localhost:18080> |
+| Flexo MMS | SysML v2 API | <http://localhost:18083> |
+| Flexo MMS | Auth login | <http://localhost:8082/login> |
+| Flexo MMS | Fuseki | <http://localhost:3030> |
+| Flexo MMS | MinIO | <http://localhost:9000> |
+| SysON | Web UI | <http://localhost:18090> |
+| SysON | GraphQL API | <http://localhost:18090/api/graphql> |
+| SysON | REST API docs | <http://localhost:18090/v3/api-docs/rest-apis> |
 
 ## Initialize
 
@@ -356,81 +364,21 @@ reset the environment.
 
 ## Common Workflows
 
-### List Flexo Projects
+| Workflow | CLI command | Script command |
+| --- | --- | --- |
+| List Flexo projects | `mbse-lab flexo list` | `python3 scripts/flexo_syson_bridge.py flexo-list-projects` |
+| Create a Flexo SysML v2 project | `mbse-lab flexo create "Example Model"` | `python3 scripts/flexo_syson_bridge.py flexo-create-project "Example Model"` |
+| Export Flexo JSON | `mbse-lab flexo export <flexo-project-id>` | `python3 scripts/flexo_syson_bridge.py flexo-export <flexo-project-id>` |
+| Render JSON to SysML text | `mbse-lab bridge render exports/flexo/<flexo-project-id>.json` | `python3 scripts/flexo_syson_bridge.py render-sysml exports/flexo/<flexo-project-id>.json` |
+| Create a SysON project | `mbse-lab syson create "Imported From Flexo"` | `python3 scripts/flexo_syson_bridge.py syson-create-project "Imported From Flexo"` |
+| Find a SysON import namespace | `mbse-lab syson roots <syson-project-id>` | `python3 scripts/flexo_syson_bridge.py syson-roots <syson-project-id>` |
+| Import a `.sysml` file into SysON | `mbse-lab bridge import exports/sysml/<flexo-project-id>.sysml --project-id <syson-project-id> --namespace-id <syson-root-package-id>` | `python3 scripts/flexo_syson_bridge.py syson-import-text exports/sysml/<flexo-project-id>.sysml --project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
+| Run the full Flexo-to-SysON pipeline | `mbse-lab bridge run <flexo-project-id> --syson-project-id <syson-project-id> --namespace-id <syson-root-package-id>` | `python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> --syson-project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
 
-```bash
-python3 scripts/flexo_syson_bridge.py flexo-list-projects
-```
-
-### Create a Flexo SysML v2 Project
-
-```bash
-python3 scripts/flexo_syson_bridge.py flexo-create-project "Example Model"
-```
-
-### Export Flexo to JSON
-
-```bash
-python3 scripts/flexo_syson_bridge.py flexo-export <flexo-project-id>
-```
-
-Output:
-
-```text
-exports/flexo/<flexo-project-id>.json
-```
-
-### Render Flexo JSON to SysML Text
-
-```bash
-python3 scripts/flexo_syson_bridge.py render-sysml \
-  exports/flexo/<flexo-project-id>.json
-```
-
-Output:
-
-```text
-exports/sysml/<flexo-project-id>.sysml
-```
-
-### Create a SysON Project
-
-```bash
-python3 scripts/flexo_syson_bridge.py syson-create-project "Imported From Flexo"
-```
-
-The command prints the new SysON project ID.
-
-### Find a SysON Import Namespace
-
-SysON imports textual SysML into an existing namespace element, usually the root
-package from a new SysML v2 project:
-
-```bash
-python3 scripts/flexo_syson_bridge.py syson-roots <syson-project-id>
-```
-
-Use the printed package ID as `--namespace-id`.
-
-### Import a `.sysml` File Into SysON
-
-```bash
-python3 scripts/flexo_syson_bridge.py syson-import-text \
-  exports/sysml/<flexo-project-id>.sysml \
-  --project-id <syson-project-id> \
-  --namespace-id <syson-root-package-id>
-```
-
-### Full Flexo to SysON Pipeline
-
-```bash
-python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
-  --syson-project-id <syson-project-id> \
-  --namespace-id <syson-root-package-id>
-```
-
-This writes both intermediate artifacts and imports the rendered `.sysml` file
-into SysON.
+Default artifacts are written under `exports/flexo/` and `exports/sysml/`, or
+under `$MBSE_MODEL_WORKSPACE/exports/` when the private workspace variable is
+set. The [bridge workflow](docs/lab/flexo-syson-bridge.md) has the full command
+sequence and output table.
 
 ## Stop and Restart
 

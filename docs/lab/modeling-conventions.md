@@ -59,3 +59,11 @@ Before adding a new rendered element type:
 Prefer small, verified additions over broad guessed mappings. When Flexo JSON
 shape is unclear, preserve the raw JSON and defer textual rendering until the
 mapping can be tested.
+
+## Related Docs
+
+| Page | Why it matters |
+| --- | --- |
+| [Bridge Workflow](flexo-syson-bridge.md) | Shows where these mappings are used in the Flexo-to-SysON pipeline. |
+| [Transformation Pipeline](../methodology/sysml-v2-transformation-pipeline-design.md) | Describes broader transformation rules for model-derived artifacts. |
+| [Verification Model Setup](../methodology/sysml-v2-verification-model-setup.md) | Provides package and traceability conventions for source model structure. |

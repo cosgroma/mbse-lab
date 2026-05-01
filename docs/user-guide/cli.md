@@ -4,6 +4,19 @@ The `mbse-lab` CLI is the user-facing command surface for this local SysML v2
 lab kit. It wraps the existing Flexo, SysON, bridge, diagnostics, deployment,
 and private workspace workflows behind one command tree.
 
+## Command Map
+
+| Goal | Command family | Start with |
+| --- | --- | --- |
+| Check local setup | `doctor`, `status` | `mbse-lab doctor` |
+| Prepare runtime files | `init`, `bootstrap` | `mbse-lab bootstrap --model-workspace ~/work/my-private-models` |
+| Manage containers | `services` | `mbse-lab services up` |
+| Create a smoke-test model | `first-model` | `mbse-lab first-model "My First Model"` |
+| Keep artifacts private | `workspace` | `mbse-lab workspace init ~/work/my-private-models` |
+| Move snapshots between tools | `flexo`, `syson`, `bridge` | `mbse-lab bridge run <flexo-project-id>` |
+| Collect evidence | `diagnostics`, `report`, `deployment` | `mbse-lab diagnostics` |
+| Prepare sharing | `share-check`, `cleanup` | `mbse-lab share-check` |
+
 ## Install
 
 Install the CLI from this repo in editable mode:
@@ -326,3 +339,12 @@ another directory, pass `--repo-root`:
 ```bash
 mbse-lab --repo-root ~/work/sysmlv2-lab doctor
 ```
+
+## Related Docs
+
+| Page | Why it matters |
+| --- | --- |
+| [Private Model Workspaces](private-model-workspaces.md) | Explains the `MBSE_MODEL_WORKSPACE` boundary used by bridge commands. |
+| [Bridge Workflow](../lab/flexo-syson-bridge.md) | Shows the Flexo export, SysML render, and SysON import sequence. |
+| [Harness Engineering](../lab/harness-engineering.md) | Documents evals, diagnostics, reports, and guardrails behind the CLI. |
+| [Release Process](release-process.md) | Uses the CLI for release smoke tests and share checks. |

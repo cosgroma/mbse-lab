@@ -103,6 +103,7 @@ Start with the environment doctor and private workspace initializer:
 
 ```bash
 mbse-lab doctor
+mbse-lab doctor --fix
 mbse-lab workspace init ~/work/my-private-models
 ```
 

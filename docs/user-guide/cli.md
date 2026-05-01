@@ -42,6 +42,17 @@ Print a structured report for automation:
 mbse-lab doctor --json-output
 ```
 
+Apply low-risk local setup fixes:
+
+```bash
+mbse-lab doctor --fix
+```
+
+The fix mode can create `deploy/syson/.env` from the checked-in example and
+initialize the directory layout for an already configured
+`MBSE_MODEL_WORKSPACE`. It prints remaining commands for Flexo runtime files,
+service startup, or other setup that should stay explicit.
+
 ## Bootstrap
 
 Prepare the local lab for first use:

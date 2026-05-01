@@ -93,6 +93,66 @@ def print_service_urls() -> None:
     click.echo("  SysON GraphQL API:  http://localhost:18090/api/graphql")
 
 
+def unique_lines(lines: list[str]) -> list[str]:
+    seen: set[str] = set()
+    unique = []
+    for line in lines:
+        if line in seen:
+            continue
+        seen.add(line)
+        unique.append(line)
+    return unique
+
+
+def apply_doctor_fixes(repo_root: Path | None) -> tuple[list[str], list[str]]:
+    fixed: list[str] = []
+    next_steps: list[str] = []
+
+    if not repo_root:
+        next_steps.append("mbse-lab --repo-root <path-to-mbse-repo> doctor --fix")
+    else:
+        if not (repo_root / "deploy/flexo-mms/.env").exists():
+            next_steps.append("python3 scripts/flexo_mms_env.py init --with-sysmlv2")
+
+        syson_env = repo_root / "deploy/syson/.env"
+        if not syson_env.exists():
+            ensure_syson_env(repo_root)
+            fixed.append("created deploy/syson/.env from deploy/syson/.env.example")
+
+    workspace = os.environ.get("MBSE_MODEL_WORKSPACE")
+    if workspace:
+        workspace_root = Path(workspace).expanduser()
+        missing_layout = not workspace_root.exists() or any(
+            not (workspace_root / directory).is_dir() for directory in WORKSPACE_DIRS
+        )
+        missing_layout = missing_layout or not (workspace_root / "README.md").exists()
+        missing_layout = missing_layout or not (workspace_root / ".gitignore").exists()
+        if missing_layout:
+            initialized = initialize_model_workspace(workspace_root, force=False, git_init=False)
+            fixed.append(f"initialized model workspace layout at {initialized}")
+    else:
+        next_steps.append("mbse-lab workspace init <private-model-workspace>")
+        next_steps.append("export MBSE_MODEL_WORKSPACE=<private-model-workspace>")
+
+    if not command_exists("docker"):
+        next_steps.append("Install Docker and make the `docker` command available.")
+    elif subprocess.run(["docker", "compose", "version"], capture_output=True, text=True).returncode != 0:
+        next_steps.append("Install the Docker Compose plugin so `docker compose version` succeeds.")
+
+    if repo_root:
+        flexo_reachable = tcp_connects("localhost", 18083)
+        syson_reachable = tcp_connects("localhost", 18090)
+        if not flexo_reachable:
+            next_steps.append("python3 scripts/flexo_mms_env.py up --wait --timeout 60")
+        if not syson_reachable:
+            next_steps.append("docker compose -f deploy/syson/docker-compose.yml up -d")
+        if not flexo_reachable:
+            next_steps.append("python3 scripts/flexo_syson_bridge.py init-flexo-org")
+            next_steps.append("python3 scripts/flexo_mms_env.py backup")
+
+    return fixed, unique_lines(next_steps)
+
+
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(__version__, prog_name="mbse-lab")
 @click.option(
@@ -297,10 +357,28 @@ def first_model(
 
 @main.command()
 @click.option("--json-output", is_flag=True, help="Print a machine-readable JSON report.")
+@click.option("--fix", is_flag=True, help="Apply low-risk local setup fixes and print remaining next commands.")
 @click.pass_context
-def doctor(ctx: click.Context, json_output: bool) -> None:
+def doctor(ctx: click.Context, json_output: bool, fix: bool) -> None:
     """Check local prerequisites, repo layout, workspace settings, and service reachability."""
     repo_root = ctx.find_object(CliContext).repo_root
+    if fix and json_output:
+        raise click.ClickException("--fix cannot be combined with --json-output")
+    if fix:
+        fixed, next_steps = apply_doctor_fixes(repo_root)
+        if fixed:
+            click.echo("Applied fixes:")
+            for item in fixed:
+                click.echo(f"  - {item}")
+        else:
+            click.echo("No automatic fixes were needed.")
+        if next_steps:
+            click.echo("")
+            click.echo("Next commands:")
+            for step in next_steps:
+                click.echo(f"  {step}")
+        click.echo("")
+
     report = doctor_report(repo_root)
     if json_output:
         click.echo(json.dumps(report, indent=2, sort_keys=True))

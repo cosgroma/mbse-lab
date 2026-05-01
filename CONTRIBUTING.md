@@ -41,6 +41,7 @@ mbse-lab doctor
 This repo follows Git Flow:
 
 - Open feature and bugfix work against `develop`.
+- Copilot-authored `copilot/*` branches may target `develop`.
 - Reserve `main` for release and hotfix flow.
 - Keep changes small enough to validate and review.
 - Avoid unrelated refactors in focused fixes.

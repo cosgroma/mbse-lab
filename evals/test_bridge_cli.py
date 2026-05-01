@@ -58,12 +58,14 @@ class CliTests(unittest.TestCase):
 
     def test_doctor_json_outputs_structured_report(self) -> None:
         runner = CliRunner()
-        with (
-            mock.patch.object(cli, "command_exists", return_value=True),
-            mock.patch.object(cli.subprocess, "run", return_value=mock.Mock(returncode=0)),
-            mock.patch.object(cli, "tcp_connects", return_value=False),
-            mock.patch.object(cli, "fetch_status", return_value=None),
-        ):
+        doctor = {
+            "status": "passed",
+            "checks": {
+                "repo_root": {"ok": True, "path": str(ROOT)},
+                "markers": [],
+            },
+        }
+        with mock.patch.object(cli, "doctor_report", return_value=doctor):
             result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "doctor", "--json-output"])
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -74,18 +76,22 @@ class CliTests(unittest.TestCase):
 
     def test_status_json_outputs_structured_report(self) -> None:
         runner = CliRunner()
-        container = {
-            "name": "demo",
-            "exists": True,
-            "running": True,
-            "status": "running",
-            "health": "none",
-            "ports": {},
+        status = {
+            "status": "passed",
+            "containers": [
+                {
+                    "name": "demo",
+                    "exists": True,
+                    "running": True,
+                    "status": "running",
+                    "health": "none",
+                    "ports": {},
+                }
+                for _ in (*cli.FLEXO_CONTAINERS, *cli.SYSON_CONTAINERS)
+            ],
+            "http": {"flexo_projects": {"status": 200}},
         }
-        with (
-            mock.patch.object(cli, "docker_container_report", return_value=container),
-            mock.patch.object(cli, "fetch_status", return_value=200),
-        ):
+        with mock.patch.object(cli, "service_report", return_value=status):
             result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "status", "--json-output"])
 
         self.assertEqual(result.exit_code, 0, result.output)
@@ -98,13 +104,19 @@ class CliTests(unittest.TestCase):
         runner = CliRunner()
         doctor = {"status": "passed", "checks": {}}
         status = {"status": "passed", "containers": [], "http": {}}
+        report_data = {
+            "generated_at": "2026-01-01T00:00:00+00:00",
+            "repo_root": str(ROOT),
+            "model_workspace": None,
+            "service_urls": {},
+            "doctor": doctor,
+            "status": status,
+            "share_issues": [],
+            "diagnostics": {"latest_index": "diagnostics/latest/index.md", "latest_exists": False},
+        }
         with tempfile.TemporaryDirectory() as temp_dir:
             output_dir = Path(temp_dir) / "report"
-            with (
-                mock.patch.object(cli, "doctor_report", return_value=doctor),
-                mock.patch.object(cli, "service_report", return_value=status),
-                mock.patch.object(cli, "scan_share_issues", return_value=[]),
-            ):
+            with mock.patch.object(cli, "report_data", return_value=report_data):
                 result = runner.invoke(
                     cli.main,
                     ["--repo-root", str(ROOT), "report", "--output-dir", str(output_dir)],

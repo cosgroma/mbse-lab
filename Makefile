@@ -72,7 +72,7 @@ diagnostics:
 	python3 scripts/collect_diagnostics.py
 
 check:
-	python3 -m py_compile scripts/flexo_mms_env.py scripts/flexo_syson_bridge.py scripts/collect_diagnostics.py scripts/check_docs.py src/mbse_lab/__init__.py src/mbse_lab/cli.py
+	python3 -m py_compile scripts/flexo_mms_env.py scripts/flexo_syson_bridge.py scripts/collect_diagnostics.py scripts/check_docs.py src/mbse_lab/*.py
 	docker compose -f deploy/flexo-mms/docker-compose.yml config --quiet
 	docker compose -f deploy/syson/docker-compose.yml config --quiet
 	$(MAKE) workflow-check

@@ -65,6 +65,27 @@ initialize the directory layout for an already configured
 `MBSE_MODEL_WORKSPACE`. It prints remaining commands for Flexo runtime files,
 service startup, or other setup that should stay explicit.
 
+## Init
+
+Prepare local runtime env files without starting services:
+
+```bash
+mbse-lab init --model-workspace ~/work/my-private-models
+```
+
+The init command:
+
+- generates Flexo runtime files with SysML v2 enabled
+- creates `deploy/syson/.env` from the publishable example when needed
+- optionally initializes a private model workspace
+- prints next commands for checking and starting the lab
+
+Preview the setup without changing files:
+
+```bash
+mbse-lab init --dry-run --model-workspace ~/work/my-private-models
+```
+
 ## Bootstrap
 
 Prepare the local lab for first use:

@@ -272,6 +272,42 @@ class CliTests(unittest.TestCase):
             self.assertIn(f"dry-run: initialize model workspace {workspace}", result.output)
             self.assertFalse(workspace.exists())
 
+    def test_init_dry_run_prepares_files_without_starting_services(self) -> None:
+        runner = CliRunner()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            workspace = Path(temp_dir) / "workspace"
+            for path in (
+                repo / "deploy/flexo-mms/docker-compose.yml",
+                repo / "deploy/syson/docker-compose.yml",
+                repo / "deploy/syson/.env.example",
+                repo / "scripts/flexo_mms_env.py",
+                repo / "scripts/flexo_syson_bridge.py",
+            ):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("", encoding="utf-8")
+
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(repo),
+                    "init",
+                    "--dry-run",
+                    "--model-workspace",
+                    str(workspace),
+                ],
+            )
+
+            self.assertEqual(result.exit_code, 0, result.output)
+            self.assertIn("dry-run: python3 scripts/flexo_mms_env.py init --with-sysmlv2", result.output)
+            self.assertIn("dry-run: copy deploy/syson/.env.example to deploy/syson/.env", result.output)
+            self.assertIn(f"dry-run: initialize model workspace {workspace}", result.output)
+            self.assertIn("mbse-lab services up", result.output)
+            self.assertNotIn("scripts/flexo_mms_env.py up", result.output)
+            self.assertNotIn("init-flexo-org", result.output)
+            self.assertFalse(workspace.exists())
+
     def test_first_model_dry_run_prints_planned_workflow(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:

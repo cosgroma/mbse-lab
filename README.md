@@ -105,12 +105,12 @@ Print shell completion setup:
 mbse-lab completion bash
 ```
 
-Start with the environment doctor and private workspace initializer:
+Start with file setup and the environment doctor:
 
 ```bash
+mbse-lab init --model-workspace ~/work/my-private-models
 mbse-lab doctor
 mbse-lab doctor --fix
-mbse-lab workspace init ~/work/my-private-models
 ```
 
 The CLI is a user-facing wrapper around the same Flexo, SysON, bridge,
@@ -121,6 +121,9 @@ For first use, run the guided bootstrap:
 ```bash
 mbse-lab bootstrap --model-workspace ~/work/my-private-models
 ```
+
+Use `mbse-lab init` when you only want to generate local env files and optional
+workspace scaffolding without starting containers.
 
 Preview the bootstrap without changing files or starting containers:
 

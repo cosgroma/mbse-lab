@@ -33,7 +33,7 @@ def sanitize_identifier(value: str) -> str:
 
 
 def _generate_syson_env_content(example_path: Path) -> str:
-    """Read the example env file and replace the placeholder password with a random one."""
+    """Read the example env file, replace the placeholder password with a random one, and return the modified content."""
     template = example_path.read_text(encoding="utf-8")
     random_password = secrets.token_urlsafe(24)
     return template.replace(

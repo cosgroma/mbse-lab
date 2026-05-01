@@ -104,6 +104,7 @@ def command_blocks(path: Path) -> list[str]:
                 in_fence = False
                 fence_language = ""
             continue
+        # Process bash, sh, shell, and unfenced (empty language tag) code blocks.
         if not in_fence or fence_language not in {"bash", "sh", "shell", ""}:
             continue
         stripped = line.strip()
@@ -129,6 +130,7 @@ def code_block_lines(path: Path) -> list[str]:
                 in_fence = False
                 fence_language = ""
             continue
+        # Process bash, sh, shell, and unfenced (empty language tag) code blocks.
         if not in_fence or fence_language not in {"bash", "sh", "shell", ""}:
             continue
         stripped = line.strip()

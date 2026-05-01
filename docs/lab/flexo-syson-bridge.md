@@ -83,6 +83,10 @@ The backup matters because the local Fuseki container starts from
 | Import SysML text | `mbse-lab bridge import exports/sysml/<flexo-project-id>.sysml --project-id <syson-project-id> --namespace-id <syson-root-package-id>` | `python3 scripts/flexo_syson_bridge.py syson-import-text exports/sysml/<flexo-project-id>.sysml --project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
 | Run full pipeline | `mbse-lab bridge run <flexo-project-id> --syson-project-id <syson-project-id> --namespace-id <syson-root-package-id>` | `python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> --syson-project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
 
+The roots command resolves the latest SysON REST commit before fetching root
+namespace elements. Use `mbse-lab syson roots <syson-project-id> --json-output`
+when you need the raw root package ID for `--namespace-id`.
+
 For the full pipeline, the expanded script form is:
 
 ```bash

@@ -34,6 +34,11 @@ deploy/flexo-mms/backups/*
 exports/**
 !exports/
 !exports/README.md
+!exports/examples/
+!exports/examples/flexo/
+!exports/examples/sysml/
+!exports/examples/**/*.public.json
+!exports/examples/**/*.public.sysml
 
 # Temporary output
 tmp/

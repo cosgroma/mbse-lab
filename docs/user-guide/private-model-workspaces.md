@@ -58,6 +58,11 @@ paths write generated artifacts under:
 $MBSE_MODEL_WORKSPACE/exports/
 ```
 
+When this variable is unset and no explicit output path is provided,
+model-generating commands fall back to repo-local `exports/` and print a
+warning. Use that fallback only for synthetic, publishable examples or local
+scratch work that will not be shared.
+
 For example:
 
 ```bash

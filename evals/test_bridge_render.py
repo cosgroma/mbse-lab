@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import argparse
+import contextlib
+import io
 import json
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -38,6 +43,57 @@ class BridgeRenderTests(unittest.TestCase):
                 ]
             ),
         )
+
+    def test_syson_roots_resolves_latest_commit_before_fetching_roots(self) -> None:
+        calls: list[tuple[str, str]] = []
+
+        def fake_request_json(method: str, url: str, **_kwargs: object) -> object:
+            calls.append((method, url))
+            if url.endswith("/api/rest/projects/project%201/commits"):
+                return [{"@id": "commit-old"}, {"@id": "commit latest"}]
+            if url.endswith("/api/rest/projects/project%201/commits/commit%20latest/roots"):
+                return [{"@id": "root-1", "@type": "Package", "declaredName": "Root"}]
+            self.fail(f"unexpected request: {method} {url}")
+
+        args = argparse.Namespace(project_id="project 1", syson_url="http://syson.local/", timeout=10, json=True)
+
+        with (
+            mock.patch.object(flexo_syson_bridge, "request_json", side_effect=fake_request_json),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            flexo_syson_bridge.cmd_syson_roots(args)
+
+        self.assertEqual(
+            calls,
+            [
+                ("GET", "http://syson.local/api/rest/projects/project%201/commits"),
+                ("GET", "http://syson.local/api/rest/projects/project%201/commits/commit%20latest/roots"),
+            ],
+        )
+
+    def test_render_warns_when_defaulting_to_repo_local_exports(self) -> None:
+        snapshot = {
+            "project": {"@id": "project-1", "name": "Demo"},
+            "commit": {"@id": "commit-1"},
+            "roots": [{"@id": "root-1", "@type": "Package", "declaredName": "Demo"}],
+            "elements": [{"@id": "root-1", "@type": "Package", "declaredName": "Demo"}],
+        }
+        args = argparse.Namespace(input=Path("snapshot.json"), output=None)
+
+        with tempfile.TemporaryDirectory() as directory:
+            cwd = Path.cwd()
+            os.chdir(directory)
+            try:
+                args.input.write_text(json.dumps(snapshot), encoding="utf-8")
+                with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+                    stderr = io.StringIO()
+                    with contextlib.redirect_stderr(stderr):
+                        flexo_syson_bridge.cmd_render_sysml(args)
+            finally:
+                os.chdir(cwd)
+
+        self.assertIn("warning: MBSE_MODEL_WORKSPACE is unset", stderr.getvalue())
+        self.assertIn("repo-local `exports`", stderr.getvalue())
 
     def test_unsupported_elements_are_not_rendered(self) -> None:
         fixture = ROOT / "evals" / "fixtures" / "flexo-basic-package.json"

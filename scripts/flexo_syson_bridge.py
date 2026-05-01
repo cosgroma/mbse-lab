@@ -80,6 +80,17 @@ def default_output_dir() -> Path:
     return DEFAULT_OUTPUT_DIR
 
 
+def warn_repo_local_exports(output_dir: Path) -> None:
+    print(
+        (
+            f"warning: {MODEL_WORKSPACE_ENV} is unset; generated model artifacts "
+            f"will be written under repo-local `{output_dir}`. Set {MODEL_WORKSPACE_ENV} "
+            "or pass an explicit output path for private model data."
+        ),
+        file=sys.stderr,
+    )
+
+
 def utc_now() -> str:
     return dt.datetime.now(dt.timezone.utc).isoformat()
 
@@ -289,7 +300,10 @@ def cmd_flexo_export(args: argparse.Namespace) -> None:
     snapshot = export_flexo_project(args.flexo_url, args.project_id, args.commit_id, args.timeout)
     output = args.output
     if output is None:
-        output = default_output_dir() / "flexo" / f"{args.project_id}.json"
+        output_dir = default_output_dir()
+        if not os.environ.get(MODEL_WORKSPACE_ENV):
+            warn_repo_local_exports(output_dir)
+        output = output_dir / "flexo" / f"{args.project_id}.json"
     write_json(output, snapshot)
     info(f"Wrote Flexo export: {output}")
 
@@ -783,8 +797,11 @@ def cmd_render_sysml(args: argparse.Namespace) -> None:
     text = render_snapshot(snapshot)
     output = args.output
     if output is None:
+        output_dir = default_output_dir()
+        if not os.environ.get(MODEL_WORKSPACE_ENV):
+            warn_repo_local_exports(output_dir)
         project_id = snapshot.get("project", {}).get("@id", "flexo-export")
-        output = default_output_dir() / "sysml" / f"{project_id}.sysml"
+        output = output_dir / "sysml" / f"{project_id}.sysml"
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(text, encoding="utf-8")
     info(f"Wrote SysML textual export: {output}")
@@ -841,11 +858,29 @@ def cmd_syson_create_project(args: argparse.Namespace) -> None:
     print(json.dumps(result["project"], indent=2))
 
 
+def syson_latest_commit_id(syson_url: str, project_id: str, timeout: int) -> str:
+    commits = request_json(
+        "GET",
+        f"{trim_url(syson_url)}/api/rest/projects/{urllib.parse.quote(project_id, safe='')}/commits",
+        timeout=timeout,
+    )
+    if not isinstance(commits, list) or not commits:
+        fail(f"SysON project has no REST commits: {project_id}")
+    latest_commit = commits[-1]
+    if not isinstance(latest_commit, dict) or "@id" not in latest_commit:
+        fail(f"SysON latest commit was malformed for project {project_id}")
+    return str(latest_commit["@id"])
+
+
 def cmd_syson_roots(args: argparse.Namespace) -> None:
     project_id = args.project_id
+    commit_id = syson_latest_commit_id(args.syson_url, project_id, args.timeout)
     roots = request_json(
         "GET",
-        f"{trim_url(args.syson_url)}/api/rest/projects/{project_id}/commits/{project_id}/roots",
+        (
+            f"{trim_url(args.syson_url)}/api/rest/projects/{urllib.parse.quote(project_id, safe='')}"
+            f"/commits/{urllib.parse.quote(commit_id, safe='')}/roots"
+        ),
         timeout=args.timeout,
     )
     if args.json:
@@ -931,6 +966,9 @@ def cmd_flexo_to_syson(args: argparse.Namespace) -> None:
     run_id = str(uuid.uuid4())
     workflow = "flexo-to-syson"
     log_path = args.run_log or run_log_path(args.run_log_dir, workflow, run_id)
+    output_dir = args.output_dir or default_output_dir()
+    if args.output_dir is None and not os.environ.get(MODEL_WORKSPACE_ENV):
+        warn_repo_local_exports(output_dir)
     started_at = utc_now()
     started_perf = time.perf_counter()
     record: dict[str, Any] = {
@@ -944,7 +982,7 @@ def cmd_flexo_to_syson(args: argparse.Namespace) -> None:
             "syson_project_id": args.syson_project_id,
             "namespace_id": args.namespace_id,
             "editing_context_id_provided": bool(args.editing_context_id),
-            "output_dir": str(args.output_dir),
+            "output_dir": str(output_dir),
             "flexo_url": args.flexo_url,
             "syson_url": args.syson_url,
             "timeout": args.timeout,
@@ -957,7 +995,6 @@ def cmd_flexo_to_syson(args: argparse.Namespace) -> None:
         },
         "steps": [],
     }
-    output_dir = args.output_dir
     export_path = output_dir / "flexo" / f"{args.flexo_project_id}.json"
     sysml_path = output_dir / "sysml" / f"{args.flexo_project_id}.sysml"
     try:
@@ -1151,7 +1188,6 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline.add_argument(
         "--output-dir",
         type=Path,
-        default=default_output_dir(),
         help=(
             "Directory for generated Flexo JSON and SysML files. "
             f"Defaults to ${MODEL_WORKSPACE_ENV}/exports when set, otherwise exports/."

@@ -70,3 +70,11 @@ flowchart LR
 | --- | --- |
 | [Plans](plans/README.md) | Execution plan conventions for active and completed work. |
 | [MVP Feature Catalog](plans/active/mvp-feature-catalog.md) | Current MVP feature status, evidence, gaps, and validation work. |
+| [Usability Remediation](plans/active/usability-remediation.md) | Active work plan for converting the usability review into validated safety, onboarding, and bridge improvements. |
+
+## Reviews
+
+| Page | Use it for |
+| --- | --- |
+| [Usability Review](reviews/usability-review.md) | Static usability assessment and prioritized findings for the local lab kit. |
+| [Recommended Features Review](reviews/recommended-features.md) | Product direction, capability map, milestone recommendations, and feature backlog for the local lab kit. |

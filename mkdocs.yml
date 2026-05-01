@@ -43,6 +43,10 @@ nav:
   - Plans:
       - Overview: plans/README.md
       - MVP Feature Catalog: plans/active/mvp-feature-catalog.md
+      - Usability Remediation: plans/active/usability-remediation.md
+  - Reviews:
+      - Usability Review: reviews/usability-review.md
+      - Recommended Features Review: reviews/recommended-features.md
 
 markdown_extensions:
   - admonition

@@ -107,19 +107,28 @@ def command_to_filename(command: list[str]) -> str:
     return normalized[:140] + ".txt"
 
 
-def collect_commands(output: Path, cwd: Path, timeout: int, log_tail: int) -> None:
-    commands = [
-        ["git", "status", "--short"],
+def diagnostic_commands(log_tail: int, public_safe: bool) -> list[list[str]]:
+    common_commands = [
         ["git", "log", "--oneline", "--decorate", "-5"],
         ["docker", "ps", "--format", "json"],
         ["docker", "compose", "-f", "deploy/flexo-mms/docker-compose.yml", "ps"],
         ["docker", "compose", "-f", "deploy/syson/docker-compose.yml", "ps"],
         ["python3", "scripts/flexo_mms_env.py", "status", "--with-sysmlv2"],
+    ]
+    if public_safe:
+        return common_commands
+    return [
+        ["git", "status", "--short"],
+        *common_commands,
         ["python3", "scripts/flexo_syson_bridge.py", "flexo-list-projects"],
         ["python3", "scripts/flexo_syson_bridge.py", "syson-list-projects"],
         ["docker", "compose", "-f", "deploy/flexo-mms/docker-compose.yml", "logs", "--tail", str(log_tail)],
         ["docker", "compose", "-f", "deploy/syson/docker-compose.yml", "logs", "--tail", str(log_tail), "app"],
     ]
+
+
+def collect_commands(output: Path, cwd: Path, timeout: int, log_tail: int, public_safe: bool) -> None:
+    commands = diagnostic_commands(log_tail, public_safe)
     summary = []
     for command in commands:
         result = run(command, cwd, timeout)
@@ -139,6 +148,12 @@ def collect_commands(output: Path, cwd: Path, timeout: int, log_tail: int) -> No
             f"{result['stderr']}\n"
         )
         write_text(output / "commands" / command_to_filename(command), content)
+    if public_safe:
+        summary.append(
+            {
+                "omitted": "public-safe mode omits git status, project lists, and service logs",
+            }
+        )
     write_json(output / "commands" / "index.json", summary)
 
 
@@ -187,13 +202,22 @@ def collect_deployment_verification(output: Path, cwd: Path, timeout: int) -> No
         )
 
 
-def collect_http(output: Path, timeout: int) -> None:
+def diagnostic_http_endpoints(public_safe: bool) -> dict[str, str]:
     endpoints = {
-        "flexo-projects.json": "http://localhost:18083/projects",
-        "syson-rest-projects.json": "http://localhost:18090/api/rest/projects",
         "syson-root.html.json": "http://localhost:18090/",
         "syson-openapi.json": "http://localhost:18090/v3/api-docs/rest-apis",
     }
+    if public_safe:
+        return endpoints
+    return {
+        "flexo-projects.json": "http://localhost:18083/projects",
+        "syson-rest-projects.json": "http://localhost:18090/api/rest/projects",
+        **endpoints,
+    }
+
+
+def collect_http(output: Path, timeout: int, public_safe: bool) -> None:
+    endpoints = diagnostic_http_endpoints(public_safe)
     summary = {}
     for filename, url in endpoints.items():
         result = fetch(url, timeout)
@@ -271,6 +295,7 @@ def render_manifest_markdown(manifest: dict[str, object]) -> str:
         "",
         f"- Created: {metadata.get('created_at', 'unknown') if isinstance(metadata, dict) else 'unknown'}",
         f"- Working directory: `{metadata.get('cwd', 'unknown') if isinstance(metadata, dict) else 'unknown'}`",
+        ("- Public-safe mode: " f"`{metadata.get('public_safe', False) if isinstance(metadata, dict) else False}`"),
         f"- Deployment verification: `{deployment.get('status', 'unknown') if isinstance(deployment, dict) else 'unknown'}`",
         (
             "- Deployment checks: "
@@ -328,14 +353,16 @@ def cmd_collect(args: argparse.Namespace) -> None:
         "cwd": str(cwd),
         "timeout": args.timeout,
         "log_tail": args.log_tail,
+        "public_safe": args.public_safe,
     }
     write_json(output / "metadata.json", metadata)
-    collect_commands(output, cwd, args.timeout, args.log_tail)
+    collect_commands(output, cwd, args.timeout, args.log_tail, args.public_safe)
     collect_deployment_verification(output, cwd, args.timeout)
-    collect_http(output, args.timeout)
+    collect_http(output, args.timeout, args.public_safe)
     collect_files(output, cwd)
     collect_manifest(output)
-    print(f"Wrote diagnostics bundle: {output}")
+    suffix = " (public-safe)" if args.public_safe else ""
+    print(f"Wrote diagnostics bundle{suffix}: {output}")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -343,6 +370,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     parser.add_argument("--log-tail", type=int, default=DEFAULT_LOG_TAIL)
+    parser.add_argument(
+        "--public-safe",
+        action="store_true",
+        help="Omit project lists and recent service logs from the diagnostics bundle.",
+    )
     return parser
 
 

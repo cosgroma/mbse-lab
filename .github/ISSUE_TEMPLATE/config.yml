@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security reports
+    url: mailto:cosgroma@gmail.com
+    about: Report vulnerabilities, leaked credentials, or private model exposure privately.

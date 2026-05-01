@@ -37,6 +37,21 @@ mbse-lab share-check
 The live smoke pass creates disposable Flexo and SysON projects and writes
 generated artifacts under the private model workspace.
 
+## Troubleshooting Live Smoke
+
+If `syson-app` exits with a Postgres message such as:
+
+```text
+FATAL: password authentication failed for user "username"
+```
+
+then the ignored local `deploy/syson/.env` file probably does not match the
+password stored in the existing `deploy/syson/data/postgres/` runtime data.
+Align the ignored `.env` file with the existing local database password, or
+back up and reset the SysON runtime data before starting SysON again.
+
+Do not commit `deploy/syson/.env` or `deploy/syson/data/postgres/`.
+
 ## Prepare A Release Branch
 
 Start the release from `develop`:

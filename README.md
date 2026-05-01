@@ -1,5 +1,7 @@
 # SysML v2 Local Lab Kit
 
+[![Community profile](https://img.shields.io/badge/dynamic/json?label=community&query=%24.health_percentage&suffix=%25&url=https%3A%2F%2Fapi.github.com%2Frepos%2Fcosgroma%2Fmbse-lab%2Fcommunity%2Fprofile)](https://github.com/cosgroma/mbse-lab/community)
+
 This repo is a reusable local lab kit for starting SysML v2 work without making
 this repo the home for the models themselves. It provides:
 

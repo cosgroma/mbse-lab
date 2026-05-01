@@ -18,6 +18,20 @@ Equivalent explicit command:
 python3 -m pip install -e .
 ```
 
+Install directly from GitHub when you want the command without an editable
+working copy:
+
+```bash
+python3 -m pip install "git+https://github.com/cosgroma/mbse-lab.git"
+```
+
+Install from the active development branch when you want the latest unreleased
+changes:
+
+```bash
+python3 -m pip install "git+https://github.com/cosgroma/mbse-lab.git@develop"
+```
+
 Check the command surface:
 
 ```bash

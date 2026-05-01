@@ -23,9 +23,9 @@ features that still need development or release hardening.
 | Feature | Status | Current evidence | MVP gap |
 | --- | --- | --- | --- |
 | Public repo identity and community readiness | Verified | README badges, MIT license, community files, GitHub community profile reports 100%. | None for MVP. |
-| Git Flow and repository automation | Verified | `git-flow-policy.yml`, CI, Pages workflow, Dependabot targeting `develop`, branch policy runs. | Release merge procedure should be documented before first tagged release. |
+| Git Flow and repository automation | Verified | `git-flow-policy.yml`, CI, Pages workflow, Dependabot targeting `develop`, branch policy runs, release process docs. | Run the release procedure for the first tagged release. |
 | Documentation site | Verified | MkDocs config, docs workflow, GitHub Pages deployment, `make docs-build`. | None for MVP. |
-| Local editable CLI install | Verified | `pyproject.toml`, `mbse-lab` console script, `make install-cli`, CLI docs. | A one-line install-from-GitHub command would improve first-time usability. |
+| CLI install paths | Verified | `pyproject.toml`, `mbse-lab` console script, `make install-cli`, editable install docs, install-from-GitHub docs. | Validate direct GitHub install in a fresh virtual environment before first release. |
 | CLI shell completion | Verified | `mbse-lab completion bash/zsh/fish`, deterministic CLI evals. | None for MVP. |
 | Environment doctor | Verified | `mbse-lab doctor`, JSON output, `doctor --fix`, deterministic CLI evals. | Doctor could produce clearer next-step grouping, but current behavior is MVP-usable. |
 | Local runtime initialization | Verified | `mbse-lab init`, Flexo env generation, SysON env creation, dry-run tests. | Actual first-run smoke should be validated on a clean machine or container host before MVP announcement. |
@@ -61,21 +61,15 @@ features that still need development or release hardening.
    mbse-lab share-check
    ```
 
-2. Add a short release procedure for Git Flow:
-
-   ```text
-   develop -> release/* -> main
-   main tag -> GitHub release
-   main back-merge or sync -> develop
-   ```
-
-3. Add an install-from-GitHub path for users who do not want an editable clone:
+2. Validate direct GitHub install in a fresh virtual environment:
 
    ```bash
-   python3 -m pip install "git+https://github.com/cosgroma/mbse-lab.git"
+   python3 -m venv /tmp/mbse-lab-install-smoke
+   /tmp/mbse-lab-install-smoke/bin/python -m pip install "git+https://github.com/cosgroma/mbse-lab.git@develop"
+   /tmp/mbse-lab-install-smoke/bin/mbse-lab --help
    ```
 
-4. Decide whether the MVP promises only local Docker use or also supports a
+3. Decide whether the MVP promises only local Docker use or also supports a
    remote Flexo/SysON endpoint profile. The current CLI has URL options, but the
    documented happy path is local Docker.
 

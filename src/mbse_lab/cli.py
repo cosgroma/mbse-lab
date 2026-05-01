@@ -504,6 +504,14 @@ def doctor(ctx: click.Context, json_output: bool, fix: bool) -> None:
         status = fetch_status(url)
         warn_mark(label, status is not None and status < 500, f"status={status}" if status else url)
 
+    syson_database_credentials = report["checks"].get("syson_database_credentials")
+    if isinstance(syson_database_credentials, dict):
+        warn_mark(
+            "SysON database credentials",
+            bool(syson_database_credentials.get("ok")),
+            str(syson_database_credentials.get("detail", "")),
+        )
+
     if failures:
         raise click.ClickException(f"doctor found {failures} required failure(s)")
 

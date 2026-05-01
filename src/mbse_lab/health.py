@@ -51,6 +51,28 @@ def tcp_connects(host: str, port: int, timeout: float = 1.0) -> bool:
         return False
 
 
+def read_env_file(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.exists():
+        return values
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip().strip('"').strip("'")
+    return values
+
+
+def has_persisted_data(path: Path) -> bool:
+    if not path.exists():
+        return False
+    try:
+        return any(path.iterdir())
+    except PermissionError:
+        return True
+
+
 def docker_container_report(name: str, repo_root: Path) -> dict[str, object]:
     result = run_capture_result(["docker", "inspect", name], repo_root)
     if result.returncode != 0:
@@ -78,6 +100,94 @@ def docker_container_report(name: str, repo_root: Path) -> dict[str, object]:
         "health": state.get("Health", {}).get("Status", "none"),
         "ports": ports,
     }
+
+
+def syson_database_credential_report(repo_root: Path) -> dict[str, object]:
+    env_path = repo_root / "deploy/syson/.env"
+    data_path = repo_root / "deploy/syson/data/postgres"
+    env_values = read_env_file(env_path)
+    database = env_values.get("SYSON_POSTGRES_DB", "postgres")
+    username = env_values.get("SYSON_POSTGRES_USER", "username")
+    password = env_values.get("SYSON_POSTGRES_PASSWORD")
+    image = env_values.get("SYSON_POSTGRES_IMAGE", "postgres:15")
+    data_exists = has_persisted_data(data_path)
+
+    report: dict[str, object] = {
+        "ok": True,
+        "status": "skipped",
+        "env_path": "deploy/syson/.env",
+        "data_path": "deploy/syson/data/postgres",
+        "env_exists": env_path.exists(),
+        "data_exists": data_exists,
+        "database_container_running": False,
+        "detail": "SysON database credential check skipped.",
+    }
+
+    if not env_path.exists():
+        report.update({"status": "missing-env", "detail": "deploy/syson/.env does not exist."})
+        return report
+    if not data_exists:
+        report.update({"status": "no-data", "detail": "No persisted SysON Postgres data found."})
+        return report
+    if not password:
+        report.update(
+            {
+                "ok": False,
+                "status": "missing-password",
+                "detail": "SYSON_POSTGRES_PASSWORD is missing from deploy/syson/.env.",
+            }
+        )
+        return report
+
+    database_container = docker_container_report("syson-database", repo_root)
+    container_running = bool(database_container.get("running"))
+    report["database_container_running"] = container_running
+    if not container_running:
+        report.update({"status": "database-stopped", "detail": "syson-database is not running."})
+        return report
+
+    result = run_capture_result(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "--pull=never",
+            "--network",
+            "syson-test-network",
+            "-e",
+            f"PGPASSWORD={password}",
+            image,
+            "psql",
+            "-h",
+            "database",
+            "-U",
+            username,
+            "-d",
+            database,
+            "-c",
+            "select 1;",
+        ],
+        repo_root,
+    )
+    if result.returncode == 0:
+        report.update(
+            {
+                "ok": True,
+                "status": "passed",
+                "detail": "deploy/syson/.env password works with the running persisted SysON database.",
+            }
+        )
+        return report
+
+    stderr = result.stderr.strip()
+    if "password authentication failed" in stderr:
+        detail = "deploy/syson/.env password does not match the running persisted SysON database."
+    elif "No such image" in stderr or "pull access denied" in stderr:
+        detail = f"Could not run postgres client image without pulling: {image}."
+    else:
+        detail = "Could not verify SysON database credentials."
+    report.update({"ok": False, "status": "failed", "detail": detail})
+    return report
 
 
 def service_report(repo_root: Path) -> dict[str, object]:
@@ -138,6 +248,8 @@ def doctor_report(repo_root: Path | None) -> dict[str, object]:
             "syson_web": {"status": fetch_status(f"{DEFAULT_SYSON_URL}/")},
         },
     }
+    if repo_root:
+        checks["syson_database_credentials"] = syson_database_credential_report(repo_root)
     required_ok = (
         checks["python"]["ok"]
         and checks["docker"]["ok"]

@@ -31,7 +31,7 @@ features that still need development or release hardening.
 | Local runtime initialization | Verified | `mbse-lab init`, Flexo env generation, SysON env creation, dry-run tests, live smoke workspace initialization. | None for MVP. |
 | Guided bootstrap | Partially verified | `mbse-lab bootstrap`, dry-run tests, docs. | Needs live end-to-end validation from a clean repo checkout with Docker running. |
 | Flexo deployment management | Verified | Flexo compose config is checked, env manager exists, service wrappers exist, status command exists, live smoke reported Flexo containers running and Flexo projects API HTTP 200. | None for MVP. |
-| SysON deployment management | Verified | SysON compose config is checked, service wrappers exist, status command exists, live smoke reported SysON app running and web UI HTTP 200. | Add a doctor hint for persisted database password drift when this recurs. |
+| SysON deployment management | Verified | SysON compose config is checked, service wrappers exist, status command exists, doctor checks persisted database credential drift, live smoke reported SysON app running and web UI HTTP 200. | None for MVP. |
 | Private model workspace boundary | Verified | `MBSE_MODEL_WORKSPACE`, workspace init/check/env, share-check protections, README/docs diagrams. | None for MVP. |
 | Share-safety checks | Verified | `mbse-lab share-check`, forbidden path scan, secret-like pattern scan, CI/check integration. | Add more patterns only as specific risks appear. |
 | Flexo project operations | Verified | CLI wrappers for list/create/export, bridge script commands, live Flexo eval, live first-model project creation and export. | None for MVP. |
@@ -99,8 +99,7 @@ Local-state note:
    remote Flexo/SysON endpoint profile. The current CLI has URL options, but the
    documented happy path is local Docker.
 
-2. Consider adding a doctor check for SysON persisted database credential drift
-   when `deploy/syson/.env` and `deploy/syson/data/postgres/` disagree.
+2. Keep watching for first-run friction during release candidates.
 
 ## Deferred Beyond MVP
 

@@ -56,6 +56,27 @@ class CliTests(unittest.TestCase):
         with mock.patch("urllib.request.urlopen", side_effect=TimeoutError("timed out")):
             self.assertIsNone(cli.fetch_status("http://localhost:1/"))
 
+    def test_completion_prints_bash_activation_snippet(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(cli.main, ["completion", "bash"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(result.output.strip(), 'eval "$(_MBSE_LAB_COMPLETE=bash_source mbse-lab)"')
+
+    def test_completion_prints_zsh_activation_snippet(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(cli.main, ["completion", "zsh"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(result.output.strip(), "source <(_MBSE_LAB_COMPLETE=zsh_source mbse-lab)")
+
+    def test_completion_prints_fish_activation_snippet(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(cli.main, ["completion", "fish"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(result.output.strip(), "_MBSE_LAB_COMPLETE=fish_source mbse-lab | source")
+
     def test_doctor_json_outputs_structured_report(self) -> None:
         runner = CliRunner()
         doctor = {

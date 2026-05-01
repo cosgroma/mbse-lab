@@ -17,8 +17,13 @@ this repo the home for the models themselves. It provides:
 
 The current integration path is intentionally file/text based:
 
-```text
-Flexo SysML v2 REST JSON -> SysML v2 textual .sysml -> SysON GraphQL import
+```mermaid
+flowchart LR
+    flexo["Flexo SysML v2 REST JSON"]
+    snapshot["SysML v2 textual snapshot<br/>.sysml"]
+    syson["SysON GraphQL import"]
+
+    flexo --> snapshot --> syson
 ```
 
 SysON and Flexo are separate repository stacks. Treat Flexo as the durable
@@ -32,6 +37,16 @@ diagnostics, documentation, and public synthetic fixtures. Keep real SysML v2
 models in a separate private workspace or private repository.
 
 Recommended layout:
+
+```mermaid
+flowchart LR
+    public["mbse-lab<br/>public tooling repo"]
+    private["private model workspace<br/>or private repository"]
+
+    public --> tooling["compose files<br/>CLI<br/>bridge scripts<br/>docs<br/>synthetic fixtures"]
+    private --> models["real SysML v2 models<br/>private exports<br/>generated snapshots"]
+    public -. "MBSE_MODEL_WORKSPACE" .-> private
+```
 
 ```text
 ~/work/sysmlv2-lab/             this shared tooling repo

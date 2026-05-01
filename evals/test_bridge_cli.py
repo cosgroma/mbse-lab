@@ -577,6 +577,72 @@ class CliTests(unittest.TestCase):
 
             self.assertIn("untracked generated export: exports/flexo/private.json", issues)
 
+    def test_share_check_flags_ignored_generated_export(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            cli.run_capture(["git", "init", "-b", "main"], repo)
+            cli.run_capture(["git", "config", "user.email", "test@example.invalid"], repo)
+            cli.run_capture(["git", "config", "user.name", "Test User"], repo)
+            (repo / ".gitignore").write_text("exports/**\n", encoding="utf-8")
+            export = repo / "exports" / "sysml" / "private.sysml"
+            export.parent.mkdir(parents=True)
+            export.write_text("package PrivateModel;\n", encoding="utf-8")
+
+            issues = cli.scan_share_issues(repo)
+
+            self.assertIn("untracked generated export: exports/sysml/private.sysml", issues)
+
+    def test_share_check_flags_tracked_generated_export(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            cli.run_capture(["git", "init", "-b", "main"], repo)
+            cli.run_capture(["git", "config", "user.email", "test@example.invalid"], repo)
+            cli.run_capture(["git", "config", "user.name", "Test User"], repo)
+            export = repo / "exports" / "flexo" / "private.json"
+            export.parent.mkdir(parents=True)
+            export.write_text("{}", encoding="utf-8")
+            cli.run_capture(["git", "add", "-f", "exports/flexo/private.json"], repo)
+
+            issues = cli.scan_share_issues(repo)
+
+            self.assertIn("tracked publish-blocked path: exports/flexo/private.json", issues)
+
+    def test_share_check_flags_tracked_model_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            cli.run_capture(["git", "init", "-b", "main"], repo)
+            cli.run_capture(["git", "config", "user.email", "test@example.invalid"], repo)
+            cli.run_capture(["git", "config", "user.name", "Test User"], repo)
+            model = repo / "docs" / "private.sysml"
+            model.parent.mkdir(parents=True)
+            model.write_text("package PrivateModel;\n", encoding="utf-8")
+            cli.run_capture(["git", "add", "docs/private.sysml"], repo)
+
+            issues = cli.scan_share_issues(repo)
+
+            self.assertIn("tracked model artifact outside curated allowlist: docs/private.sysml", issues)
+
+    def test_share_check_flags_dirty_flexo_startup_dataset(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            cli.run_capture(["git", "init", "-b", "main"], repo)
+            cli.run_capture(["git", "config", "user.email", "test@example.invalid"], repo)
+            cli.run_capture(["git", "config", "user.name", "Test User"], repo)
+            cluster = repo / "deploy" / "flexo-mms" / "mount" / "cluster.trig"
+            cluster.parent.mkdir(parents=True)
+            cluster.write_text("# synthetic seed\n", encoding="utf-8")
+            cli.run_capture(["git", "add", "deploy/flexo-mms/mount/cluster.trig"], repo)
+            cli.run_capture(["git", "commit", "-m", "seed"], repo)
+            cluster.write_text("# private live state\n", encoding="utf-8")
+
+            issues = cli.scan_share_issues(repo)
+
+            self.assertIn("dirty Flexo startup dataset: deploy/flexo-mms/mount/cluster.trig", issues)
+
 
 if __name__ == "__main__":
     unittest.main()

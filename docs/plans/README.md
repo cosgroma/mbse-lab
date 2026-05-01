@@ -24,3 +24,4 @@ use one.
 ## Active Plans
 
 - [MVP Feature Catalog](active/mvp-feature-catalog.md)
+- [Usability Remediation](active/usability-remediation.md)

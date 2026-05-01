@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import argparse
+import contextlib
+import io
 import json
 import sys
 import unittest
@@ -37,6 +40,31 @@ class BridgeRenderTests(unittest.TestCase):
                     "",
                 ]
             ),
+        )
+
+    def test_syson_roots_resolves_latest_commit_before_fetching_roots(self) -> None:
+        calls: list[tuple[str, str]] = []
+
+        def fake_request_json(method: str, url: str, **_kwargs: object) -> object:
+            calls.append((method, url))
+            if url.endswith("/api/rest/projects/project%201/commits"):
+                return [{"@id": "commit-old"}, {"@id": "commit latest"}]
+            if url.endswith("/api/rest/projects/project%201/commits/commit%20latest/roots"):
+                return [{"@id": "root-1", "@type": "Package", "declaredName": "Root"}]
+            self.fail(f"unexpected request: {method} {url}")
+
+        args = argparse.Namespace(project_id="project 1", syson_url="http://syson.local/", timeout=10, json=True)
+
+        with mock.patch.object(flexo_syson_bridge, "request_json", side_effect=fake_request_json):
+            with contextlib.redirect_stdout(io.StringIO()):
+                flexo_syson_bridge.cmd_syson_roots(args)
+
+        self.assertEqual(
+            calls,
+            [
+                ("GET", "http://syson.local/api/rest/projects/project%201/commits"),
+                ("GET", "http://syson.local/api/rest/projects/project%201/commits/commit%20latest/roots"),
+            ],
         )
 
     def test_unsupported_elements_are_not_rendered(self) -> None:

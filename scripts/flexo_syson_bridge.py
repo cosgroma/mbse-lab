@@ -841,11 +841,29 @@ def cmd_syson_create_project(args: argparse.Namespace) -> None:
     print(json.dumps(result["project"], indent=2))
 
 
+def syson_latest_commit_id(syson_url: str, project_id: str, timeout: int) -> str:
+    commits = request_json(
+        "GET",
+        f"{trim_url(syson_url)}/api/rest/projects/{urllib.parse.quote(project_id, safe='')}/commits",
+        timeout=timeout,
+    )
+    if not isinstance(commits, list) or not commits:
+        fail(f"SysON project has no REST commits: {project_id}")
+    latest_commit = commits[-1]
+    if not isinstance(latest_commit, dict) or "@id" not in latest_commit:
+        fail(f"SysON latest commit was malformed for project {project_id}")
+    return str(latest_commit["@id"])
+
+
 def cmd_syson_roots(args: argparse.Namespace) -> None:
     project_id = args.project_id
+    commit_id = syson_latest_commit_id(args.syson_url, project_id, args.timeout)
     roots = request_json(
         "GET",
-        f"{trim_url(args.syson_url)}/api/rest/projects/{project_id}/commits/{project_id}/roots",
+        (
+            f"{trim_url(args.syson_url)}/api/rest/projects/{urllib.parse.quote(project_id, safe='')}"
+            f"/commits/{urllib.parse.quote(commit_id, safe='')}/roots"
+        ),
         timeout=args.timeout,
     )
     if args.json:

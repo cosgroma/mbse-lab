@@ -324,6 +324,18 @@ curl -s http://localhost:18083/projects | jq
 curl -I http://localhost:18090/
 ```
 
+Run a disposable deployment smoke test without touching the normal local lab
+containers or data:
+
+```bash
+mbse-lab deployment isolated-smoke
+```
+
+The isolated smoke test uses a unique Docker Compose project name, random
+localhost-only host ports, and temporary bind-mounted data under
+`tmp/isolated-deployments/`. It tears the stack down after verification unless
+`--keep` is passed.
+
 Get a Flexo auth token:
 
 ```bash

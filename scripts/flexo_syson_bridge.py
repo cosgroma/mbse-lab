@@ -12,6 +12,8 @@ import datetime as dt
 import json
 import os
 import re
+import shutil
+import socket
 import subprocess
 import sys
 import time
@@ -30,7 +32,26 @@ DEFAULT_FLEXO_ENV_DIR = Path("deploy/flexo-mms")
 DEFAULT_OUTPUT_DIR = Path("exports")
 DEFAULT_RUN_DIR = Path("runs")
 DEFAULT_DEPLOYMENT_FIXTURE = Path("evals/fixtures/container-deployment-basic.json")
+DEFAULT_ISOLATED_RUNTIME_DIR = Path("tmp/isolated-deployments")
+ISOLATED_COMPOSE_FILES = (
+    Path("deploy/flexo-mms/docker-compose.isolated.yml"),
+    Path("deploy/syson/docker-compose.isolated.yml"),
+)
 MODEL_WORKSPACE_ENV = "MBSE_MODEL_WORKSPACE"
+DEPLOYMENT_PORT_ENV_KEYS = (
+    "FLEXO_MMS_FUSEKI_HOST_PORT",
+    "FLEXO_MMS_MINIO_HOST_PORT",
+    "FLEXO_MMS_AUTH_HOST_PORT",
+    "FLEXO_MMS_STORE_HOST_PORT",
+    "FLEXO_MMS_LAYER1_HOST_PORT",
+    "FLEXO_MMS_SYSMLV2_HOST_PORT",
+    "SYSON_HOST_PORT",
+)
+ISOLATED_CLUSTER_TRIG = """\
+@prefix isolated: <urn:mbse-lab:isolated:> .
+
+isolated:seed isolated:purpose "disposable deployment smoke test" .
+"""
 
 RENDERABLE_TYPES = {
     "Package",
@@ -556,15 +577,7 @@ def load_deployment_env(root: Path) -> dict[str, str]:
     ):
         env.update(read_env_file(path))
 
-    for key in (
-        "FLEXO_MMS_FUSEKI_HOST_PORT",
-        "FLEXO_MMS_MINIO_HOST_PORT",
-        "FLEXO_MMS_AUTH_HOST_PORT",
-        "FLEXO_MMS_STORE_HOST_PORT",
-        "FLEXO_MMS_LAYER1_HOST_PORT",
-        "FLEXO_MMS_SYSMLV2_HOST_PORT",
-        "SYSON_HOST_PORT",
-    ):
+    for key in list(env):
         if key in os.environ:
             env[key] = os.environ[key]
     return env
@@ -593,6 +606,44 @@ def inspect_docker_container(name: str, timeout: int) -> tuple[dict[str, Any] | 
     return inspected[0], None
 
 
+def inspect_compose_service(
+    project_name: str, service_name: str, timeout: int
+) -> tuple[dict[str, Any] | None, str | None]:
+    try:
+        result = subprocess.run(
+            [
+                "docker",
+                "ps",
+                "-aq",
+                "--filter",
+                f"label=com.docker.compose.project={project_name}",
+                "--filter",
+                f"label=com.docker.compose.service={service_name}",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except FileNotFoundError:
+        return None, "docker CLI is not available"
+    except subprocess.TimeoutExpired:
+        return None, f"docker ps timed out after {timeout}s"
+
+    if result.returncode != 0:
+        return None, result.stderr.strip() or result.stdout.strip() or f"docker ps exited {result.returncode}"
+
+    container_ids = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    if not container_ids:
+        return None, f"no container found for Compose project {project_name!r} service {service_name!r}"
+    if len(container_ids) > 1:
+        return None, (
+            f"expected one container for Compose project {project_name!r} service {service_name!r}, "
+            f"found {len(container_ids)}"
+        )
+    return inspect_docker_container(container_ids[0], timeout)
+
+
 def deployment_check(name: str, status: str, details: dict[str, Any], message: str | None = None) -> dict[str, Any]:
     check = {
         "name": name,
@@ -609,6 +660,7 @@ def verify_deployment_contract(
     env: dict[str, str],
     root: Path,
     timeout: int = 20,
+    project_name: str | None = None,
 ) -> dict[str, Any]:
     services = []
     total_checks = 0
@@ -616,7 +668,10 @@ def verify_deployment_contract(
 
     for expected in contract["services"]:
         container_name = expected["containerName"]
-        container, inspect_error = inspect_docker_container(container_name, timeout)
+        if project_name:
+            container, inspect_error = inspect_compose_service(project_name, expected["serviceName"], timeout)
+        else:
+            container, inspect_error = inspect_docker_container(container_name, timeout)
         checks: list[dict[str, Any]] = []
         if inspect_error:
             checks.append(
@@ -630,16 +685,17 @@ def verify_deployment_contract(
         else:
             state = container.get("State", {})
             running = bool(state.get("Running"))
+            actual_name = str(container.get("Name") or "").lstrip("/")
             checks.append(
                 deployment_check(
                     "container-running",
                     "passed" if running else "failed",
-                    {"status": state.get("Status"), "running": running},
+                    {"status": state.get("Status"), "running": running, "actualContainerName": actual_name},
                     None if running else f"{container_name} is not running: {state.get('Status')}",
                 )
             )
             checks.extend(verify_deployment_ports(container, expected, env))
-            checks.extend(verify_deployment_mounts(container, expected, root))
+            checks.extend(verify_deployment_mounts(container, expected, root, env))
 
         service_failed_checks = sum(1 for check in checks if check["status"] != "passed")
         total_checks += len(checks)
@@ -663,6 +719,7 @@ def verify_deployment_contract(
         "checkedAt": utc_now(),
         "project": contract.get("project", {}),
         "commit": contract.get("commit", {}),
+        "composeProject": project_name,
         "summary": {
             "services": len(services),
             "passedServices": passed_services,
@@ -709,13 +766,29 @@ def verify_deployment_ports(
     return checks
 
 
-def verify_deployment_mounts(container: dict[str, Any], expected: dict[str, Any], root: Path) -> list[dict[str, Any]]:
+def expected_mount_source(mount: dict[str, Any], root: Path, env: dict[str, str]) -> str:
+    host_path = mount["hostPath"]
+    if host_path == "deploy/flexo-mms/data/minio" and env.get("FLEXO_MMS_DATA_DIR"):
+        return os.path.abspath(Path(env["FLEXO_MMS_DATA_DIR"]) / "minio")
+    if host_path == "deploy/flexo-mms/mount" and env.get("FLEXO_MMS_MOUNT_DIR"):
+        return os.path.abspath(Path(env["FLEXO_MMS_MOUNT_DIR"]))
+    if host_path == "deploy/syson/data/postgres" and env.get("SYSON_DATA_DIR"):
+        return os.path.abspath(Path(env["SYSON_DATA_DIR"]) / "postgres")
+    return os.path.abspath(root / host_path)
+
+
+def verify_deployment_mounts(
+    container: dict[str, Any],
+    expected: dict[str, Any],
+    root: Path,
+    env: dict[str, str],
+) -> list[dict[str, Any]]:
     checks = []
     mounts = container.get("Mounts") or []
     by_destination = {mount.get("Destination"): mount for mount in mounts}
     for mount in expected.get("mounts", []):
         actual = by_destination.get(mount["containerPath"])
-        expected_source = os.path.abspath(root / mount["hostPath"])
+        expected_source = expected_mount_source(mount, root, env)
         actual_source = actual.get("Source") if actual else None
         actual_type = actual.get("Type") if actual else None
         expected_type = mount.get("type", "bind")
@@ -779,6 +852,7 @@ def cmd_deployment_verify(args: argparse.Namespace) -> None:
         load_deployment_env(root),
         root,
         timeout=args.timeout,
+        project_name=args.project_name,
     )
     report["fixture"] = str(args.fixture)
 
@@ -790,6 +864,145 @@ def cmd_deployment_verify(args: argparse.Namespace) -> None:
         print(format_deployment_verification_report(report))
     if report["status"] != "passed":
         raise SystemExit(1)
+
+
+def free_tcp_port(used_ports: set[int]) -> int:
+    while True:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = int(probe.getsockname()[1])
+        if port not in used_ports:
+            used_ports.add(port)
+            return port
+
+
+def isolated_deployment_env(root: Path, runtime_dir: Path) -> dict[str, str]:
+    compose_env = os.environ.copy()
+    compose_env.update(load_deployment_env(root))
+    used_ports: set[int] = set()
+    for key in DEPLOYMENT_PORT_ENV_KEYS:
+        compose_env[key] = str(free_tcp_port(used_ports))
+    compose_env["FLEXO_MMS_DATA_DIR"] = str((runtime_dir / "flexo").resolve())
+    compose_env["FLEXO_MMS_MOUNT_DIR"] = str((runtime_dir / "flexo" / "mount").resolve())
+    compose_env["SYSON_DATA_DIR"] = str((runtime_dir / "syson").resolve())
+    return compose_env
+
+
+def compose_isolated_command(root: Path, project_name: str, action: list[str]) -> list[str]:
+    command = ["docker", "compose", "-p", project_name]
+    for compose_file in ISOLATED_COMPOSE_FILES:
+        command.extend(["-f", str((root / compose_file).resolve())])
+    command.extend(action)
+    return command
+
+
+def run_checked(command: list[str], cwd: Path, env: dict[str, str], timeout: int | None = None) -> None:
+    result = subprocess.run(command, cwd=cwd, env=env, text=True, timeout=timeout)
+    if result.returncode != 0:
+        fail(f"command failed with exit code {result.returncode}: {' '.join(command)}")
+
+
+def cleanup_runtime_dir(runtime_dir: Path, env: dict[str, str]) -> None:
+    shutil.rmtree(runtime_dir, ignore_errors=True)
+    if not runtime_dir.exists():
+        return
+
+    cleanup_image = env.get("SYSON_POSTGRES_IMAGE", "postgres:15")
+    subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-v",
+            f"{runtime_dir}:/cleanup",
+            "--entrypoint",
+            "sh",
+            cleanup_image,
+            "-c",
+            "rm -rf /cleanup/* /cleanup/.[!.]* /cleanup/..?*",
+        ],
+        text=True,
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    shutil.rmtree(runtime_dir, ignore_errors=True)
+    if runtime_dir.exists():
+        print(f"warning: could not remove isolated runtime directory: {runtime_dir}", file=sys.stderr)
+
+
+def write_isolated_cluster_seed(mount_dir: Path) -> None:
+    if mount_dir.exists():
+        shutil.rmtree(mount_dir, ignore_errors=True)
+    mount_dir.mkdir(parents=True, exist_ok=True)
+    (mount_dir / "cluster.trig").write_text(ISOLATED_CLUSTER_TRIG, encoding="utf-8")
+
+
+def format_isolated_ports(env: dict[str, str]) -> str:
+    return "\n".join(f"  {key}={env[key]}" for key in DEPLOYMENT_PORT_ENV_KEYS)
+
+
+def cmd_deployment_isolated_smoke(args: argparse.Namespace) -> None:
+    root = args.root.resolve()
+    project_name = args.project_name or f"mbse-lab-{uuid.uuid4().hex[:8]}"
+    runtime_dir = (args.runtime_dir or (root / DEFAULT_ISOLATED_RUNTIME_DIR / project_name)).resolve()
+    contract = deployment_contract_from_snapshot(read_json(args.fixture))
+    if not contract["services"]:
+        fail(f"no container services found in deployment fixture: {args.fixture}")
+
+    missing = [str(path) for path in ISOLATED_COMPOSE_FILES if not (root / path).exists()]
+    if missing:
+        fail(f"missing isolated compose file(s): {', '.join(missing)}")
+
+    compose_env = isolated_deployment_env(root, runtime_dir)
+    up_command = compose_isolated_command(
+        root,
+        project_name,
+        ["up", "-d", "--wait", "--wait-timeout", str(args.timeout)],
+    )
+    down_command = compose_isolated_command(root, project_name, ["down", "--remove-orphans", "--volumes"])
+
+    remove_runtime_dir = args.runtime_dir is None
+    print(f"Compose project: {project_name}")
+    print(f"Runtime data: {runtime_dir}")
+    print("Host ports:")
+    print(format_isolated_ports(compose_env))
+
+    if args.dry_run:
+        print(f"dry-run: {' '.join(up_command)}")
+        if not args.keep:
+            print(f"dry-run: {' '.join(down_command)}")
+        return
+
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    (runtime_dir / "flexo").mkdir(parents=True, exist_ok=True)
+    (runtime_dir / "syson").mkdir(parents=True, exist_ok=True)
+    write_isolated_cluster_seed(Path(compose_env["FLEXO_MMS_MOUNT_DIR"]))
+
+    try:
+        sys.stdout.flush()
+        run_checked(up_command, root, compose_env, timeout=args.timeout + 120)
+        report = verify_deployment_contract(
+            contract,
+            compose_env,
+            root,
+            timeout=args.timeout,
+            project_name=project_name,
+        )
+        report["fixture"] = str(args.fixture)
+        if args.output:
+            write_json(args.output, report)
+        print(format_deployment_verification_report(report))
+        sys.stdout.flush()
+        if report["status"] != "passed":
+            raise SystemExit(1)
+    finally:
+        if not args.keep:
+            subprocess.run(down_command, cwd=root, env=compose_env, text=True, check=False)
+            if remove_runtime_dir:
+                cleanup_runtime_dir(runtime_dir, compose_env)
+    if args.keep:
+        print(f"Kept isolated deployment running. Stop it with: {' '.join(down_command)}")
 
 
 def cmd_render_sysml(args: argparse.Namespace) -> None:
@@ -1146,9 +1359,33 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--fixture", type=Path, default=DEFAULT_DEPLOYMENT_FIXTURE)
     verify.add_argument("--root", type=Path, default=Path("."))
     verify.add_argument("--timeout", type=int, default=20)
+    verify.add_argument(
+        "--project-name",
+        help="Inspect containers by Compose project and service labels instead of fixed container names.",
+    )
     verify.add_argument("--json", action="store_true")
     verify.add_argument("--output", type=Path, help="Write the structured verification report as JSON.")
     verify.set_defaults(func=cmd_deployment_verify)
+
+    isolated = subparsers.add_parser(
+        "deployment-isolated-smoke",
+        help="Start an isolated disposable Compose deployment and verify the runtime contract",
+    )
+    isolated.add_argument("--fixture", type=Path, default=DEFAULT_DEPLOYMENT_FIXTURE)
+    isolated.add_argument("--root", type=Path, default=Path("."))
+    isolated.add_argument("--timeout", type=int, default=120)
+    isolated.add_argument("--project-name", help="Compose project name. Defaults to a generated unique name.")
+    isolated.add_argument(
+        "--runtime-dir",
+        type=Path,
+        help="Directory for disposable bind-mounted data. Defaults under tmp/isolated-deployments/.",
+    )
+    isolated.add_argument("--output", type=Path, help="Write the structured verification report as JSON.")
+    isolated.add_argument(
+        "--keep", action="store_true", help="Leave the isolated deployment running after verification."
+    )
+    isolated.add_argument("--dry-run", action="store_true", help="Print commands without starting containers.")
+    isolated.set_defaults(func=cmd_deployment_isolated_smoke)
 
     list_syson = subparsers.add_parser("syson-list-projects", help="List SysON projects")
     list_syson.add_argument("--syson-url", default=DEFAULT_SYSON_URL)

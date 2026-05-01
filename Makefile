@@ -1,4 +1,25 @@
-.PHONY: help install-cli bootstrap first-model doctor report cleanup share-check init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify
+ISOLATED_COMPOSE_CHECK_ENV = \
+	FLEXO_MMS_FUSEKI_HOST_PORT=3030 \
+	FLEXO_MMS_MINIO_HOST_PORT=9000 \
+	FLEXO_MMS_AUTH_HOST_PORT=8082 \
+	FLEXO_MMS_STORE_HOST_PORT=8081 \
+	FLEXO_MMS_LAYER1_HOST_PORT=18080 \
+	FLEXO_MMS_SYSMLV2_HOST_PORT=18083 \
+	FLEXO_MMS_LDAP_ADMIN_PASSWORD=check \
+	FLEXO_MMS_LDAP_USER01_PASSWORD=check \
+	FLEXO_MMS_LDAP_USER02_PASSWORD=check \
+	FLEXO_MMS_MINIO_ROOT_USER=check \
+	FLEXO_MMS_MINIO_ROOT_PASSWORD=check \
+	FLEXO_MMS_DATA_DIR=/tmp/mbse-lab-check/flexo \
+	FLEXO_MMS_MOUNT_DIR=/tmp/mbse-lab-check/flexo/mount \
+	SYSON_HOST_PORT=18090 \
+	SYSON_POSTGRES_PASSWORD=check
+
+ISOLATED_COMPOSE_FILES = \
+	-f deploy/flexo-mms/docker-compose.isolated.yml \
+	-f deploy/syson/docker-compose.isolated.yml
+
+.PHONY: help install-cli bootstrap first-model doctor report cleanup share-check init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify deployment-isolated-smoke
 
 help:
 	@printf '%s\n' 'MBSE local lab commands:'
@@ -27,6 +48,7 @@ help:
 	@printf '  %-16s %s\n' 'syson-list' 'List SysON projects'
 	@printf '  %-16s %s\n' 'deployment-contract' 'Show fixture-derived deployment runtime contract'
 	@printf '  %-16s %s\n' 'deployment-verify' 'Verify Docker runtime against deployment contract'
+	@printf '  %-16s %s\n' 'deployment-isolated-smoke' 'Verify a disposable isolated Docker deployment'
 
 init:
 	python3 scripts/flexo_mms_env.py init --with-sysmlv2
@@ -75,6 +97,7 @@ check:
 	python3 -m py_compile scripts/flexo_mms_env.py scripts/flexo_syson_bridge.py scripts/collect_diagnostics.py scripts/check_docs.py src/mbse_lab/*.py
 	docker compose -f deploy/flexo-mms/docker-compose.yml config --quiet
 	docker compose -f deploy/syson/docker-compose.yml config --quiet
+	$(ISOLATED_COMPOSE_CHECK_ENV) docker compose -p mbse-lab-check $(ISOLATED_COMPOSE_FILES) config --quiet
 	$(MAKE) workflow-check
 	$(MAKE) docs-check
 	$(MAKE) eval
@@ -130,3 +153,6 @@ deployment-contract:
 
 deployment-verify:
 	mbse-lab deployment verify
+
+deployment-isolated-smoke:
+	mbse-lab deployment isolated-smoke

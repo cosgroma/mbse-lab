@@ -17,6 +17,11 @@ Start:
 docker compose -f deploy/syson/docker-compose.yml up -d
 ```
 
+`docker-compose.yml` is the persistent local lab deployment. The
+`docker-compose.isolated.yml` overlay is for disposable smoke tests; it omits
+fixed container and network names, binds host ports to localhost, and expects
+temporary data paths supplied by `mbse-lab deployment isolated-smoke`.
+
 Open:
 
 ```text

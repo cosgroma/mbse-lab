@@ -95,6 +95,22 @@ initialize the directory layout for an already configured
 `MBSE_MODEL_WORKSPACE`. It prints remaining commands for Flexo runtime files,
 service startup, or other setup that should stay explicit.
 
+## Isolated Deployment Smoke Test
+
+Use a disposable Docker deployment when you need to test the multi-container
+stack without colliding with already-running lab containers:
+
+```bash
+mbse-lab deployment isolated-smoke
+```
+
+This command starts Flexo and SysON from isolated Compose files with a generated
+project name, random localhost-only host ports, and temp data directories under
+`tmp/isolated-deployments/`. It verifies the fixture-derived runtime contract
+by Compose labels rather than fixed container names, then runs
+`docker compose down --remove-orphans --volumes` for that project. Pass `--keep`
+to leave the disposable stack running for inspection.
+
 ## Init
 
 Prepare local runtime env files without starting services:

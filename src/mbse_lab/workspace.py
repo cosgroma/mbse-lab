@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import secrets
 import shutil
 from pathlib import Path
 
@@ -11,6 +12,8 @@ import click
 
 from mbse_lab.constants import WORKSPACE_DIRS
 from mbse_lab.shell import run_command
+
+SYSON_POSTGRES_PASSWORD_PLACEHOLDER = "change-me"
 
 
 def default_output_dir() -> Path:
@@ -29,6 +32,16 @@ def sanitize_identifier(value: str) -> str:
     return value
 
 
+def _generate_syson_env_content(example_path: Path) -> str:
+    """Read the example env file and replace the placeholder password with a random one."""
+    template = example_path.read_text(encoding="utf-8")
+    random_password = secrets.token_urlsafe(24)
+    return template.replace(
+        f"SYSON_POSTGRES_PASSWORD={SYSON_POSTGRES_PASSWORD_PLACEHOLDER}",
+        f"SYSON_POSTGRES_PASSWORD={random_password}",
+    )
+
+
 def ensure_syson_env(repo_root: Path, dry_run: bool = False) -> None:
     env_path = repo_root / "deploy/syson/.env"
     example_path = repo_root / "deploy/syson/.env.example"
@@ -40,8 +53,9 @@ def ensure_syson_env(repo_root: Path, dry_run: bool = False) -> None:
     if dry_run:
         click.echo(f"dry-run: copy {example_path.relative_to(repo_root)} to {env_path.relative_to(repo_root)}")
         return
-    shutil.copyfile(example_path, env_path)
-    click.echo(f"Created SysON env: {env_path.relative_to(repo_root)}")
+    env_content = _generate_syson_env_content(example_path)
+    env_path.write_text(env_content, encoding="utf-8")
+    click.echo(f"Created SysON env with generated password: {env_path.relative_to(repo_root)}")
 
 
 def initialize_model_workspace(root: Path, force: bool, git_init: bool, dry_run: bool = False) -> Path:

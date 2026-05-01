@@ -28,6 +28,7 @@ COMMAND_LINE = re.compile(r"^\s*(?:[A-Z0-9_./-]+=\\S+\s+)*(make|python3|docker|c
 PYTHON_SCRIPT = re.compile(r"python3\s+(scripts/[A-Za-z0-9_.\-/]+\.py)(?:\s+([A-Za-z0-9_-]+))?")
 MAKE_TARGET = re.compile(r"\bmake\s+([A-Za-z0-9_.-]+)")
 MARKDOWN_LINK = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
+MBSE_LAB_COMMAND = re.compile(r"(?:^|\s)mbse-lab\s+([A-Za-z0-9_-]+(?:\s+[A-Za-z0-9_-]+)?)")
 
 
 def run(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -113,6 +114,30 @@ def command_blocks(path: Path) -> list[str]:
     return commands
 
 
+def code_block_lines(path: Path) -> list[str]:
+    """Return all non-empty, non-comment lines from bash code blocks."""
+    text = path.read_text(encoding="utf-8")
+    lines: list[str] = []
+    in_fence = False
+    fence_language = ""
+    for line in text.splitlines():
+        if line.startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_language = line.removeprefix("```").strip()
+            else:
+                in_fence = False
+                fence_language = ""
+            continue
+        if not in_fence or fence_language not in {"bash", "sh", "shell", ""}:
+            continue
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped.endswith("\\"):
+            continue
+        lines.append(stripped)
+    return lines
+
+
 def check_discoverability(failures: list[str]) -> None:
     linked_paths = linked_index_paths()
     for path in tracked_and_untracked_docs():
@@ -158,6 +183,45 @@ def check_python_commands(failures: list[str]) -> None:
                     )
 
 
+def mbse_lab_top_level_commands() -> set[str]:
+    """Return the set of top-level mbse-lab command/group names from --help."""
+    result = run(["python3", "-m", "mbse_lab.cli", "--help"])
+    text = result.stdout + result.stderr
+    commands: set[str] = set()
+    in_commands = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if re.match(r"^Commands:$", stripped, re.IGNORECASE):
+            in_commands = True
+            continue
+        if in_commands:
+            if not stripped:
+                break
+            match = re.match(r"^([A-Za-z0-9_-]+)", stripped)
+            if match:
+                commands.add(match.group(1))
+    return commands
+
+
+def check_mbse_lab_commands(failures: list[str]) -> None:
+    top_level = mbse_lab_top_level_commands()
+    if not top_level:
+        return
+    for doc in tracked_and_untracked_docs():
+        for line in code_block_lines(doc):
+            for match in MBSE_LAB_COMMAND.finditer(line):
+                tokens = match.group(1).split()
+                first_token = tokens[0]
+                if first_token.startswith("-"):
+                    continue
+                if first_token not in top_level:
+                    fail(
+                        f"{doc.relative_to(ROOT)} references `mbse-lab {first_token}`, "
+                        "but that command is not in `mbse-lab --help`",
+                        failures,
+                    )
+
+
 def check_workflow_contract(failures: list[str]) -> None:
     if not WORKFLOW_FILE.exists():
         fail("WORKFLOW.md is missing", failures)
@@ -195,6 +259,7 @@ def validate_docs() -> list[str]:
     check_discoverability(failures)
     check_make_commands(failures)
     check_python_commands(failures)
+    check_mbse_lab_commands(failures)
     failures.extend(validate_workflow())
     return failures
 

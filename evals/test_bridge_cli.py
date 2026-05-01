@@ -653,5 +653,285 @@ class CliTests(unittest.TestCase):
             self.assertIn("dirty Flexo startup dataset: deploy/flexo-mms/mount/cluster.trig", issues)
 
 
+class SysonPasswordTests(unittest.TestCase):
+    """Tests for issue #10: Generate random SysON Postgres password during init/bootstrap."""
+
+    def test_ensure_syson_env_generates_random_password_not_placeholder(self) -> None:
+        from mbse_lab.workspace import SYSON_POSTGRES_PASSWORD_PLACEHOLDER, ensure_syson_env
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            example = repo / "deploy/syson/.env.example"
+            example.parent.mkdir(parents=True)
+            example.write_text(
+                f"SYSON_POSTGRES_PASSWORD={SYSON_POSTGRES_PASSWORD_PLACEHOLDER}\n",
+                encoding="utf-8",
+            )
+
+            ensure_syson_env(repo)
+
+            env_path = repo / "deploy/syson/.env"
+            self.assertTrue(env_path.exists())
+            env_content = env_path.read_text(encoding="utf-8")
+            self.assertNotIn(SYSON_POSTGRES_PASSWORD_PLACEHOLDER, env_content)
+            self.assertIn("SYSON_POSTGRES_PASSWORD=", env_content)
+
+    def test_ensure_syson_env_preserves_existing_env(self) -> None:
+        from mbse_lab.workspace import ensure_syson_env
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            env_path = repo / "deploy/syson/.env"
+            env_path.parent.mkdir(parents=True)
+            env_path.write_text("SYSON_POSTGRES_PASSWORD=my-custom-password\n", encoding="utf-8")
+
+            ensure_syson_env(repo)
+
+            self.assertEqual(env_path.read_text(encoding="utf-8"), "SYSON_POSTGRES_PASSWORD=my-custom-password\n")
+
+    def test_doctor_flags_placeholder_password(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            env_path = repo / "deploy/syson/.env"
+            env_path.parent.mkdir(parents=True)
+            env_path.write_text("SYSON_POSTGRES_PASSWORD=change-me\n", encoding="utf-8")
+
+            with mock.patch.object(health, "has_persisted_data", return_value=True):
+                report = health.syson_database_credential_report(repo)
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["status"], "placeholder-password")
+        self.assertIn("placeholder", report["detail"])
+
+    def test_doctor_report_includes_syson_password_placeholder_remediation_code(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            env_path = repo / "deploy/syson/.env"
+            env_path.parent.mkdir(parents=True)
+            env_path.write_text("SYSON_POSTGRES_PASSWORD=change-me\n", encoding="utf-8")
+
+            with (
+                mock.patch.object(health, "has_persisted_data", return_value=True),
+                mock.patch.object(health, "command_exists", return_value=True),
+                mock.patch.object(health, "tcp_connects", return_value=False),
+                mock.patch.object(health, "fetch_status", return_value=None),
+                mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
+            ):
+                report = health.doctor_report(repo)
+
+        self.assertIn("SYSON_PASSWORD_PLACEHOLDER", report["remediation_codes"])
+
+
+class WorkspacePreflightTests(unittest.TestCase):
+    """Tests for issue #11: Private workspace preflight for generated artifacts."""
+
+    def test_warn_when_workspace_unset_and_no_explicit_output(self) -> None:
+        self.assertTrue(cli.should_warn_repo_local_exports(None, allow_repo_exports=False))
+
+    def test_no_warn_when_explicit_output_given(self) -> None:
+        self.assertFalse(cli.should_warn_repo_local_exports(Path("/some/output"), allow_repo_exports=False))
+
+    def test_no_warn_when_allow_repo_exports_set(self) -> None:
+        self.assertFalse(cli.should_warn_repo_local_exports(None, allow_repo_exports=True))
+
+    def test_no_warn_when_workspace_env_is_set(self) -> None:
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": "/some/workspace"}):
+            self.assertFalse(cli.should_warn_repo_local_exports(None, allow_repo_exports=False))
+
+    def test_first_model_dry_run_no_warning_with_allow_repo_exports(self) -> None:
+        runner = CliRunner()
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+            result = runner.invoke(
+                cli.main,
+                ["--repo-root", str(ROOT), "first-model", "Demo", "--dry-run", "--allow-repo-exports"],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertNotIn("warning: MBSE_MODEL_WORKSPACE is unset", result.output)
+
+    def test_flexo_export_warns_when_workspace_unset(self) -> None:
+        runner = CliRunner()
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+            result = runner.invoke(
+                cli.main,
+                ["--repo-root", str(ROOT), "flexo", "export", "proj-1", "--dry-run"],
+            )
+
+        self.assertIn("warning: MBSE_MODEL_WORKSPACE is unset", result.output)
+
+    def test_flexo_export_no_warning_with_allow_repo_exports(self) -> None:
+        runner = CliRunner()
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+            result = runner.invoke(
+                cli.main,
+                ["--repo-root", str(ROOT), "flexo", "export", "proj-1", "--dry-run", "--allow-repo-exports"],
+            )
+
+        self.assertNotIn("warning: MBSE_MODEL_WORKSPACE is unset", result.output)
+
+    def test_bridge_render_warns_when_workspace_unset(self) -> None:
+        runner = CliRunner()
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+            result = runner.invoke(
+                cli.main,
+                ["--repo-root", str(ROOT), "bridge", "render", "export.json", "--dry-run"],
+            )
+
+        self.assertIn("warning: MBSE_MODEL_WORKSPACE is unset", result.output)
+
+    def test_bridge_run_no_warning_with_explicit_output_dir(self) -> None:
+        runner = CliRunner()
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "bridge",
+                    "run",
+                    "flexo-proj",
+                    "--syson-project-id",
+                    "syson-proj",
+                    "--namespace-id",
+                    "ns-1",
+                    "--output-dir",
+                    "/tmp/explicit-output",
+                    "--dry-run",
+                ],
+            )
+
+        self.assertNotIn("warning: MBSE_MODEL_WORKSPACE is unset", result.output)
+
+
+class DoctorRemediationCodesTests(unittest.TestCase):
+    """Tests for issue #14: Remediation codes and grouped next steps in doctor."""
+
+    def test_doctor_report_includes_remediation_codes_key(self) -> None:
+        with (
+            mock.patch.object(health, "command_exists", return_value=True),
+            mock.patch.object(health, "tcp_connects", return_value=False),
+            mock.patch.object(health, "fetch_status", return_value=None),
+            mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
+        ):
+            report = health.doctor_report(None)
+
+        self.assertIn("remediation_codes", report)
+        self.assertIsInstance(report["remediation_codes"], list)
+
+    def test_doctor_report_includes_repo_root_missing_code(self) -> None:
+        with (
+            mock.patch.object(health, "command_exists", return_value=True),
+            mock.patch.object(health, "tcp_connects", return_value=False),
+            mock.patch.object(health, "fetch_status", return_value=None),
+            mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
+        ):
+            report = health.doctor_report(None)
+
+        self.assertIn("REPO_ROOT_MISSING", report["remediation_codes"])
+
+    def test_doctor_report_includes_workspace_unset_code(self) -> None:
+        with (
+            mock.patch.object(health, "command_exists", return_value=True),
+            mock.patch.object(health, "tcp_connects", return_value=False),
+            mock.patch.object(health, "fetch_status", return_value=None),
+            mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}),
+            mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
+        ):
+            report = health.doctor_report(None)
+
+        self.assertIn("WORKSPACE_UNSET", report["remediation_codes"])
+
+    def test_doctor_json_output_includes_remediation_codes(self) -> None:
+        runner = CliRunner()
+        mock_report = {
+            "status": "passed",
+            "checks": {
+                "repo_root": {"ok": True, "path": str(ROOT)},
+                "markers": [],
+            },
+            "remediation_codes": ["WORKSPACE_UNSET"],
+        }
+        with mock.patch.object(cli, "doctor_report", return_value=mock_report):
+            result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "doctor", "--json-output"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        report = json.loads(result.output)
+        self.assertIn("remediation_codes", report)
+        self.assertIn("WORKSPACE_UNSET", report["remediation_codes"])
+
+    def test_doctor_text_output_has_grouped_sections(self) -> None:
+        runner = CliRunner()
+        with (
+            mock.patch.object(cli, "command_exists", return_value=True),
+            mock.patch.object(cli, "tcp_connects", return_value=False),
+            mock.patch.object(cli, "fetch_status", return_value=None),
+            mock.patch.object(cli.subprocess, "run", return_value=mock.Mock(returncode=0)),
+            mock.patch.object(
+                cli,
+                "doctor_report",
+                return_value={
+                    "status": "passed",
+                    "checks": {
+                        "syson_database_credentials": {"ok": True, "detail": "skipped", "status": "skipped"}
+                    },
+                    "remediation_codes": [],
+                },
+            ),
+        ):
+            result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "doctor"])
+
+        self.assertIn("--- Prerequisites ---", result.output)
+        self.assertIn("--- Repo Setup ---", result.output)
+        self.assertIn("--- Workspace ---", result.output)
+        self.assertIn("--- Services ---", result.output)
+
+
+class DocsCheckMbseLabCommandsTests(unittest.TestCase):
+    """Tests for issue #12: docs-check validates mbse-lab command snippets."""
+
+    def test_valid_mbse_lab_commands_in_docs_pass(self) -> None:
+        import importlib.util
+        import sys as _sys
+
+        spec = importlib.util.spec_from_file_location(
+            "check_docs", ROOT / "scripts" / "check_docs.py"
+        )
+        check_docs = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(check_docs)
+
+        failures: list[str] = []
+        check_docs.check_mbse_lab_commands(failures)
+        self.assertEqual(failures, [], f"Unexpected failures: {failures}")
+
+    def test_stale_mbse_lab_command_fails_docs_check(self) -> None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "check_docs", ROOT / "scripts" / "check_docs.py"
+        )
+        check_docs = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(check_docs)
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".md", dir=ROOT / "docs", delete=False, encoding="utf-8"
+        ) as tmp_doc:
+            tmp_doc.write("# Test\n\n```bash\nmbse-lab nonexistent-command-xyz\n```\n")
+            tmp_path = Path(tmp_doc.name)
+
+        try:
+            with mock.patch.object(
+                check_docs, "tracked_and_untracked_docs", return_value=[tmp_path]
+            ):
+                failures: list[str] = []
+                check_docs.check_mbse_lab_commands(failures)
+
+            self.assertTrue(
+                any("nonexistent-command-xyz" in f for f in failures),
+                f"Expected failure for stale command, got: {failures}",
+            )
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+
 if __name__ == "__main__":
     unittest.main()

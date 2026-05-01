@@ -78,6 +78,10 @@ Out of scope for the first spike:
    python3 scripts/flexo_syson_bridge.py flexo-list-projects
    ```
 
+   Status: complete as of 2026-05-01. Flexo services started cleanly, strict
+   status passed, token issuance succeeded, and the SysML v2 project list was
+   reachable.
+
 2. Inventory View Editor runtime requirements:
 
    - Identify the current image or source repo to use.
@@ -167,6 +171,13 @@ make live-eval
   View Editor references. The working hypothesis is that direct compatibility
   is unlikely without an adapter, but request tracing is needed before closing
   the question.
+- 2026-05-01: Executed the Flexo baseline health chunk. `python3
+  scripts/flexo_mms_env.py up --wait --timeout 60` started all expected Flexo
+  MMS services, `python3 scripts/flexo_mms_env.py status --with-sysmlv2
+  --strict` passed, `python3 scripts/flexo_mms_env.py token` returned a JWT,
+  and `python3 scripts/flexo_syson_bridge.py flexo-list-projects` returned the
+  local projects `MVP Smoke Model` and `Bridge Probe`. The token value was not
+  recorded.
 
 ## Follow-Up Debt
 

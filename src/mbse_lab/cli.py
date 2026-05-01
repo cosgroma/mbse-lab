@@ -84,6 +84,16 @@ def run_bridge(ctx: click.Context, args: list[str], dry_run: bool = False) -> No
     run_command(["python3", "scripts/flexo_syson_bridge.py", *args], repo_root, dry_run)
 
 
+def run_syson_compose(ctx: click.Context, args: list[str], dry_run: bool = False) -> None:
+    repo_root = require_repo_root(ctx)
+    run_command(["docker", "compose", "-f", "deploy/syson/docker-compose.yml", *args], repo_root, dry_run)
+
+
+def run_flexo_env(ctx: click.Context, args: list[str], dry_run: bool = False) -> None:
+    repo_root = require_repo_root(ctx)
+    run_command(["python3", "scripts/flexo_mms_env.py", *args], repo_root, dry_run)
+
+
 def print_service_urls() -> None:
     click.echo("")
     click.echo("Service URLs:")
@@ -450,6 +460,89 @@ def status(ctx: click.Context, json_output: bool) -> None:
         return
     run_command(["python3", "scripts/flexo_mms_env.py", "status", "--with-sysmlv2", "--strict"], repo_root)
     run_command(["docker", "compose", "-f", "deploy/syson/docker-compose.yml", "ps"], repo_root)
+
+
+@main.group()
+def services() -> None:
+    """Start, stop, restart, and inspect local lab services."""
+
+
+@services.command("up")
+@click.option("--flexo/--no-flexo", default=True, help="Start Flexo services.")
+@click.option("--syson/--no-syson", default=True, help="Start SysON services.")
+@click.option("--wait/--no-wait", default=True, help="Wait for Flexo health during startup.")
+@click.option("--timeout", type=int, default=60, show_default=True, help="Flexo startup wait timeout in seconds.")
+@click.option("--dry-run", is_flag=True, help="Print commands without changing containers.")
+@click.pass_context
+def services_up(ctx: click.Context, flexo: bool, syson: bool, wait: bool, timeout: int, dry_run: bool) -> None:
+    """Start Flexo and SysON services."""
+    if not flexo and not syson:
+        raise click.ClickException("Select at least one service family.")
+    if flexo:
+        args = ["up"]
+        if wait:
+            args.extend(["--wait", "--timeout", str(timeout)])
+        run_flexo_env(ctx, args, dry_run)
+    if syson:
+        run_syson_compose(ctx, ["up", "-d"], dry_run)
+    if not dry_run:
+        print_service_urls()
+
+
+@services.command("down")
+@click.option("--flexo/--no-flexo", default=True, help="Stop Flexo services.")
+@click.option("--syson/--no-syson", default=True, help="Stop SysON services.")
+@click.option("--dry-run", is_flag=True, help="Print commands without changing containers.")
+@click.pass_context
+def services_down(ctx: click.Context, flexo: bool, syson: bool, dry_run: bool) -> None:
+    """Stop Flexo and SysON services without deleting runtime data."""
+    if not flexo and not syson:
+        raise click.ClickException("Select at least one service family.")
+    if syson:
+        run_syson_compose(ctx, ["down"], dry_run)
+    if flexo:
+        run_flexo_env(ctx, ["down"], dry_run)
+
+
+@services.command("restart")
+@click.option("--flexo/--no-flexo", default=True, help="Restart Flexo services.")
+@click.option("--syson/--no-syson", default=True, help="Restart SysON services.")
+@click.option("--wait/--no-wait", default=True, help="Wait for Flexo health during startup.")
+@click.option("--timeout", type=int, default=60, show_default=True, help="Flexo startup wait timeout in seconds.")
+@click.option("--dry-run", is_flag=True, help="Print commands without changing containers.")
+@click.pass_context
+def services_restart(ctx: click.Context, flexo: bool, syson: bool, wait: bool, timeout: int, dry_run: bool) -> None:
+    """Restart Flexo and SysON services."""
+    if not flexo and not syson:
+        raise click.ClickException("Select at least one service family.")
+    if syson:
+        run_syson_compose(ctx, ["down"], dry_run)
+    if flexo:
+        run_flexo_env(ctx, ["down"], dry_run)
+        args = ["up"]
+        if wait:
+            args.extend(["--wait", "--timeout", str(timeout)])
+        run_flexo_env(ctx, args, dry_run)
+    if syson:
+        run_syson_compose(ctx, ["up", "-d"], dry_run)
+    if not dry_run:
+        print_service_urls()
+
+
+@services.command("logs")
+@click.option("--flexo/--no-flexo", default=True, help="Show Flexo logs.")
+@click.option("--syson/--no-syson", default=True, help="Show SysON app logs.")
+@click.option("--tail", type=int, default=100, show_default=True, help="Number of log lines to show.")
+@click.option("--dry-run", is_flag=True, help="Print commands without reading logs.")
+@click.pass_context
+def services_logs(ctx: click.Context, flexo: bool, syson: bool, tail: int, dry_run: bool) -> None:
+    """Show recent Flexo and SysON service logs."""
+    if not flexo and not syson:
+        raise click.ClickException("Select at least one service family.")
+    if flexo:
+        run_flexo_env(ctx, ["logs", "--tail", str(tail)], dry_run)
+    if syson:
+        run_syson_compose(ctx, ["logs", "--tail", str(tail), "app"], dry_run)
 
 
 @main.command()

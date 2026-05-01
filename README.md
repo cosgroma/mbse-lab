@@ -122,6 +122,14 @@ Preview the bootstrap without changing files or starting containers:
 mbse-lab bootstrap --dry-run --model-workspace ~/work/my-private-models
 ```
 
+After setup, routine service lifecycle commands are available through the CLI:
+
+```bash
+mbse-lab services up
+mbse-lab services logs
+mbse-lab services down
+```
+
 Create a tiny first model after the services are running:
 
 ```bash

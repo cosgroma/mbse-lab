@@ -86,6 +86,36 @@ mbse-lab bootstrap --skip-flexo-org
 mbse-lab bootstrap --skip-status
 ```
 
+## Services
+
+Start both Flexo and SysON:
+
+```bash
+mbse-lab services up
+```
+
+Stop both service families without deleting runtime data:
+
+```bash
+mbse-lab services down
+```
+
+Restart the lab:
+
+```bash
+mbse-lab services restart
+```
+
+Show recent service logs:
+
+```bash
+mbse-lab services logs --tail 100
+```
+
+Each service command accepts `--flexo/--no-flexo` and `--syson/--no-syson` for
+targeted operations. Add `--dry-run` to preview the underlying script and Docker
+Compose commands.
+
 ## First Model
 
 After the services are running, create a tiny end-to-end model:

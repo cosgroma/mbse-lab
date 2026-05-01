@@ -314,6 +314,10 @@ mbse-lab syson create "Imported From Flexo"
 mbse-lab syson roots <syson-project-id>
 ```
 
+`mbse-lab syson roots` resolves the latest SysON REST commit automatically
+before listing root namespace elements. Use `--json-output` when you need the
+raw root IDs for a scripted import.
+
 Render, import, or run the full bridge:
 
 ```bash

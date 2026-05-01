@@ -343,6 +343,50 @@ class CliTests(unittest.TestCase):
         self.assertIn("--namespace-id namespace-1", result.output)
         self.assertIn("--output-dir exports", result.output)
 
+    def test_services_up_dry_run_builds_start_commands(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "services", "up", "--timeout", "45", "--dry-run"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: python3 scripts/flexo_mms_env.py up --wait --timeout 45", result.output)
+        self.assertIn("dry-run: docker compose -f deploy/syson/docker-compose.yml up -d", result.output)
+
+    def test_services_down_dry_run_stops_syson_before_flexo(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "services", "down", "--dry-run"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        syson_index = result.output.index("dry-run: docker compose -f deploy/syson/docker-compose.yml down")
+        flexo_index = result.output.index("dry-run: python3 scripts/flexo_mms_env.py down")
+        self.assertLess(syson_index, flexo_index)
+
+    def test_services_restart_can_target_syson_only(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "services", "restart", "--no-flexo", "--dry-run"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: docker compose -f deploy/syson/docker-compose.yml down", result.output)
+        self.assertIn("dry-run: docker compose -f deploy/syson/docker-compose.yml up -d", result.output)
+        self.assertNotIn("scripts/flexo_mms_env.py", result.output)
+
+    def test_services_logs_dry_run_supports_tail(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "services", "logs", "--tail", "25", "--dry-run"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: python3 scripts/flexo_mms_env.py logs --tail 25", result.output)
+        self.assertIn("dry-run: docker compose -f deploy/syson/docker-compose.yml logs --tail 25 app", result.output)
+
+    def test_services_requires_at_least_one_service_family(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            ["--repo-root", str(ROOT), "services", "up", "--no-flexo", "--no-syson", "--dry-run"],
+        )
+
+        self.assertNotEqual(result.exit_code, 0, result.output)
+        self.assertIn("Select at least one service family.", result.output)
+
     def test_share_check_passes_for_clean_git_repo(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:

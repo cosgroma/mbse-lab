@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
@@ -31,8 +32,11 @@ MARKDOWN_LINK = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 MBSE_LAB_COMMAND = re.compile(r"(?:^|\s)mbse-lab\s+([A-Za-z0-9_-]+(?:\s+[A-Za-z0-9_-]+)?)")
 
 
-def run(command: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, cwd=ROOT, text=True, capture_output=True)
+def run(command: list[str], extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    env = None
+    if extra_env:
+        env = {**os.environ, **extra_env}
+    return subprocess.run(command, cwd=ROOT, text=True, capture_output=True, env=env)
 
 
 def fail(message: str, failures: list[str]) -> None:
@@ -186,7 +190,11 @@ def check_python_commands(failures: list[str]) -> None:
 
 def mbse_lab_top_level_commands() -> set[str]:
     """Return the set of top-level mbse-lab command/group names from --help."""
-    result = run(["python3", "-m", "mbse_lab.cli", "--help"])
+    python_path = str(ROOT / "src")
+    existing_python_path = os.environ.get("PYTHONPATH")
+    if existing_python_path:
+        python_path = f"{python_path}{os.pathsep}{existing_python_path}"
+    result = run([sys.executable, "-m", "mbse_lab.cli", "--help"], {"PYTHONPATH": python_path})
     text = result.stdout + result.stderr
     commands: set[str] = set()
     in_commands = False

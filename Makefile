@@ -50,7 +50,7 @@ cleanup:
 	mbse-lab cleanup
 
 share-check:
-	mbse-lab share-check
+	PYTHONPATH=src python3 -m mbse_lab.cli share-check
 
 up:
 	python3 scripts/flexo_mms_env.py up --wait --timeout 60

@@ -37,5 +37,10 @@ jobs:
       - name: Build docs
         run: hatch run docs:check
 
+      - name: Prepare local runtime env files
+        run: |
+          python scripts/flexo_mms_env.py init --with-sysmlv2
+          cp deploy/syson/.env.example deploy/syson/.env
+
       - name: Run repository checks
         run: make check

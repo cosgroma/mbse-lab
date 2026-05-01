@@ -351,7 +351,7 @@ def cmd_init(args: argparse.Namespace) -> None:
     (env_dir / "data" / "minio").mkdir(parents=True, exist_ok=True)
 
     sysmlv2 = SYSMLV2_SERVICE if args.with_sysmlv2 else ""
-    compose_contents = COMPOSE_TEMPLATE.format(sysmlv2_service=sysmlv2)
+    compose_contents = COMPOSE_TEMPLATE.replace("{sysmlv2_service}", sysmlv2)
 
     changed: list[Path] = []
     for relative_path, contents in ENV_FILE_EXAMPLES.items():

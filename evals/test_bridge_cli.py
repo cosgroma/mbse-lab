@@ -663,8 +663,13 @@ class SysonPasswordTests(unittest.TestCase):
             repo = Path(temp_dir)
             example = repo / "deploy/syson/.env.example"
             example.parent.mkdir(parents=True)
+            # Write a minimal .env.example using the real placeholder text so ensure_syson_env
+            # replaces it with a generated value.
             example.write_text(
-                f"SYSON_POSTGRES_PASSWORD={SYSON_POSTGRES_PASSWORD_PLACEHOLDER}\n",
+                "SYSON_POSTGRES_IMAGE=postgres:15\n"
+                "SYSON_POSTGRES_DB=postgres\n"
+                "SYSON_POSTGRES_USER=username\n"
+                "SYSON_POSTGRES_PASSWORD=change-me\n",
                 encoding="utf-8",
             )
 

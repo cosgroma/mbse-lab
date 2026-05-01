@@ -44,6 +44,8 @@ from mbse_lab.share import scan_share_issues
 from mbse_lab.shell import run_capture, run_capture_result, run_command
 from mbse_lab.workspace import default_output_dir, ensure_syson_env, initialize_model_workspace, sanitize_identifier
 
+MODEL_WORKSPACE_ENV = "MBSE_MODEL_WORKSPACE"
+
 __all__ = (
     "DEFAULT_FLEXO_URL",
     "DEFAULT_SYSON_URL",
@@ -57,6 +59,21 @@ __all__ = (
     "run_capture_result",
     "scan_share_issues",
 )
+
+
+def should_warn_repo_local_exports(explicit_output: Path | None) -> bool:
+    return explicit_output is None and not os.environ.get(MODEL_WORKSPACE_ENV)
+
+
+def warn_repo_local_exports(output_dir: Path) -> None:
+    click.echo(
+        (
+            f"warning: {MODEL_WORKSPACE_ENV} is unset; generated model artifacts "
+            f"will be written under repo-local `{output_dir}`. Set {MODEL_WORKSPACE_ENV} "
+            "or pass an explicit output path for private model data."
+        ),
+        err=True,
+    )
 
 COMPLETION_ENVVAR = "_MBSE_LAB_COMPLETE"
 
@@ -337,6 +354,8 @@ def first_model(
     resolved_package_name = package_name or name
     resolved_syson_project_name = syson_project_name or f"{name} Review"
     resolved_output_dir = (output_dir or default_output_dir()).expanduser()
+    if should_warn_repo_local_exports(output_dir):
+        warn_repo_local_exports(resolved_output_dir)
     package_identifier = sanitize_identifier(resolved_package_name)
 
     if dry_run:
@@ -731,6 +750,8 @@ def flexo_export(
 ) -> None:
     """Export a Flexo project snapshot."""
     args = ["flexo-export", project_id, "--flexo-url", flexo_url, "--timeout", str(timeout)]
+    if dry_run and should_warn_repo_local_exports(output):
+        warn_repo_local_exports(default_output_dir())
     if commit_id:
         args.extend(["--commit-id", commit_id])
     if output:
@@ -817,6 +838,8 @@ def bridge() -> None:
 def bridge_render(ctx: click.Context, input: Path, output: Path | None, dry_run: bool) -> None:
     """Render a Flexo export JSON file as SysML textual notation."""
     args = ["render-sysml", str(input)]
+    if dry_run and should_warn_repo_local_exports(output):
+        warn_repo_local_exports(default_output_dir())
     if output:
         args.extend(["--output", str(output)])
     run_bridge(ctx, args, dry_run)
@@ -889,6 +912,8 @@ def bridge_run(
     dry_run: bool,
 ) -> None:
     """Export from Flexo, render SysML text, and import into SysON."""
+    if dry_run and should_warn_repo_local_exports(output_dir):
+        warn_repo_local_exports(default_output_dir())
     args = [
         "flexo-to-syson",
         flexo_project_id,

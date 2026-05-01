@@ -424,6 +424,15 @@ class CliTests(unittest.TestCase):
             self.assertIn("dry-run: create SysON project `Demo Model Review`", result.output)
             self.assertIn("dry-run: import package `Demo_Model`", result.output)
 
+    def test_first_model_dry_run_warns_when_workspace_unset(self) -> None:
+        runner = CliRunner()
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+            result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "first-model", "Demo Model", "--dry-run"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("warning: MBSE_MODEL_WORKSPACE is unset", result.output)
+        self.assertIn("repo-local `exports`", result.output)
+
     def test_flexo_export_wrapper_builds_bridge_command(self) -> None:
         runner = CliRunner()
         result = runner.invoke(

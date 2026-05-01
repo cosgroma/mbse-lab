@@ -4,7 +4,9 @@ import argparse
 import contextlib
 import io
 import json
+import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -66,6 +68,30 @@ class BridgeRenderTests(unittest.TestCase):
                 ("GET", "http://syson.local/api/rest/projects/project%201/commits/commit%20latest/roots"),
             ],
         )
+
+    def test_render_warns_when_defaulting_to_repo_local_exports(self) -> None:
+        snapshot = {
+            "project": {"@id": "project-1", "name": "Demo"},
+            "commit": {"@id": "commit-1"},
+            "roots": [{"@id": "root-1", "@type": "Package", "declaredName": "Demo"}],
+            "elements": [{"@id": "root-1", "@type": "Package", "declaredName": "Demo"}],
+        }
+        args = argparse.Namespace(input=Path("snapshot.json"), output=None)
+
+        with tempfile.TemporaryDirectory() as directory:
+            cwd = Path.cwd()
+            os.chdir(directory)
+            try:
+                args.input.write_text(json.dumps(snapshot), encoding="utf-8")
+                with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+                    stderr = io.StringIO()
+                    with contextlib.redirect_stderr(stderr):
+                        flexo_syson_bridge.cmd_render_sysml(args)
+            finally:
+                os.chdir(cwd)
+
+        self.assertIn("warning: MBSE_MODEL_WORKSPACE is unset", stderr.getvalue())
+        self.assertIn("repo-local `exports`", stderr.getvalue())
 
     def test_unsupported_elements_are_not_rendered(self) -> None:
         fixture = ROOT / "evals" / "fixtures" / "flexo-basic-package.json"

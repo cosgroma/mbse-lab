@@ -83,6 +83,10 @@ Flexo graph state can still become easy to stage or publish.
 - 2026-05-01: Added `mbse-lab diagnostics --public-safe` and
   `scripts/collect_diagnostics.py --public-safe` to collect reduced bundles that
   omit project-list probes and recent service logs.
+- 2026-05-01: Selected non-breaking repo-local export warnings for the generated
+  artifact placement chunk. Commands still allow repo-local `exports/`, but
+  warn when `MBSE_MODEL_WORKSPACE` is unset and no explicit output path was
+  provided.
 
 ## Validation Commands
 
@@ -126,7 +130,9 @@ make deployment-verify
 
 - Curated public export convention: decided and documented as
   `exports/examples/**/*.public.json` and `exports/examples/**/*.public.sysml`.
-- Decide whether repo-local generated exports should become an explicit opt-in.
+- Repo-local generated export policy: decided on non-breaking warnings for this
+  branch. A future breaking change can still make repo-local exports an explicit
+  opt-in after users have had a warning period.
 - Public-safe diagnostics mode: implemented as `mbse-lab diagnostics
   --public-safe`; reduced bundles omit project-list probes and recent service
   logs.

@@ -308,6 +308,30 @@ class CliTests(unittest.TestCase):
             self.assertNotIn("init-flexo-org", result.output)
             self.assertFalse(workspace.exists())
 
+    def test_flexo_env_init_renders_compose_with_docker_env_placeholders(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            env_dir = Path(temp_dir) / "flexo"
+            cluster = env_dir / "mount" / "cluster.trig"
+            cluster.parent.mkdir(parents=True)
+            cluster.write_text("# local fixture\n", encoding="utf-8")
+
+            cli.run_capture(
+                [
+                    "python3",
+                    "scripts/flexo_mms_env.py",
+                    "--env-dir",
+                    str(env_dir),
+                    "init",
+                    "--with-sysmlv2",
+                ],
+                ROOT,
+            )
+
+            compose = (env_dir / "docker-compose.yml").read_text(encoding="utf-8")
+            self.assertIn("${FLEXO_MMS_LDAP_ADMIN_PASSWORD}", compose)
+            self.assertIn("${FLEXO_MMS_SYSMLV2_HOST_PORT:-18083}:8080", compose)
+            self.assertTrue((env_dir / "env" / "flexo-mms-jwt.env").exists())
+
     def test_first_model_dry_run_prints_planned_workflow(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -87,6 +87,9 @@ Flexo graph state can still become easy to stage or publish.
   artifact placement chunk. Commands still allow repo-local `exports/`, but
   warn when `MBSE_MODEL_WORKSPACE` is unset and no explicit output path was
   provided.
+- 2026-05-01: Added `docs/reviews/recommended-features.md` to the published
+  documentation review set and linked it from `docs/index.md` and MkDocs
+  navigation.
 
 ## Validation Commands
 

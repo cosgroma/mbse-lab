@@ -77,3 +77,4 @@ flowchart LR
 | Page | Use it for |
 | --- | --- |
 | [Usability Review](reviews/usability-review.md) | Static usability assessment and prioritized findings for the local lab kit. |
+| [Recommended Features Review](reviews/recommended-features.md) | Product direction, capability map, milestone recommendations, and feature backlog for the local lab kit. |

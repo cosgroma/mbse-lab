@@ -18,21 +18,20 @@ this MBSE lab.
 
 ## Current Harness Pieces
 
-```text
-AGENTS.md                         Repo-local agent instructions
-README.md                         User-facing environment guide
-WORKFLOW.md                       Repo-owned workflow contract for agent runs
-Makefile                          Stable command surface for agents and humans
-scripts/flexo_mms_env.py          Environment setup, status, backup, rotation
-scripts/flexo_syson_bridge.py     Flexo/SysON workflow automation
-scripts/check_docs.py             Documentation link and command hygiene checks
-docs/user-guide/private-model-workspaces.md
-                                  Tooling repo versus private model workspace boundary
-docs/lab/flexo-syson-bridge.md        Bridge details
-docs/lab/modeling-conventions.md       Supported SysML v2 bridge subset
-docs/plans/README.md               Execution plan conventions
-deploy/*/*.example                Publishable config templates
-```
+| File or area | Harness role |
+| --- | --- |
+| `AGENTS.md` | Repo-local agent instructions. |
+| `README.md` | User-facing environment guide. |
+| `WORKFLOW.md` | Repo-owned workflow contract for agent runs. |
+| `Makefile` | Stable command surface for agents and humans. |
+| `scripts/flexo_mms_env.py` | Environment setup, status, backup, and rotation. |
+| `scripts/flexo_syson_bridge.py` | Flexo/SysON workflow automation. |
+| `scripts/check_docs.py` | Documentation link and command hygiene checks. |
+| [Private Model Workspaces](../user-guide/private-model-workspaces.md) | Tooling repo versus private model workspace boundary. |
+| [Bridge Workflow](flexo-syson-bridge.md) | Flexo export, SysML render, and SysON import details. |
+| [Modeling Conventions](modeling-conventions.md) | Supported SysML v2 bridge subset. |
+| [Plans](../plans/README.md) | Execution plan conventions. |
+| `deploy/*/*.example` | Publishable config templates. |
 
 ## Command Surface
 

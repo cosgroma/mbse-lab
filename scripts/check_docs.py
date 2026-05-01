@@ -150,8 +150,7 @@ def check_discoverability(failures: list[str]) -> None:
             continue
         if relative not in linked_paths:
             fail(
-                f"{relative} is not linked from README.md, WORKFLOW.md, AGENTS.md, "
-                "docs/index.md, or harness guidance",
+                f"{relative} is not linked from README.md, WORKFLOW.md, AGENTS.md, docs/index.md, or harness guidance",
                 failures,
             )
 

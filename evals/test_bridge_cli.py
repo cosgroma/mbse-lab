@@ -563,7 +563,7 @@ class CliTests(unittest.TestCase):
             cli.run_capture(["git", "config", "user.name", "Test User"], repo)
             env = repo / "deploy" / "syson" / ".env"
             env.parent.mkdir(parents=True)
-            env.write_text("SYSON_POSTGRES_PASSWORD=pass" "word\n", encoding="utf-8")
+            env.write_text("SYSON_POSTGRES_PASSWORD=pass" "word\n", encoding="utf-8")  # fmt: skip
             cli.run_capture(["git", "add", "-f", "deploy/syson/.env"], repo)
 
             issues = cli.scan_share_issues(repo)
@@ -876,9 +876,7 @@ class DoctorRemediationCodesTests(unittest.TestCase):
                 "doctor_report",
                 return_value={
                     "status": "passed",
-                    "checks": {
-                        "syson_database_credentials": {"ok": True, "detail": "skipped", "status": "skipped"}
-                    },
+                    "checks": {"syson_database_credentials": {"ok": True, "detail": "skipped", "status": "skipped"}},
                     "remediation_codes": [],
                 },
             ),
@@ -896,11 +894,8 @@ class DocsCheckMbseLabCommandsTests(unittest.TestCase):
 
     def test_valid_mbse_lab_commands_in_docs_pass(self) -> None:
         import importlib.util
-        import sys as _sys
 
-        spec = importlib.util.spec_from_file_location(
-            "check_docs", ROOT / "scripts" / "check_docs.py"
-        )
+        spec = importlib.util.spec_from_file_location("check_docs", ROOT / "scripts" / "check_docs.py")
         check_docs = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(check_docs)
 
@@ -911,9 +906,7 @@ class DocsCheckMbseLabCommandsTests(unittest.TestCase):
     def test_stale_mbse_lab_command_fails_docs_check(self) -> None:
         import importlib.util
 
-        spec = importlib.util.spec_from_file_location(
-            "check_docs", ROOT / "scripts" / "check_docs.py"
-        )
+        spec = importlib.util.spec_from_file_location("check_docs", ROOT / "scripts" / "check_docs.py")
         check_docs = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(check_docs)
 
@@ -924,9 +917,7 @@ class DocsCheckMbseLabCommandsTests(unittest.TestCase):
             tmp_path = Path(tmp_doc.name)
 
         try:
-            with mock.patch.object(
-                check_docs, "tracked_and_untracked_docs", return_value=[tmp_path]
-            ):
+            with mock.patch.object(check_docs, "tracked_and_untracked_docs", return_value=[tmp_path]):
                 failures: list[str] = []
                 check_docs.check_mbse_lab_commands(failures)
 

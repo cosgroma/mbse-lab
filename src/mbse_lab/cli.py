@@ -869,7 +869,9 @@ def bridge() -> None:
     help="Suppress the warning when MBSE_MODEL_WORKSPACE is unset and writing to repo-local exports/.",
 )
 @click.pass_context
-def bridge_render(ctx: click.Context, input: Path, output: Path | None, dry_run: bool, allow_repo_exports: bool) -> None:
+def bridge_render(
+    ctx: click.Context, input: Path, output: Path | None, dry_run: bool, allow_repo_exports: bool
+) -> None:
     """Render a Flexo export JSON file as SysML textual notation."""
     args = ["render-sysml", str(input)]
     if should_warn_repo_local_exports(output, allow_repo_exports):

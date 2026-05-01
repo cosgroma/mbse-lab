@@ -76,6 +76,13 @@ Flexo graph state can still become easy to stage or publish.
   tracked sample export there, expanded `share-check` coverage for tracked and
   ignored generated artifacts, and fixed `syson-roots` to resolve the latest
   SysON commit before fetching roots.
+- 2026-05-01: Selected public-safe diagnostics as the next follow-up debt
+  chunk. The approach is to omit sensitive project-list and recent-log evidence
+  from public-safe bundles instead of attempting broad post-collection
+  redaction.
+- 2026-05-01: Added `mbse-lab diagnostics --public-safe` and
+  `scripts/collect_diagnostics.py --public-safe` to collect reduced bundles that
+  omit project-list probes and recent service logs.
 
 ## Validation Commands
 
@@ -117,9 +124,11 @@ make deployment-verify
 
 ## Follow-Up Debt
 
-- Decide and document a curated public export convention.
+- Curated public export convention: decided and documented as
+  `exports/examples/**/*.public.json` and `exports/examples/**/*.public.sysml`.
 - Decide whether repo-local generated exports should become an explicit opt-in.
-- Add a public-safe diagnostics mode that redacts or omits private project names,
-  IDs, import logs, and generated artifact paths.
+- Public-safe diagnostics mode: implemented as `mbse-lab diagnostics
+  --public-safe`; reduced bundles omit project-list probes and recent service
+  logs.
 - Move active plan to `docs/plans/completed/` when the review findings have been
   addressed or intentionally deferred with rationale.

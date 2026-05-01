@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
@@ -129,6 +130,37 @@ class DiagnosticsManifestTests(unittest.TestCase):
 
         self.assertEqual("passed", manifest["deploymentVerification"]["status"])
         self.assertIn("# Diagnostics Bundle", rendered)
+
+    def test_public_safe_command_set_omits_project_lists_and_logs(self) -> None:
+        commands = collect_diagnostics.diagnostic_commands(log_tail=25, public_safe=True)
+        rendered = "\n".join(" ".join(command) for command in commands)
+
+        self.assertNotIn("git status --short", rendered)
+        self.assertNotIn("flexo-list-projects", rendered)
+        self.assertNotIn("syson-list-projects", rendered)
+        self.assertNotIn(" logs ", rendered)
+        self.assertIn("scripts/flexo_mms_env.py status --with-sysmlv2", rendered)
+
+    def test_public_safe_http_endpoints_omit_project_lists(self) -> None:
+        endpoints = collect_diagnostics.diagnostic_http_endpoints(public_safe=True)
+
+        self.assertNotIn("flexo-projects.json", endpoints)
+        self.assertNotIn("syson-rest-projects.json", endpoints)
+        self.assertIn("syson-root.html.json", endpoints)
+
+    def test_collect_commands_marks_public_safe_omissions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory)
+            with mock.patch.object(
+                collect_diagnostics,
+                "run",
+                return_value={"returncode": 0, "stdout": "", "stderr": ""},
+            ):
+                collect_diagnostics.collect_commands(output, Path(directory), 10, 25, public_safe=True)
+
+            index = json.loads((output / "commands" / "index.json").read_text(encoding="utf-8"))
+
+        self.assertTrue(any(item.get("omitted") for item in index if isinstance(item, dict)))
 
     def write_json(self, path: Path, data: object) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -205,6 +205,11 @@ files, recent logs, and `deployment-verification.json` from the model-driven
 Docker runtime verifier. It also writes `index.md` and `manifest.json` as
 summary entry points. The diagnostics directory is ignored by git.
 
+Use `mbse-lab diagnostics --public-safe` before sharing evidence outside a
+private project team. Public-safe bundles omit project-list probes and recent
+service logs, which are the most likely diagnostics sources for private project
+names, project IDs, import messages, and generated artifact paths.
+
 `flexo-to-syson` writes a structured JSON run log under
 `runs/flexo-to-syson/` by default. Run logs include inputs, generated artifact
 paths, Flexo project/commit metadata, SysON import metadata, step timings, final

@@ -255,6 +255,17 @@ Collect diagnostics:
 mbse-lab diagnostics
 ```
 
+Use a reduced bundle when the output may be shared outside a private project
+team:
+
+```bash
+mbse-lab diagnostics --public-safe
+```
+
+Public-safe diagnostics omit project-list probes and recent service logs so the
+bundle does not include private project names, project IDs, import log messages,
+or generated artifact paths from those sources.
+
 Generate a static local lab report:
 
 ```bash

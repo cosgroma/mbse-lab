@@ -613,11 +613,19 @@ def services_logs(ctx: click.Context, flexo: bool, syson: bool, tail: int, dry_r
 
 
 @main.command()
+@click.option(
+    "--public-safe",
+    is_flag=True,
+    help="Omit project lists and recent service logs from the diagnostics bundle.",
+)
 @click.pass_context
-def diagnostics(ctx: click.Context) -> None:
+def diagnostics(ctx: click.Context, public_safe: bool) -> None:
     """Collect a redacted diagnostics bundle."""
     repo_root = require_repo_root(ctx)
-    run_command(["python3", "scripts/collect_diagnostics.py"], repo_root)
+    args = ["python3", "scripts/collect_diagnostics.py"]
+    if public_safe:
+        args.append("--public-safe")
+    run_command(args, repo_root)
 
 
 @main.command()

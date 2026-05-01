@@ -57,9 +57,11 @@ class BridgeRenderTests(unittest.TestCase):
 
         args = argparse.Namespace(project_id="project 1", syson_url="http://syson.local/", timeout=10, json=True)
 
-        with mock.patch.object(flexo_syson_bridge, "request_json", side_effect=fake_request_json):
-            with contextlib.redirect_stdout(io.StringIO()):
-                flexo_syson_bridge.cmd_syson_roots(args)
+        with (
+            mock.patch.object(flexo_syson_bridge, "request_json", side_effect=fake_request_json),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            flexo_syson_bridge.cmd_syson_roots(args)
 
         self.assertEqual(
             calls,

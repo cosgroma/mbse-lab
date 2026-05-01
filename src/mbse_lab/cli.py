@@ -75,6 +75,7 @@ def warn_repo_local_exports(output_dir: Path) -> None:
         err=True,
     )
 
+
 COMPLETION_ENVVAR = "_MBSE_LAB_COMPLETE"
 
 

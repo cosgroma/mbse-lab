@@ -295,10 +295,7 @@ def render_manifest_markdown(manifest: dict[str, object]) -> str:
         "",
         f"- Created: {metadata.get('created_at', 'unknown') if isinstance(metadata, dict) else 'unknown'}",
         f"- Working directory: `{metadata.get('cwd', 'unknown') if isinstance(metadata, dict) else 'unknown'}`",
-        (
-            "- Public-safe mode: "
-            f"`{metadata.get('public_safe', False) if isinstance(metadata, dict) else False}`"
-        ),
+        ("- Public-safe mode: " f"`{metadata.get('public_safe', False) if isinstance(metadata, dict) else False}`"),
         f"- Deployment verification: `{deployment.get('status', 'unknown') if isinstance(deployment, dict) else 'unknown'}`",
         (
             "- Deployment checks: "

@@ -61,8 +61,8 @@ __all__ = (
 )
 
 
-def should_warn_repo_local_exports(explicit_output: Path | None) -> bool:
-    return explicit_output is None and not os.environ.get(MODEL_WORKSPACE_ENV)
+def should_warn_repo_local_exports(explicit_output: Path | None, allow_repo_exports: bool = False) -> bool:
+    return not allow_repo_exports and explicit_output is None and not os.environ.get(MODEL_WORKSPACE_ENV)
 
 
 def warn_repo_local_exports(output_dir: Path) -> None:
@@ -70,7 +70,8 @@ def warn_repo_local_exports(output_dir: Path) -> None:
         (
             f"warning: {MODEL_WORKSPACE_ENV} is unset; generated model artifacts "
             f"will be written under repo-local `{output_dir}`. Set {MODEL_WORKSPACE_ENV} "
-            "or pass an explicit output path for private model data."
+            "or pass an explicit output path for private model data. "
+            "Pass --allow-repo-exports to suppress this warning."
         ),
         err=True,
     )
@@ -337,6 +338,11 @@ def bootstrap(
 @click.option("--timeout", type=int, default=30, show_default=True)
 @click.option("--json-output", is_flag=True, help="Print a machine-readable JSON summary.")
 @click.option("--dry-run", is_flag=True, help="Print the planned workflow without creating projects.")
+@click.option(
+    "--allow-repo-exports",
+    is_flag=True,
+    help="Suppress the warning when MBSE_MODEL_WORKSPACE is unset and writing to repo-local exports/.",
+)
 @click.pass_context
 def first_model(
     ctx: click.Context,
@@ -349,13 +355,14 @@ def first_model(
     timeout: int,
     json_output: bool,
     dry_run: bool,
+    allow_repo_exports: bool,
 ) -> None:
     """Create a tiny Flexo model and import it into a SysON review project."""
     repo_root = require_repo_root(ctx)
     resolved_package_name = package_name or name
     resolved_syson_project_name = syson_project_name or f"{name} Review"
     resolved_output_dir = (output_dir or default_output_dir()).expanduser()
-    if should_warn_repo_local_exports(output_dir):
+    if should_warn_repo_local_exports(output_dir, allow_repo_exports):
         warn_repo_local_exports(resolved_output_dir)
     package_identifier = sanitize_identifier(resolved_package_name)
 
@@ -477,8 +484,10 @@ def doctor(ctx: click.Context, json_output: bool, fix: bool) -> None:
 
     failures = 0
 
-    check_mark("python", command_exists("python3"), sys.version.split()[0])
-    if not command_exists("python3"):
+    click.echo("--- Prerequisites ---")
+    python_ok = command_exists("python3")
+    check_mark("python", python_ok, sys.version.split()[0])
+    if not python_ok:
         failures += 1
 
     docker_ok = command_exists("docker")
@@ -491,6 +500,8 @@ def doctor(ctx: click.Context, json_output: bool, fix: bool) -> None:
         check_mark("docker compose", False)
         failures += 1
 
+    click.echo("")
+    click.echo("--- Repo Setup ---")
     if repo_root:
         check_mark("repo root", True, str(repo_root))
         for marker in REQUIRED_MARKERS:
@@ -499,11 +510,13 @@ def doctor(ctx: click.Context, json_output: bool, fix: bool) -> None:
             if not exists:
                 failures += 1
         warn_mark("Flexo env", (repo_root / "deploy/flexo-mms/.env").exists(), "run `make init` if missing")
-        warn_mark("SysON env", (repo_root / "deploy/syson/.env").exists(), "copy deploy/syson/.env.example if missing")
+        warn_mark("SysON env", (repo_root / "deploy/syson/.env").exists(), "run `mbse-lab init` if missing")
     else:
         check_mark("repo root", False, "run from the repo or pass --repo-root")
         failures += 1
 
+    click.echo("")
+    click.echo("--- Workspace ---")
     workspace = os.environ.get("MBSE_MODEL_WORKSPACE")
     if workspace:
         workspace_path = Path(workspace).expanduser()
@@ -511,6 +524,8 @@ def doctor(ctx: click.Context, json_output: bool, fix: bool) -> None:
     else:
         warn_mark("MBSE_MODEL_WORKSPACE", False, "unset; generated artifacts default to exports/")
 
+    click.echo("")
+    click.echo("--- Services ---")
     for label, port in (
         ("Flexo SysML v2 port", 18083),
         ("SysON web port", 18090),
@@ -531,6 +546,13 @@ def doctor(ctx: click.Context, json_output: bool, fix: bool) -> None:
             bool(syson_database_credentials.get("ok")),
             str(syson_database_credentials.get("detail", "")),
         )
+
+    remediation_codes = report.get("remediation_codes", [])
+    if remediation_codes:
+        click.echo("")
+        click.echo("--- Remediation Codes ---")
+        for code in remediation_codes:
+            click.echo(f"  {code}")
 
     if failures:
         raise click.ClickException(f"doctor found {failures} required failure(s)")
@@ -739,6 +761,11 @@ def flexo_create(
 @click.option("--flexo-url", default=DEFAULT_FLEXO_URL, show_default=True)
 @click.option("--timeout", type=int, default=30, show_default=True)
 @click.option("--dry-run", is_flag=True)
+@click.option(
+    "--allow-repo-exports",
+    is_flag=True,
+    help="Suppress the warning when MBSE_MODEL_WORKSPACE is unset and writing to repo-local exports/.",
+)
 @click.pass_context
 def flexo_export(
     ctx: click.Context,
@@ -748,10 +775,11 @@ def flexo_export(
     flexo_url: str,
     timeout: int,
     dry_run: bool,
+    allow_repo_exports: bool,
 ) -> None:
     """Export a Flexo project snapshot."""
     args = ["flexo-export", project_id, "--flexo-url", flexo_url, "--timeout", str(timeout)]
-    if dry_run and should_warn_repo_local_exports(output):
+    if should_warn_repo_local_exports(output, allow_repo_exports):
         warn_repo_local_exports(default_output_dir())
     if commit_id:
         args.extend(["--commit-id", commit_id])
@@ -835,11 +863,18 @@ def bridge() -> None:
 @click.argument("input", type=click.Path(path_type=Path, exists=False))
 @click.option("--output", type=click.Path(path_type=Path))
 @click.option("--dry-run", is_flag=True)
+@click.option(
+    "--allow-repo-exports",
+    is_flag=True,
+    help="Suppress the warning when MBSE_MODEL_WORKSPACE is unset and writing to repo-local exports/.",
+)
 @click.pass_context
-def bridge_render(ctx: click.Context, input: Path, output: Path | None, dry_run: bool) -> None:
+def bridge_render(
+    ctx: click.Context, input: Path, output: Path | None, dry_run: bool, allow_repo_exports: bool
+) -> None:
     """Render a Flexo export JSON file as SysML textual notation."""
     args = ["render-sysml", str(input)]
-    if dry_run and should_warn_repo_local_exports(output):
+    if should_warn_repo_local_exports(output, allow_repo_exports):
         warn_repo_local_exports(default_output_dir())
     if output:
         args.extend(["--output", str(output)])
@@ -896,6 +931,11 @@ def bridge_import(
 @click.option("--syson-url", default=DEFAULT_SYSON_URL, show_default=True)
 @click.option("--timeout", type=int, default=30, show_default=True)
 @click.option("--dry-run", is_flag=True)
+@click.option(
+    "--allow-repo-exports",
+    is_flag=True,
+    help="Suppress the warning when MBSE_MODEL_WORKSPACE is unset and writing to repo-local exports/.",
+)
 @click.pass_context
 def bridge_run(
     ctx: click.Context,
@@ -911,9 +951,10 @@ def bridge_run(
     syson_url: str,
     timeout: int,
     dry_run: bool,
+    allow_repo_exports: bool,
 ) -> None:
     """Export from Flexo, render SysML text, and import into SysON."""
-    if dry_run and should_warn_repo_local_exports(output_dir):
+    if should_warn_repo_local_exports(output_dir, allow_repo_exports):
         warn_repo_local_exports(default_output_dir())
     args = [
         "flexo-to-syson",

@@ -22,6 +22,8 @@ from mbse_lab.constants import (
 from mbse_lab.http import fetch_status
 from mbse_lab.shell import run_capture_result
 
+SYSON_POSTGRES_PASSWORD_PLACEHOLDER = "change-me"
+
 
 def check_mark(label: str, ok: bool, detail: str = "") -> None:
     status = "ok" if ok else "fail"
@@ -125,6 +127,18 @@ def syson_database_credential_report(repo_root: Path) -> dict[str, object]:
 
     if not env_path.exists():
         report.update({"status": "missing-env", "detail": "deploy/syson/.env does not exist."})
+        return report
+    if password == SYSON_POSTGRES_PASSWORD_PLACEHOLDER:
+        report.update(
+            {
+                "ok": False,
+                "status": "placeholder-password",
+                "detail": (
+                    "SYSON_POSTGRES_PASSWORD in deploy/syson/.env is still the placeholder value. "
+                    "Run `mbse-lab init` or set a strong password before starting SysON."
+                ),
+            }
+        )
         return report
     if not data_exists:
         report.update({"status": "no-data", "detail": "No persisted SysON Postgres data found."})
@@ -257,7 +271,37 @@ def doctor_report(repo_root: Path | None) -> dict[str, object]:
         and checks["repo_root"]["ok"]
         and all(marker["exists"] for marker in markers)
     )
+
+    remediation_codes: list[str] = []
+    if not checks["python"]["ok"]:
+        remediation_codes.append("PYTHON_MISSING")
+    if not checks["docker"]["ok"]:
+        remediation_codes.append("DOCKER_MISSING")
+    if not checks["docker_compose"]["ok"]:
+        remediation_codes.append("DOCKER_COMPOSE_MISSING")
+    if not checks["repo_root"]["ok"]:
+        remediation_codes.append("REPO_ROOT_MISSING")
+    for marker in markers:
+        if not marker["exists"]:
+            remediation_codes.append(f"MARKER_MISSING:{marker['path']}")
+    if not checks["flexo_env"]["ok"]:
+        remediation_codes.append("FLEXO_ENV_MISSING")
+    if not checks["syson_env"]["ok"]:
+        remediation_codes.append("SYSON_ENV_MISSING")
+    syson_db = checks.get("syson_database_credentials")
+    if isinstance(syson_db, dict) and syson_db.get("status") == "placeholder-password":
+        remediation_codes.append("SYSON_PASSWORD_PLACEHOLDER")
+    if not workspace:
+        remediation_codes.append("WORKSPACE_UNSET")
+    elif workspace_path and not workspace_path.exists():
+        remediation_codes.append("WORKSPACE_MISSING")
+    if not checks["ports"]["flexo_sysmlv2"]["ok"]:
+        remediation_codes.append("FLEXO_UNREACHABLE")
+    if not checks["ports"]["syson_web"]["ok"]:
+        remediation_codes.append("SYSON_UNREACHABLE")
+
     return {
         "status": "passed" if required_ok else "failed",
         "checks": checks,
+        "remediation_codes": remediation_codes,
     }

@@ -33,6 +33,7 @@ quote-style = "double"
 [tool.hatch.envs.lint]
 detached = true
 dependencies = [
+    "click>=8.1",
     "pre-commit>=3.7",
 ]
 

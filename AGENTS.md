@@ -235,6 +235,77 @@ python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
   --namespace-id <syson-root-package-id>
 ```
 
+## Git Flow Feature Development
+
+This repo uses a lightweight Git Flow policy:
+
+```text
+feature/*, bugfix/*, dependabot/* -> develop
+release/*, hotfix/*               -> main
+```
+
+Use `develop` for normal integration work. Use `main` only for the published
+release line. Release branches target `main`, and after a release, `main` is
+synced back to `develop`. The release process is documented in
+`docs/user-guide/release-process.md`.
+
+Before starting feature work, fetch and branch from the current remote
+`develop`:
+
+```bash
+git fetch origin
+git switch develop
+git pull --ff-only origin develop
+git switch -c feature/<short-description>
+```
+
+If local `develop` has diverged because a release was squash-merged or remote
+history was rewritten, do not try to preserve old pre-release branch history.
+Create the feature branch directly from the remote tip instead:
+
+```bash
+git fetch origin
+git switch -c feature/<short-description> origin/develop
+```
+
+Keep feature branches focused. Commit only files that belong to the feature,
+and leave unrelated dirty worktree changes alone. Prefer explicit staging:
+
+```bash
+git add README.md docs/index.md scripts/check_docs.py
+git commit -m "Improve docs discoverability"
+```
+
+When a branch was accidentally based on stale pre-release history, avoid a broad
+`git rebase origin/develop` if it starts replaying old release, Dependabot, or
+community-profile commits. Instead, identify the focused feature commit and
+cherry-pick it onto a new branch from `origin/develop`:
+
+```bash
+git log --oneline --decorate --max-count=20
+git switch -c feature/<short-description>-cherry origin/develop
+git cherry-pick <feature-commit-sha>
+```
+
+If a rebase is already in progress and has stopped on unrelated release-history
+conflicts, abort it before starting the clean cherry-pick path:
+
+```bash
+git rebase --abort
+```
+
+After validation, push the branch and open a pull request back to `develop`:
+
+```bash
+git push -u origin feature/<short-description>
+gh pr create --draft --base develop --head feature/<short-description>
+```
+
+Use a draft PR by default unless the user explicitly asks for ready-for-review.
+Include a concise summary and the exact validation commands that passed. If a
+PR already exists for the branch, push follow-up commits to the same branch
+instead of opening another PR.
+
 ## Verification Before Commit
 
 Run:

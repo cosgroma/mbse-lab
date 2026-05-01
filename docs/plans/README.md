@@ -20,3 +20,7 @@ Each plan should include:
 Small changes do not need a checked-in plan. Large bridge changes, persistence
 changes, credential handling changes, and live-service workflow changes should
 use one.
+
+## Active Plans
+
+- [MVP Feature Catalog](active/mvp-feature-catalog.md)

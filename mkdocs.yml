@@ -25,6 +25,7 @@ nav:
   - User Guide:
       - Private Model Workspaces: user-guide/private-model-workspaces.md
       - CLI: user-guide/cli.md
+      - Release Process: user-guide/release-process.md
   - Local Lab:
       - Bridge Workflow: lab/flexo-syson-bridge.md
       - Harness Engineering: lab/harness-engineering.md
@@ -39,7 +40,9 @@ nav:
       - Container Deployment: model-specs/container-deployment.md
       - Security Architecture: model-specs/security-architecture.md
       - Enterprise Architecture: model-specs/enterprise-architecture.md
-  - Plans: plans/README.md
+  - Plans:
+      - Overview: plans/README.md
+      - MVP Feature Catalog: plans/active/mvp-feature-catalog.md
 
 markdown_extensions:
   - admonition

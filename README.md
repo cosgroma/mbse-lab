@@ -101,6 +101,8 @@ through the Hatch-managed docs environment:
 make docs-build
 ```
 
+Release steps are documented in `docs/user-guide/release-process.md`.
+
 Serve it locally while editing:
 
 ```bash
@@ -113,6 +115,12 @@ Install the local CLI in editable mode:
 
 ```bash
 make install-cli
+```
+
+Install directly from GitHub when you do not need an editable checkout:
+
+```bash
+python3 -m pip install "git+https://github.com/cosgroma/mbse-lab.git"
 ```
 
 Then inspect the available commands:

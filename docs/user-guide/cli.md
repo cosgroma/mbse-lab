@@ -18,6 +18,20 @@ Equivalent explicit command:
 python3 -m pip install -e .
 ```
 
+Install directly from GitHub when you want the command without an editable
+working copy:
+
+```bash
+python3 -m pip install "git+https://github.com/cosgroma/mbse-lab.git"
+```
+
+Install from the active development branch when you want the latest unreleased
+changes:
+
+```bash
+python3 -m pip install "git+https://github.com/cosgroma/mbse-lab.git@develop"
+```
+
 Check the command surface:
 
 ```bash
@@ -46,7 +60,10 @@ mbse-lab doctor
 
 The doctor checks Python, Docker, Docker Compose, expected repo files, local
 runtime env files, `MBSE_MODEL_WORKSPACE`, common service ports, and basic Flexo
-and SysON reachability.
+and SysON reachability. When SysON has persisted Postgres data and the database
+container is running, it also checks whether the ignored local
+`deploy/syson/.env` password works with that persisted database. This catches
+the common case where `syson-app` exits after a local `.env` password change.
 
 Print a structured report for automation:
 

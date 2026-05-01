@@ -13,7 +13,7 @@ from click.testing import CliRunner
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from mbse_lab import cli  # noqa: E402
+from mbse_lab import cli, health  # noqa: E402
 
 
 class CliTests(unittest.TestCase):
@@ -94,6 +94,66 @@ class CliTests(unittest.TestCase):
         self.assertEqual(report["status"], "passed")
         self.assertTrue(report["checks"]["repo_root"]["ok"])
         self.assertIn("markers", report["checks"])
+
+    def test_syson_database_credential_report_passes_when_configured_password_works(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            (repo / "deploy/syson/data/postgres").mkdir(parents=True)
+            (repo / "deploy/syson/data/postgres/PG_VERSION").write_text("15\n", encoding="utf-8")
+            (repo / "deploy/syson/.env").write_text(
+                "SYSON_POSTGRES_IMAGE=postgres:15\n"
+                "SYSON_POSTGRES_DB=postgres\n"
+                "SYSON_POSTGRES_USER=username\n"
+                "SYSON_POSTGRES_PASSWORD=local-password\n",
+                encoding="utf-8",
+            )
+            with (
+                mock.patch.object(health, "docker_container_report", return_value={"running": True}),
+                mock.patch.object(health, "run_capture_result", return_value=mock.Mock(returncode=0, stderr="")),
+            ):
+                report = health.syson_database_credential_report(repo)
+
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["status"], "passed")
+        self.assertTrue(report["data_exists"])
+
+    def test_syson_database_credential_report_warns_on_password_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            (repo / "deploy/syson/data/postgres").mkdir(parents=True)
+            (repo / "deploy/syson/data/postgres/PG_VERSION").write_text("15\n", encoding="utf-8")
+            (repo / "deploy/syson/.env").write_text(
+                "SYSON_POSTGRES_PASSWORD=wrong-password\n",
+                encoding="utf-8",
+            )
+            result = mock.Mock(returncode=2, stderr='FATAL: password authentication failed for user "username"')
+            with (
+                mock.patch.object(health, "docker_container_report", return_value={"running": True}),
+                mock.patch.object(health, "run_capture_result", return_value=result),
+            ):
+                report = health.syson_database_credential_report(repo)
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["status"], "failed")
+        self.assertIn("does not match", report["detail"])
+
+    def test_syson_database_credential_report_treats_unreadable_data_dir_as_persisted(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            data_path = repo / "deploy/syson/data/postgres"
+            data_path.mkdir(parents=True)
+            (repo / "deploy/syson/.env").write_text(
+                "SYSON_POSTGRES_PASSWORD=local-password\n",
+                encoding="utf-8",
+            )
+            with (
+                mock.patch.object(health, "has_persisted_data", return_value=True),
+                mock.patch.object(health, "docker_container_report", return_value={"running": False}),
+            ):
+                report = health.syson_database_credential_report(repo)
+
+        self.assertTrue(report["data_exists"])
+        self.assertEqual(report["status"], "database-stopped")
 
     def test_doctor_fix_creates_syson_env_and_workspace_layout(self) -> None:
         runner = CliRunner()

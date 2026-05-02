@@ -1046,11 +1046,68 @@ def deployment_contract(ctx: click.Context) -> None:
 
 
 @deployment.command("verify")
+@click.option(
+    "--project-name",
+    help="Inspect containers by Compose project and service labels instead of fixed container names.",
+)
+@click.option("--timeout", type=int, default=20, show_default=True)
+@click.option("--json-output", is_flag=True, help="Print a machine-readable JSON report.")
+@click.option("--output", type=click.Path(path_type=Path), help="Write the structured verification report as JSON.")
 @click.pass_context
-def deployment_verify(ctx: click.Context) -> None:
+def deployment_verify(
+    ctx: click.Context,
+    project_name: str | None,
+    timeout: int,
+    json_output: bool,
+    output: Path | None,
+) -> None:
     """Verify Docker runtime state against the deployment contract."""
     repo_root = require_repo_root(ctx)
-    run_command(["python3", "scripts/flexo_syson_bridge.py", "deployment-verify"], repo_root)
+    args = ["python3", "scripts/flexo_syson_bridge.py", "deployment-verify", "--timeout", str(timeout)]
+    if project_name:
+        args.extend(["--project-name", project_name])
+    if json_output:
+        args.append("--json")
+    if output:
+        args.extend(["--output", str(output)])
+    run_command(args, repo_root)
+
+
+@deployment.command("isolated-smoke")
+@click.option("--project-name", help="Compose project name. Defaults to a generated unique name.")
+@click.option(
+    "--runtime-dir",
+    type=click.Path(path_type=Path, file_okay=False, dir_okay=True),
+    help="Directory for disposable bind-mounted data. Defaults under tmp/isolated-deployments/.",
+)
+@click.option("--timeout", type=int, default=120, show_default=True)
+@click.option("--output", type=click.Path(path_type=Path), help="Write the structured verification report as JSON.")
+@click.option("--keep", is_flag=True, help="Leave the isolated deployment running after verification.")
+@click.option("--dry-run", is_flag=True, help="Print commands without starting containers.")
+@click.pass_context
+def deployment_isolated_smoke(
+    ctx: click.Context,
+    project_name: str | None,
+    runtime_dir: Path | None,
+    timeout: int,
+    output: Path | None,
+    keep: bool,
+    dry_run: bool,
+) -> None:
+    """Start and verify a disposable isolated deployment."""
+    repo_root = require_repo_root(ctx)
+    args = ["python3", "scripts/flexo_syson_bridge.py", "deployment-isolated-smoke", "--timeout", str(timeout)]
+    if project_name:
+        args.extend(["--project-name", project_name])
+    if runtime_dir:
+        args.extend(["--runtime-dir", str(runtime_dir)])
+    if output:
+        args.extend(["--output", str(output)])
+    if keep:
+        args.append("--keep")
+    if dry_run:
+        args.append("--dry-run")
+    run_command(args, repo_root)
 
 
 if __name__ == "__main__":

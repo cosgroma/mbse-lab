@@ -73,6 +73,17 @@ Verify the running Docker containers against that contract with:
 make deployment-verify
 ```
 
+Test the deployment contract in an isolated disposable Compose project with:
+
+```bash
+make deployment-isolated-smoke
+```
+
+The isolated smoke test is intended for CI and shared development hosts. It
+uses random localhost-only host ports, temp bind-mounted data, and Compose
+project labels so it does not require or disturb the normal `mbse-lab services
+up` containers.
+
 ## Context And Working State
 
 Keep durable context in files, not in chat history:
@@ -161,6 +172,9 @@ They currently cover:
   containers modeled in `fixtures/container-deployment-basic.json` are running,
   confirm configured host ports are published, and check persisted bind mounts
   for Fuseki seed data, MinIO data, and SysON Postgres data.
+- Isolated deployment smoke: start the same Flexo/SysON service graph in a
+  disposable Compose project, verify by Compose labels instead of fixed
+  container names, then tear down the project with its temporary volumes.
 
 Run `make live-eval` only when the required local stacks are up.
 

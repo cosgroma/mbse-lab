@@ -271,6 +271,76 @@ class BridgeRenderTests(unittest.TestCase):
         self.assertEqual(3, report["summary"]["passedChecks"])
         self.assertIn("PASSED demo-container", flexo_syson_bridge.format_deployment_verification_report(report))
 
+    def test_deployment_verification_can_inspect_compose_project_services(self) -> None:
+        contract = {
+            "project": {"name": "Fixture"},
+            "commit": {"@id": "commit-1"},
+            "services": [
+                {
+                    "id": "service-1",
+                    "declaredName": "demo",
+                    "stackName": "demo-stack",
+                    "serviceName": "demo-service",
+                    "containerName": "demo-container",
+                    "ports": [],
+                    "mounts": [],
+                }
+            ],
+        }
+        container = {
+            "Name": "/mbse-lab-demo-service-1",
+            "State": {"Running": True, "Status": "running"},
+            "NetworkSettings": {"Ports": {}},
+            "Mounts": [],
+        }
+
+        with mock.patch.object(
+            flexo_syson_bridge, "inspect_compose_service", return_value=(container, None)
+        ) as inspect:
+            report = flexo_syson_bridge.verify_deployment_contract(
+                contract,
+                {},
+                ROOT,
+                project_name="mbse-lab-test",
+            )
+
+        inspect.assert_called_once_with("mbse-lab-test", "demo-service", 20)
+        self.assertEqual("passed", report["status"])
+        self.assertEqual("mbse-lab-test", report["composeProject"])
+        running_check = report["services"][0]["checks"][0]
+        self.assertEqual("mbse-lab-demo-service-1", running_check["details"]["actualContainerName"])
+
+    def test_deployment_mount_verification_supports_isolated_data_dirs(self) -> None:
+        container = {
+            "Mounts": [
+                {
+                    "Destination": "/data",
+                    "Source": "/tmp/isolated/flexo/minio",
+                    "Type": "bind",
+                }
+            ]
+        }
+        expected = {
+            "containerName": "minio-server",
+            "mounts": [
+                {
+                    "containerPath": "/data",
+                    "hostPath": "deploy/flexo-mms/data/minio",
+                    "type": "bind",
+                }
+            ],
+        }
+
+        checks = flexo_syson_bridge.verify_deployment_mounts(
+            container,
+            expected,
+            ROOT,
+            {"FLEXO_MMS_DATA_DIR": "/tmp/isolated/flexo"},
+        )
+
+        self.assertEqual("passed", checks[0]["status"])
+        self.assertEqual("/tmp/isolated/flexo/minio", checks[0]["details"]["expectedHostPath"])
+
 
 if __name__ == "__main__":
     unittest.main()

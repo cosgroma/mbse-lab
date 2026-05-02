@@ -537,6 +537,86 @@ class CliTests(unittest.TestCase):
         self.assertNotEqual(result.exit_code, 0, result.output)
         self.assertIn("Select at least one service family.", result.output)
 
+    def test_deployment_verify_can_target_compose_project(self) -> None:
+        runner = CliRunner()
+        with mock.patch.object(cli, "run_command") as run_command:
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "deployment",
+                    "verify",
+                    "--project-name",
+                    "mbse-lab-test",
+                    "--timeout",
+                    "12",
+                    "--json-output",
+                    "--output",
+                    "tmp/report.json",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        run_command.assert_called_once_with(
+            [
+                "python3",
+                "scripts/flexo_syson_bridge.py",
+                "deployment-verify",
+                "--timeout",
+                "12",
+                "--project-name",
+                "mbse-lab-test",
+                "--json",
+                "--output",
+                "tmp/report.json",
+            ],
+            ROOT,
+        )
+
+    def test_deployment_isolated_smoke_dry_run_builds_command(self) -> None:
+        runner = CliRunner()
+        with mock.patch.object(cli, "run_command") as run_command:
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "deployment",
+                    "isolated-smoke",
+                    "--project-name",
+                    "mbse-lab-test",
+                    "--runtime-dir",
+                    "tmp/isolated",
+                    "--timeout",
+                    "30",
+                    "--output",
+                    "tmp/report.json",
+                    "--keep",
+                    "--dry-run",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        run_command.assert_called_once_with(
+            [
+                "python3",
+                "scripts/flexo_syson_bridge.py",
+                "deployment-isolated-smoke",
+                "--timeout",
+                "30",
+                "--project-name",
+                "mbse-lab-test",
+                "--runtime-dir",
+                "tmp/isolated",
+                "--output",
+                "tmp/report.json",
+                "--keep",
+                "--dry-run",
+            ],
+            ROOT,
+        )
+
     def test_share_check_passes_for_clean_git_repo(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:

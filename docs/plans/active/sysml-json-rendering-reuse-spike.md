@@ -296,9 +296,8 @@ This completed successfully against local commit
 Use live service checks only when probing a running SysON or Flexo stack:
 
 ```bash
-python3 scripts/flexo_mms_env.py status --with-sysmlv2 --strict
-docker compose -f deploy/syson/docker-compose.yml ps
-python3 scripts/flexo_syson_bridge.py flexo-list-projects
+mbse-lab status
+mbse-lab flexo list
 ```
 
 If the spike produces a reusable bridge path, add focused deterministic tests

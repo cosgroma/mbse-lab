@@ -570,9 +570,8 @@ Candidate verification checks:
 git check-ignore deploy/flexo-mms/.env
 git check-ignore 'deploy/flexo-mms/env/flexo-mms-jwt.env'
 git check-ignore deploy/syson/.env
-python3 scripts/flexo_mms_env.py status --with-sysmlv2 --strict
-python3 scripts/flexo_mms_env.py backup
-docker compose -f deploy/syson/docker-compose.yml ps
+mbse-lab status
+mbse-lab flexo backup
 ```
 
 ## Transformation and Executability Approach

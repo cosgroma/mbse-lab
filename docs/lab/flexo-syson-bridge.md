@@ -43,16 +43,15 @@ location. The canonical boundary is documented in
 Make sure both stacks are running:
 
 ```bash
-python3 scripts/flexo_mms_env.py status --with-sysmlv2
-docker compose -f deploy/syson/docker-compose.yml ps
+mbse-lab status
 ```
 
 Initialize the Flexo org used by the SysML v2 service if project creation fails
 with `Org <http://layer1-service/orgs/sysmlv2> does not exist`:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py init-flexo-org
-python3 scripts/flexo_mms_env.py backup
+mbse-lab flexo init-org
+mbse-lab flexo backup
 ```
 
 The backup matters because the local Fuseki container starts from
@@ -60,37 +59,36 @@ The backup matters because the local Fuseki container starts from
 
 | Check | Command | Expected signal |
 | --- | --- | --- |
-| Flexo status | `python3 scripts/flexo_mms_env.py status --with-sysmlv2` | Flexo containers and SysML v2 service are reachable. |
-| SysON status | `docker compose -f deploy/syson/docker-compose.yml ps` | SysON application and database containers are running. |
-| Flexo org exists | `python3 scripts/flexo_syson_bridge.py init-flexo-org` | Needed only when project creation reports the missing `sysmlv2` org. |
-| Graph seed is current | `python3 scripts/flexo_mms_env.py backup` | `deploy/flexo-mms/mount/cluster.trig` reflects org/setup changes. |
+| Service status | `mbse-lab status` | Flexo and SysON containers are reachable. |
+| Flexo org exists | `mbse-lab flexo init-org` | Needed only when project creation reports the missing `sysmlv2` org. |
+| Graph seed is current | `mbse-lab flexo backup` | `deploy/flexo-mms/mount/cluster.trig` reflects org/setup changes. |
 
 ## Flexo Commands
 
-| Task | CLI command | Script command |
-| --- | --- | --- |
-| List projects | `mbse-lab flexo list` | `python3 scripts/flexo_syson_bridge.py flexo-list-projects` |
-| Create project | `mbse-lab flexo create "Example Model"` | `python3 scripts/flexo_syson_bridge.py flexo-create-project "Example Model"` |
-| Export JSON | `mbse-lab flexo export <flexo-project-id>` | `python3 scripts/flexo_syson_bridge.py flexo-export <flexo-project-id>` |
-| Render SysML text | `mbse-lab bridge render exports/flexo/<flexo-project-id>.json` | `python3 scripts/flexo_syson_bridge.py render-sysml exports/flexo/<flexo-project-id>.json` |
+| Task | CLI command |
+| --- | --- |
+| List projects | `mbse-lab flexo list` |
+| Create project | `mbse-lab flexo create "Example Model"` |
+| Export JSON | `mbse-lab flexo export <flexo-project-id>` |
+| Render SysML text | `mbse-lab bridge render exports/flexo/<flexo-project-id>.json` |
 
 ## SysON Commands
 
-| Task | CLI command | Script command |
-| --- | --- | --- |
-| Create project | `mbse-lab syson create "Imported From Flexo"` | `python3 scripts/flexo_syson_bridge.py syson-create-project "Imported From Flexo"` |
-| Find import namespace | `mbse-lab syson roots <syson-project-id>` | `python3 scripts/flexo_syson_bridge.py syson-roots <syson-project-id>` |
-| Import SysML text | `mbse-lab bridge import exports/sysml/<flexo-project-id>.sysml --project-id <syson-project-id> --namespace-id <syson-root-package-id>` | `python3 scripts/flexo_syson_bridge.py syson-import-text exports/sysml/<flexo-project-id>.sysml --project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
-| Run full pipeline | `mbse-lab bridge run <flexo-project-id> --syson-project-id <syson-project-id> --namespace-id <syson-root-package-id>` | `python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> --syson-project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
+| Task | CLI command |
+| --- | --- |
+| Create project | `mbse-lab syson create "Imported From Flexo"` |
+| Find import namespace | `mbse-lab syson roots <syson-project-id>` |
+| Import SysML text | `mbse-lab bridge import exports/sysml/<flexo-project-id>.sysml --project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
+| Run full pipeline | `mbse-lab bridge run <flexo-project-id> --syson-project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
 
 The roots command resolves the latest SysON REST commit before fetching root
 namespace elements. Use `mbse-lab syson roots <syson-project-id> --json-output`
 when you need the raw root package ID for `--namespace-id`.
 
-For the full pipeline, the expanded script form is:
+For the full pipeline, the expanded CLI form is:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
+mbse-lab bridge run <flexo-project-id> \
   --syson-project-id <syson-project-id> \
   --namespace-id <syson-root-package-id>
 ```

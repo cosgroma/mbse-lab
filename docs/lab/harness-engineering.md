@@ -23,9 +23,10 @@ this MBSE lab.
 | `AGENTS.md` | Repo-local agent instructions. |
 | `README.md` | User-facing environment guide. |
 | `WORKFLOW.md` | Repo-owned workflow contract for agent runs. |
-| `Makefile` | Stable command surface for agents and humans. |
-| `scripts/flexo_mms_env.py` | Environment setup, status, backup, and rotation. |
-| `scripts/flexo_syson_bridge.py` | Flexo/SysON workflow automation. |
+| `Makefile` | Stable shortcut surface for agents and humans. |
+| `mbse-lab` | Canonical CLI for setup, services, bridge, diagnostics, and deployment checks. |
+| `scripts/flexo_mms_env.py` | Compatibility/maintainer entry point for Flexo environment operations. |
+| `scripts/flexo_syson_bridge.py` | Compatibility/maintainer entry point for bridge and deployment operations. |
 | `scripts/check_docs.py` | Documentation link and command hygiene checks. |
 | [Private Model Workspaces](../user-guide/private-model-workspaces.md) | Tooling repo versus private model workspace boundary. |
 | [Bridge Workflow](flexo-syson-bridge.md) | Flexo export, SysML render, and SysON import details. |
@@ -35,7 +36,8 @@ this MBSE lab.
 
 ## Command Surface
 
-Agents should prefer `make` targets for routine operations:
+Agents should prefer `mbse-lab` for user-facing operations and `make` targets
+for repeatable repo checks:
 
 ```bash
 make help
@@ -52,13 +54,16 @@ make flexo-list
 make syson-list
 ```
 
-Use the underlying Python scripts when a workflow needs arguments, for example:
+Use the CLI directly when a workflow needs arguments, for example:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
+mbse-lab bridge run <flexo-project-id> \
   --syson-project-id <syson-project-id> \
   --namespace-id <syson-root-package-id>
 ```
+
+The Python scripts remain callable for compatibility, but new user-visible
+behavior should be exposed through `mbse-lab` first.
 
 Inspect the fixture-derived deployment runtime contract before running Docker
 checks with:
@@ -126,7 +131,7 @@ Environment guardrails:
 
 - Use Docker Compose files under `deploy/`.
 - Avoid `down --volumes` unless intentionally resetting local state.
-- Use `scripts/flexo_mms_env.py backup` before destructive changes.
+- Use `mbse-lab flexo backup` before destructive changes.
 
 Workflow guardrails:
 

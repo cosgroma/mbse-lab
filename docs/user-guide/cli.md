@@ -218,8 +218,11 @@ mbse-lab services logs --tail 100
 ```
 
 Each service command accepts `--flexo/--no-flexo` and `--syson/--no-syson` for
-targeted operations. Add `--dry-run` to preview the underlying script and Docker
-Compose commands.
+targeted operations. `services logs` also supports `--follow`,
+`--flexo-service`, and `--syson-service` for focused log inspection. Use
+`services down --volumes` only when you intentionally want to remove Flexo
+compose-managed volumes. Add `--dry-run` to preview the underlying script and
+Docker Compose commands.
 
 ## First Model
 
@@ -308,6 +311,12 @@ Public-safe diagnostics omit project-list probes and recent service logs so the
 bundle does not include private project names, project IDs, import log messages,
 or generated artifact paths from those sources.
 
+Customize diagnostics output when collecting evidence for a specific run:
+
+```bash
+mbse-lab diagnostics --output diagnostics/run-001 --timeout 30 --log-tail 40
+```
+
 Generate a static local lab report:
 
 ```bash
@@ -359,6 +368,22 @@ mbse-lab flexo create "Example Model"
 mbse-lab flexo export <flexo-project-id>
 ```
 
+Run Flexo maintenance operations through the same CLI:
+
+```bash
+mbse-lab flexo init-org
+mbse-lab flexo token
+mbse-lab flexo backup
+mbse-lab flexo rotate-secrets
+```
+
+Restore graph startup data only when you intend to replace
+`deploy/flexo-mms/mount/cluster.trig`:
+
+```bash
+mbse-lab flexo restore deploy/flexo-mms/backups/<backup-file>.nq
+```
+
 List or create SysON projects and inspect import roots:
 
 ```bash
@@ -389,6 +414,18 @@ Inspect and verify the container deployment contract:
 mbse-lab deployment contract
 mbse-lab deployment verify
 ```
+
+Use `--json-output` for machine-readable deployment contract or verification
+output, and `--fixture` when testing an alternate deployment contract fixture.
+
+## Legacy Script Compatibility
+
+`mbse-lab` is the canonical user-facing command surface. The
+`scripts/flexo_mms_env.py`, `scripts/flexo_syson_bridge.py`, and
+`scripts/collect_diagnostics.py` entry points remain callable for compatibility
+and maintainer workflows while their production logic is moved into package
+modules. Prefer adding new user-visible behavior to `mbse-lab` first, then keep
+scripts as thin shims or low-level escape hatches.
 
 These commands expect to run from the shared lab repo. If you run the CLI from
 another directory, pass `--repo-root`:

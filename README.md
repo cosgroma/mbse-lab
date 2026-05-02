@@ -30,19 +30,47 @@ SysON and Flexo are separate repository stacks. Treat Flexo as the durable
 repository path for API-driven experiments, and use SysON for graphical review or
 editing of imported SysML v2 textual content.
 
-## Common Goals
+## Five-Minute Quickstart
 
-| I want to... | Use this | Details |
+From a fresh checkout, use the CLI-first path and keep generated model artifacts
+outside this tooling repo:
+
+```bash
+make install-cli
+mbse-lab bootstrap --dry-run --model-workspace ~/work/my-private-models
+mbse-lab bootstrap --model-workspace ~/work/my-private-models
+export MBSE_MODEL_WORKSPACE=~/work/my-private-models
+mbse-lab smoke first-use --json-output
+mbse-lab share-check
+```
+
+Expected result: bootstrap prints the local Flexo and SysON URLs, the smoke
+workflow reports `"status": "passed"` with Flexo/SysON IDs and generated
+artifact paths under `$MBSE_MODEL_WORKSPACE/exports/`, and `share-check` passes.
+Use `mbse-lab first-model "My First Model"` when you want to create just the
+example model without the full smoke workflow.
+
+## Which Command Should I Run?
+
+| Goal | Primary command | Notes |
 | --- | --- | --- |
-| Install and inspect the command surface | `make install-cli` and `mbse-lab --help` | [CLI guide](docs/user-guide/cli.md) |
-| Bootstrap the local lab for first use | `mbse-lab bootstrap --model-workspace ~/work/my-private-models` | [CLI bootstrap](docs/user-guide/cli.md#bootstrap) |
-| Keep real model data outside this repo | `export MBSE_MODEL_WORKSPACE=~/work/my-private-models` | [Private model workspaces](docs/user-guide/private-model-workspaces.md) |
-| Create a tiny end-to-end model | `mbse-lab first-model "My First Model"` | [First model](docs/user-guide/cli.md#first-model) |
-| Prove the first-use workflow | `mbse-lab smoke first-use --json-output` | [First-use smoke](docs/user-guide/cli.md#first-use-smoke) |
-| Move a Flexo snapshot into SysON | `mbse-lab bridge run <flexo-project-id>` | [Bridge workflow](docs/lab/flexo-syson-bridge.md) |
-| Check what the bridge can render | Review supported element mappings | [Modeling conventions](docs/lab/modeling-conventions.md) |
-| Collect failure evidence | `mbse-lab diagnostics` | [Harness engineering](docs/lab/harness-engineering.md#observability) |
-| Prepare a release | Run the release checklist | [Release process](docs/user-guide/release-process.md) |
+| Install the CLI | `make install-cli` | Then run `mbse-lab --help`. |
+| First setup | `mbse-lab bootstrap --model-workspace ~/work/my-private-models` | Creates env files, starts services, waits for readiness, and prints next steps. |
+| Preview first setup | `mbse-lab bootstrap --dry-run --model-workspace ~/work/my-private-models` | No files, containers, or projects are changed. |
+| Check environment | `mbse-lab doctor` | Use `mbse-lab doctor --fix` for low-risk local fixes. |
+| Start services | `mbse-lab services up` | Waits for selected service APIs by default. |
+| Stop services | `mbse-lab services down` | Keeps persisted service data. |
+| Create demo model | `mbse-lab first-model "My First Model"` | Creates one Flexo project and imports it into SysON. |
+| Prove first-use path | `mbse-lab smoke first-use --json-output` | Starts services, creates/imports a disposable model, and writes a report. |
+| Bridge existing model | `mbse-lab bridge run <flexo-project-id>` | Requires a target SysON project and namespace today. |
+| Collect diagnostics | `mbse-lab diagnostics` | Use after service failures. |
+| Generate report | `mbse-lab report` | Writes Markdown, HTML, and JSON under `reports/latest/`. |
+| Clean generated local output | `mbse-lab cleanup --dry-run` | Remove reports, diagnostics, runs, and temp output after previewing. |
+| Before sharing | `mbse-lab share-check` | Blocks common private data and credential leaks. |
+
+Direct `python3 scripts/...` and `docker compose ...` commands remain documented
+below for advanced inspection and manual recovery. Prefer `mbse-lab` commands
+for routine setup, service lifecycle, bridge, diagnostics, and safety checks.
 
 ## Tooling Repo, Not Model Repo
 

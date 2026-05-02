@@ -80,3 +80,4 @@ flowchart LR
 | --- | --- |
 | [Usability Review](reviews/usability-review.md) | Static usability assessment and prioritized findings for the local lab kit. |
 | [Recommended Features Review](reviews/recommended-features.md) | Product direction, capability map, milestone recommendations, and feature backlog for the local lab kit. |
+| [Recommended Sprint Sequence](reviews/recommended-sprints.md) | Sprint sequencing, acceptance gates, project-board fields, and dependency map for near-term execution. |

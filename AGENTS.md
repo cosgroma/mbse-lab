@@ -246,14 +246,16 @@ python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
 This repo uses a lightweight Git Flow policy:
 
 ```text
-feature/*, bugfix/*, dependabot/* -> develop
-release/*, hotfix/*               -> main
+feature/*, bugfix/*, dependabot/*, copilot/* -> develop
+release/*, hotfix/*                          -> main
 ```
 
 Use `develop` for normal integration work. Use `main` only for the published
 release line. Release branches target `main`, and after a release, `main` is
 synced back to `develop`. The release process is documented in
 `docs/user-guide/release-process.md`.
+Copilot-authored branches using the `copilot/*` prefix may target `develop`;
+they may not target `main`.
 
 Before starting feature work, fetch and branch from the current remote
 `develop`:

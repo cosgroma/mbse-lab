@@ -104,7 +104,44 @@ External source references to inspect:
      EMF model without depending on private SysON internals.
    - Record license and packaging implications.
 
-   Status: next.
+   Status: complete as of 2026-05-02. SysON's serializer can be invoked without
+   the full SysON Spring application once a SysON EMF model object exists. The
+   minimum source module for a standalone harness is
+   `backend/metamodel/syson-sysml-metamodel`, which contains both the generated
+   SysML EMF model and `SysMLElementSerializer`. The
+   `backend/application/syson-sysml-export` module wraps the same serializer for
+   document downloads, but the wrapper is service-facing and adds document/media
+   handling rather than solving JSON materialization.
+
+   A disposable Java 21 probe against the local SysON source built the metamodel
+   module and called:
+
+   ```java
+   new SysMLElementSerializer(options, statuses::add).doSwitch(pkg)
+   ```
+
+   for a `SysmlFactory.eINSTANCE.createPackage()` instance, producing:
+
+   ```sysml
+   package ProbePackage;
+   ```
+
+   The adapter boundary is therefore not serializer invocation. It is faithfully
+   reconstructing SysON EMF containment and relationship structure from Flexo
+   API JSON. SysON expects elements to be connected through typed relationship
+   objects such as `OwningMembership`, `FeatureMembership`,
+   `FeatureTyping`, `Subclassification`, and `Subsetting`; for example, a child
+   package is not just appended to a parent field. The parent owns an
+   `OwningMembership`, the membership owns or references the child through
+   `ownedRelatedElement`, and membership references such as `memberElement` must
+   be populated for namespace lookup and serialization. This is mechanical for a
+   narrow subset, but it is still an adapter with SysML semantic knowledge.
+
+   Packaging note: the local SysON source builds this module with Java 21. The
+   host has a Java 21 runtime but `javac` 17 on `PATH`, so the successful probe
+   used the `maven:3.9-eclipse-temurin-21` container. SysON source and the
+   running image declare EPL-2.0 licensing; invoking an external harness is a
+   lower-commitment path than copying SysON serializer code into this repo.
 
 4. Inspect the SysML v2 Pilot Implementation for API JSON to EMF to text
    support.
@@ -146,6 +183,11 @@ External source references to inspect:
   REST-created project or a normal `sysmlv2-template` project. The same run
   confirmed that SysON document download can call the textual exporter for an
   existing SysON document when requested with `Accept: text/html`.
+- 2026-05-02: Assessed the SysON Java harness path. The metamodel module builds
+  standalone in a Java 21 Maven container and can directly serialize an
+  in-memory SysON EMF package. The remaining work for this path is an API JSON
+  to SysON EMF adapter, with the main complexity in reconstructing SysML
+  relationship/membership objects rather than calling the serializer.
 
 ## Validation Commands
 
@@ -154,6 +196,20 @@ Run deterministic checks after changing tracked repo files:
 ```bash
 make check
 ```
+
+SysON serializer harness probe:
+
+```bash
+docker run --rm \
+  -v /tmp/syson:/work \
+  -v "$HOME/.m2":/root/.m2 \
+  -w /work \
+  maven:3.9-eclipse-temurin-21 \
+  mvn -pl backend/metamodel/syson-sysml-metamodel -DskipTests package
+```
+
+The host Maven build is expected to fail until `javac` 21 is available on
+`PATH`; this workspace currently has a Java 21 runtime but a Java 17 compiler.
 
 Use live service checks only when probing a running SysON or Flexo stack:
 
@@ -176,6 +232,14 @@ before updating the supported workflow documentation.
   Flexo API JSON to SysON model import. Continue with a Java harness or internal
   SysON model-adapter assessment rather than trying to force the REST commit
   facade.
+- A SysON Java harness is technically viable but not automatically cheaper than
+  the current Python renderer for the supported subset. It becomes attractive
+  only if the adapter can stay narrow and fixture-driven, or if another tool
+  already materializes SysML v2 API JSON into an EMF model.
+- Before implementing a SysON adapter, inspect the SysML v2 Pilot
+  Implementation for an API JSON to EMF/text path. If that path exists, it could
+  avoid rebuilding the same semantic relationship reconstruction against SysON's
+  generated model.
 - Treat licensing as part of the technical decision. SysON and the Pilot
   Implementation have different licenses, so vendoring code is a materially
   different choice from invoking an external tool or service.

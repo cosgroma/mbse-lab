@@ -1265,6 +1265,8 @@ def bridge() -> None:
 @bridge.command("render")
 @click.argument("input", type=click.Path(path_type=Path, exists=False))
 @click.option("--output", type=click.Path(path_type=Path))
+@click.option("--report", is_flag=True, help="Write render-report.json next to the SysML output.")
+@click.option("--report-output", type=click.Path(path_type=Path), help="Write render coverage report to this path.")
 @click.option("--dry-run", is_flag=True)
 @click.option(
     "--allow-repo-exports",
@@ -1273,7 +1275,13 @@ def bridge() -> None:
 )
 @click.pass_context
 def bridge_render(
-    ctx: click.Context, input: Path, output: Path | None, dry_run: bool, allow_repo_exports: bool
+    ctx: click.Context,
+    input: Path,
+    output: Path | None,
+    report: bool,
+    report_output: Path | None,
+    dry_run: bool,
+    allow_repo_exports: bool,
 ) -> None:
     """Render a Flexo export JSON file as SysML textual notation."""
     args = ["render-sysml", str(input)]
@@ -1281,6 +1289,10 @@ def bridge_render(
         warn_repo_local_exports(default_output_dir())
     if output:
         args.extend(["--output", str(output)])
+    if report or report_output:
+        args.append("--report")
+    if report_output:
+        args.extend(["--report-output", str(report_output)])
     run_bridge(ctx, args, dry_run)
 
 

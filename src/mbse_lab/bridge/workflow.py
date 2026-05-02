@@ -55,23 +55,24 @@ ISOLATED_CLUSTER_TRIG = """\
 isolated:seed isolated:purpose "disposable deployment smoke test" .
 """
 
-RENDERABLE_TYPES = {
-    "Package",
-    "PartDefinition",
-    "PartUsage",
-    "AttributeUsage",
-    "PortUsage",
-    "RequirementDefinition",
-    "RequirementUsage",
-    "ConnectionDefinition",
-    "ConnectionUsage",
-    "InterfaceDefinition",
-    "InterfaceUsage",
-    "ActionDefinition",
-    "ActionUsage",
-    "ItemDefinition",
-    "ItemUsage",
+RENDERABLE_TYPE_KEYWORDS = {
+    "Package": "package",
+    "PartDefinition": "part def",
+    "PartUsage": "part",
+    "AttributeUsage": "attribute",
+    "PortUsage": "port",
+    "RequirementDefinition": "requirement def",
+    "RequirementUsage": "requirement",
+    "ConnectionDefinition": "connection def",
+    "ConnectionUsage": "connection",
+    "InterfaceDefinition": "interface def",
+    "InterfaceUsage": "interface",
+    "ActionDefinition": "action def",
+    "ActionUsage": "action",
+    "ItemDefinition": "item def",
+    "ItemUsage": "item",
 }
+RENDERABLE_TYPES = set(RENDERABLE_TYPE_KEYWORDS)
 
 
 @dataclass(frozen=True)
@@ -549,6 +550,7 @@ def render_element(
     elements_by_id: dict[str, dict[str, Any]],
     depth: int = 0,
     seen: set[str] | None = None,
+    rendered_ids: set[str] | None = None,
 ) -> list[str]:
     seen = set(seen or set())
     element_id = element.get("@id")
@@ -560,6 +562,8 @@ def render_element(
     element_type = element.get("@type", "Element")
     if element_type not in RENDERABLE_TYPES:
         return []
+    if rendered_ids is not None and isinstance(element_id, str):
+        rendered_ids.add(element_id)
 
     indent = "  " * depth
     name = element_name(element)
@@ -567,25 +571,9 @@ def render_element(
     for child_id in child_ids(element):
         child = elements_by_id.get(child_id)
         if child:
-            rendered_children.extend(render_element(child, elements_by_id, depth + 1, seen))
+            rendered_children.extend(render_element(child, elements_by_id, depth + 1, seen, rendered_ids))
 
-    keyword = {
-        "Package": "package",
-        "PartDefinition": "part def",
-        "PartUsage": "part",
-        "AttributeUsage": "attribute",
-        "PortUsage": "port",
-        "RequirementDefinition": "requirement def",
-        "RequirementUsage": "requirement",
-        "ConnectionDefinition": "connection def",
-        "ConnectionUsage": "connection",
-        "InterfaceDefinition": "interface def",
-        "InterfaceUsage": "interface",
-        "ActionDefinition": "action def",
-        "ActionUsage": "action",
-        "ItemDefinition": "item def",
-        "ItemUsage": "item",
-    }.get(element_type, "element")
+    keyword = RENDERABLE_TYPE_KEYWORDS.get(element_type, "element")
 
     if rendered_children and element_type in {"Package", "PartDefinition", "RequirementDefinition"}:
         return [f"{indent}{keyword} {name} {{", *rendered_children, f"{indent}}}"]
@@ -593,6 +581,10 @@ def render_element(
 
 
 def render_snapshot(snapshot: dict[str, Any]) -> str:
+    return render_snapshot_with_report(snapshot)[0]
+
+
+def render_snapshot_with_report(snapshot: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     snapshot = FlexoSnapshot.from_mapping(snapshot).to_dict()
     elements = snapshot.get("elements") or []
     roots = snapshot.get("roots") or []
@@ -612,11 +604,69 @@ def render_snapshot(snapshot: dict[str, Any]) -> str:
         "",
     ]
     rendered: list[str] = []
+    rendered_ids: set[str] = set()
     for root in root_elements:
-        rendered.extend(render_element(root, elements_by_id))
+        rendered.extend(render_element(root, elements_by_id, rendered_ids=rendered_ids))
     if not rendered:
         rendered.append("// No supported renderable SysML elements were found in this snapshot.")
-    return "\n".join(lines + rendered) + "\n"
+    return "\n".join(lines + rendered) + "\n", render_coverage_report(snapshot, rendered_ids)
+
+
+def render_coverage_report(snapshot: dict[str, Any], rendered_ids: set[str]) -> dict[str, Any]:
+    elements = [element for element in snapshot.get("elements", []) if isinstance(element, dict)]
+    counts_by_type: dict[str, dict[str, int]] = {}
+    for element in elements:
+        element_type = str(element.get("@type") or "Element")
+        counts = counts_by_type.setdefault(
+            element_type,
+            {
+                "total": 0,
+                "rendered": 0,
+                "skipped": 0,
+                "unsupported": 0,
+            },
+        )
+        counts["total"] += 1
+        element_id = element.get("@id")
+        if element_type not in RENDERABLE_TYPES:
+            counts["unsupported"] += 1
+        elif isinstance(element_id, str) and element_id in rendered_ids:
+            counts["rendered"] += 1
+        else:
+            counts["skipped"] += 1
+
+    warnings: list[str] = []
+    for element_type, counts in sorted(counts_by_type.items()):
+        if counts["unsupported"]:
+            warnings.append(f"unsupported Flexo @type `{element_type}`: {counts['unsupported']} element(s)")
+        if counts["skipped"]:
+            warnings.append(f"skipped renderable Flexo @type `{element_type}`: {counts['skipped']} element(s)")
+
+    rendered_count = sum(counts["rendered"] for counts in counts_by_type.values())
+    skipped_count = sum(counts["skipped"] for counts in counts_by_type.values())
+    unsupported_count = sum(counts["unsupported"] for counts in counts_by_type.values())
+    return {
+        "schema": "mbse-lab.render-report.v1",
+        "source": snapshot.get("source", "flexo-sysmlv2"),
+        "project": {
+            "id": snapshot.get("project", {}).get("@id"),
+            "name": snapshot.get("project", {}).get("name"),
+        },
+        "commit": {
+            "id": snapshot.get("commit", {}).get("@id"),
+        },
+        "summary": {
+            "total_elements": len(elements),
+            "rendered_elements": rendered_count,
+            "skipped_elements": skipped_count,
+            "unsupported_elements": unsupported_count,
+            "types": len(counts_by_type),
+            "unsupported_types": sum(1 for counts in counts_by_type.values() if counts["unsupported"]),
+        },
+        "types": {element_type: counts_by_type[element_type] for element_type in sorted(counts_by_type)},
+        "warnings": warnings,
+        "renderable_types": sorted(RENDERABLE_TYPES),
+    }
 
 
 def deployment_contract_from_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
@@ -1166,7 +1216,7 @@ def cmd_deployment_isolated_smoke(args: argparse.Namespace) -> None:
 
 def cmd_render_sysml(args: argparse.Namespace) -> None:
     snapshot = read_json(args.input)
-    text = render_snapshot(snapshot)
+    text, report = render_snapshot_with_report(snapshot)
     output = args.output
     if output is None:
         output_dir = default_output_dir()
@@ -1177,6 +1227,11 @@ def cmd_render_sysml(args: argparse.Namespace) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(text, encoding="utf-8")
     info(f"Wrote SysML textual export: {output}")
+    report_output = getattr(args, "report_output", None)
+    if getattr(args, "report", False) or report_output:
+        report_path = report_output or (output.parent / "render-report.json")
+        write_json(report_path, report)
+        info(f"Wrote render coverage report: {report_path}")
 
 
 def cmd_syson_list_projects(args: argparse.Namespace) -> None:
@@ -1409,20 +1464,29 @@ def cmd_flexo_to_syson(args: argparse.Namespace) -> None:
 
         step_start = utc_now()
         step_perf = time.perf_counter()
-        sysml_text = render_snapshot(snapshot)
+        sysml_text, render_report = render_snapshot_with_report(snapshot)
+        render_report_path = output_dir / "reports" / f"{args.flexo_project_id}.render-report.json"
         sysml_path.parent.mkdir(parents=True, exist_ok=True)
         sysml_path.write_text(sysml_text, encoding="utf-8")
+        write_json(render_report_path, render_report)
         add_step(
             record,
             "render-sysml",
             "succeeded",
             step_start,
             time.perf_counter() - step_perf,
-            {"path": str(sysml_path), "bytes": len(sysml_text.encode("utf-8"))},
+            {
+                "path": str(sysml_path),
+                "bytes": len(sysml_text.encode("utf-8")),
+                "render_report": str(render_report_path),
+                "coverage_summary": render_report["summary"],
+            },
         )
         record["artifacts"]["sysml_text"] = str(sysml_path)
+        record["artifacts"]["render_report"] = str(render_report_path)
         info(f"Wrote Flexo export: {export_path}")
         info(f"Wrote SysML textual export: {sysml_path}")
+        info(f"Wrote render coverage report: {render_report_path}")
 
         step_start = utc_now()
         step_perf = time.perf_counter()
@@ -1502,6 +1566,8 @@ def build_parser() -> argparse.ArgumentParser:
     render = subparsers.add_parser("render-sysml", help="Render a Flexo export JSON file as SysML textual notation")
     render.add_argument("input", type=Path)
     render.add_argument("--output", type=Path)
+    render.add_argument("--report", action="store_true", help="Write render-report.json next to the SysML output.")
+    render.add_argument("--report-output", type=Path, help="Write the render coverage report to this exact path.")
     render.set_defaults(func=cmd_render_sysml)
 
     contract = subparsers.add_parser(

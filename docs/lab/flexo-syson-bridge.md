@@ -72,7 +72,7 @@ for synthetic, publishable seed data.
 | List projects | `mbse-lab flexo list` |
 | Create project | `mbse-lab flexo create "Example Model"` |
 | Export JSON | `mbse-lab flexo export <flexo-project-id>` |
-| Render SysML text | `mbse-lab bridge render exports/flexo/<flexo-project-id>.json` |
+| Render SysML text | `mbse-lab bridge render exports/flexo/<flexo-project-id>.json --report` |
 
 ## SysON Commands
 
@@ -101,8 +101,13 @@ mbse-lab bridge run <flexo-project-id> \
 | --- | --- | --- |
 | Flexo JSON export | `exports/flexo/<flexo-project-id>.json` | Keep private unless the model is synthetic and publishable. |
 | Rendered SysML text | `exports/sysml/<flexo-project-id>.sysml` | Derived from the export; keep private for real models. |
+| Render coverage report | `exports/sysml/render-report.json` or `exports/reports/<flexo-project-id>.render-report.json` | Counts rendered, skipped, and unsupported element types without embedding model text. |
 | Full-pipeline run log | `runs/flexo-to-syson/` | Ignored by git; may include private project IDs and names. |
 | Private workspace exports | `$MBSE_MODEL_WORKSPACE/exports/` | Preferred location for real model bridge artifacts. |
+
+`mbse-lab report` links the latest full-pipeline run log and bridge artifact
+paths when a run log exists. It reports workflow status, SysON import status,
+and render coverage counts, but it does not embed Flexo JSON or SysML text.
 
 ## Current Scope
 

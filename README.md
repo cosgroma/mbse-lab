@@ -268,6 +268,8 @@ mbse-lab report
 ```
 
 The report writes Markdown, HTML, and JSON snapshots under `reports/latest/`.
+When bridge run logs exist, it links the latest run log and generated artifact
+paths and summarizes render coverage counts without embedding model content.
 
 Remove generated local reports, diagnostics, run logs, and temporary output:
 
@@ -426,7 +428,7 @@ reset the environment.
 | List Flexo projects | `mbse-lab flexo list` |
 | Create a Flexo SysML v2 project | `mbse-lab flexo create "Example Model"` |
 | Export Flexo JSON | `mbse-lab flexo export <flexo-project-id>` |
-| Render JSON to SysML text | `mbse-lab bridge render exports/flexo/<flexo-project-id>.json` |
+| Render JSON to SysML text with coverage | `mbse-lab bridge render exports/flexo/<flexo-project-id>.json --report` |
 | Create a SysON project | `mbse-lab syson create "Imported From Flexo"` |
 | Find a SysON import namespace | `mbse-lab syson roots <syson-project-id>` |
 | Import a `.sysml` file into SysON | `mbse-lab bridge import exports/sysml/<flexo-project-id>.sysml --project-id <syson-project-id> --namespace-id <syson-root-package-id>` |

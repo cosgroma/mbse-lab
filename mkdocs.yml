@@ -30,7 +30,7 @@ nav:
       - Safety And Sharing: user-guide/safety-and-sharing.md
       - Troubleshooting: user-guide/troubleshooting.md
       - Release Process: user-guide/release-process.md
-      - v0.1.0 Limitations: user-guide/v0.1.0-limitations.md
+      - v0.2.0 Limitations: user-guide/v0.2.0-limitations.md
   - Local Lab:
       - Bridge Workflow: lab/flexo-syson-bridge.md
       - Harness Engineering: lab/harness-engineering.md

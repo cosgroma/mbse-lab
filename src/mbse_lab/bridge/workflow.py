@@ -49,10 +49,8 @@ DEPLOYMENT_PORT_ENV_KEYS = (
     "FLEXO_MMS_SYSMLV2_HOST_PORT",
     "SYSON_HOST_PORT",
 )
-ISOLATED_CLUSTER_TRIG = """\
-@prefix isolated: <urn:mbse-lab:isolated:> .
-
-isolated:seed isolated:purpose "disposable deployment smoke test" .
+ISOLATED_CLUSTER_NQUADS = """\
+<urn:mbse-lab:isolated:seed> <urn:mbse-lab:isolated:purpose> "disposable deployment smoke test" .
 """
 
 RENDERABLE_TYPE_KEYWORDS = {
@@ -1144,7 +1142,7 @@ def write_isolated_cluster_seed(mount_dir: Path) -> None:
     if mount_dir.exists():
         shutil.rmtree(mount_dir, ignore_errors=True)
     mount_dir.mkdir(parents=True, exist_ok=True)
-    (mount_dir / "cluster.trig").write_text(ISOLATED_CLUSTER_TRIG, encoding="utf-8")
+    (mount_dir / "cluster.nq").write_text(ISOLATED_CLUSTER_NQUADS, encoding="utf-8")
 
 
 def format_isolated_ports(env: dict[str, str]) -> str:

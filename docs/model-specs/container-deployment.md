@@ -365,7 +365,7 @@ minio-server:      ./data/minio -> /data
 Important data paths:
 
 ```text
-deploy/flexo-mms/mount/cluster.trig
+deploy/flexo-mms/mount/cluster.nq
 deploy/flexo-mms/data/minio/
 deploy/flexo-mms/backups/
 deploy/flexo-mms/env/
@@ -462,7 +462,7 @@ SysONUiReachable
 
 FlexoGraphDataPersistent
   subject: quad-store-server volume mount
-  constraint: cluster.trig is persisted and backup workflow is available
+  constraint: cluster.nq is persisted and backup workflow is available
 
 NoHostPortConflicts
   subject: MBSELocalLabDeployment

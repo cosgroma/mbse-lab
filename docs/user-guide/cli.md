@@ -394,7 +394,7 @@ mbse-lab flexo backup --update-init --i-understand-this-updates-tracked-seed
 ```
 
 Restore graph startup data only when you intend to replace
-`deploy/flexo-mms/mount/cluster.trig`:
+`deploy/flexo-mms/mount/cluster.nq`:
 
 ```bash
 mbse-lab flexo restore deploy/flexo-mms/backups/<backup-file>.nq

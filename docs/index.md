@@ -13,7 +13,7 @@ specifications.
 | Keep private model data out of the tooling repo | [Private Model Workspaces](user-guide/private-model-workspaces.md) | [Safety And Sharing](user-guide/safety-and-sharing.md) |
 | Move a Flexo model snapshot into SysON | [Bridge Workflow](lab/flexo-syson-bridge.md) | [Transformation Pipeline](methodology/sysml-v2-transformation-pipeline-design.md) |
 | Understand supported rendered SysML v2 content | [Modeling Conventions](lab/modeling-conventions.md) | [Bridge Workflow](lab/flexo-syson-bridge.md) |
-| Prepare or publish a release | [Release Process](user-guide/release-process.md) | [MVP Feature Catalog](plans/active/mvp-feature-catalog.md) |
+| Prepare or publish a release | [Release Process](user-guide/release-process.md) | [v0.2.0 Limitations](user-guide/v0.2.0-limitations.md) |
 | Extend the local harness or evals | [Harness Engineering](lab/harness-engineering.md) | [Plans](plans/README.md) |
 
 ## Which Command Should I Run?
@@ -61,7 +61,7 @@ flowchart LR
 | [Safety And Sharing](user-guide/safety-and-sharing.md) | Credential, service-data, private-workspace, share-check, report, and cleanup boundaries. |
 | [Troubleshooting](user-guide/troubleshooting.md) | Symptom-oriented recovery paths for Docker, ports, Flexo org setup, SysON startup, and bridge imports. |
 | [Release Process](user-guide/release-process.md) | Preparing release branches, smoke testing, tagging, and syncing release work back to `develop`. |
-| [v0.1.0 Limitations](user-guide/v0.1.0-limitations.md) | Tracking release-scope limits, known gaps, and downstream development focus areas. |
+| [v0.2.0 Limitations](user-guide/v0.2.0-limitations.md) | Tracking release-scope limits, known gaps, and downstream development focus areas. |
 
 ## Local Lab
 

@@ -19,7 +19,7 @@ services:
     container_name: quad-server
     env_file:
       - ./env/flexo-mms-quad-store.env
-    command: --file=/tmp/mount/cluster.trig --update /ds
+    command: --file=/tmp/mount/cluster.nq --update /ds
     volumes:
       - ./mount:/tmp/mount
     ports:

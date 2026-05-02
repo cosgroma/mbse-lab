@@ -377,6 +377,14 @@ mbse-lab flexo backup
 mbse-lab flexo rotate-secrets
 ```
 
+`mbse-lab flexo backup` writes an ignored backup file by default. Refreshing the
+tracked startup seed requires explicit intent and should be reserved for
+synthetic, publishable seed data:
+
+```bash
+mbse-lab flexo backup --update-init --i-understand-this-updates-tracked-seed
+```
+
 Restore graph startup data only when you intend to replace
 `deploy/flexo-mms/mount/cluster.trig`:
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -816,6 +817,130 @@ class CliTests(unittest.TestCase):
 
                 self.assertEqual(result.exit_code, 0, result.output)
                 self.assertIn(expected, result.output)
+
+    def test_flexo_backup_does_not_update_init_by_default(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "flexo", "backup", "--dry-run"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: python3 scripts/flexo_mms_env.py backup --timeout 60", result.output)
+        self.assertNotIn("--update-init", result.output)
+        self.assertNotIn("--no-update-init", result.output)
+
+    def test_flexo_backup_update_init_requires_acknowledgement(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "flexo", "backup", "--update-init", "--dry-run"])
+
+        self.assertNotEqual(result.exit_code, 0, result.output)
+        self.assertIn("--i-understand-this-updates-tracked-seed", result.output)
+
+    def test_flexo_backup_update_init_passes_high_intent_flags(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            [
+                "--repo-root",
+                str(ROOT),
+                "flexo",
+                "backup",
+                "--update-init",
+                "--i-understand-this-updates-tracked-seed",
+                "--dry-run",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("--update-init --i-understand-this-updates-tracked-seed", result.output)
+
+    def test_flexo_backup_script_writes_ignored_backup_only_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            env_dir = root / "deploy/flexo-mms"
+            source = root / "source.nq"
+            output = root / "backup.nq"
+            source.write_text("<urn:s> <urn:p> <urn:o> .\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts/flexo_mms_env.py"),
+                    "--env-dir",
+                    str(env_dir),
+                    "backup",
+                    "--url",
+                    source.as_uri(),
+                    "--output",
+                    str(output),
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(output.read_text(encoding="utf-8"), source.read_text(encoding="utf-8"))
+            self.assertFalse((env_dir / "mount/cluster.trig").exists())
+
+    def test_flexo_backup_script_requires_high_intent_seed_update(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "source.nq"
+            output = root / "backup.nq"
+            source.write_text("<urn:s> <urn:p> <urn:o> .\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts/flexo_mms_env.py"),
+                    "--env-dir",
+                    str(root / "deploy/flexo-mms"),
+                    "backup",
+                    "--url",
+                    source.as_uri(),
+                    "--output",
+                    str(output),
+                    "--update-init",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("--i-understand-this-updates-tracked-seed", result.stderr)
+
+    def test_flexo_backup_script_updates_seed_with_explicit_acknowledgement(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            env_dir = root / "deploy/flexo-mms"
+            source = root / "source.nq"
+            output = root / "backup.nq"
+            source.write_text("<urn:s> <urn:p> <urn:o> .\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts/flexo_mms_env.py"),
+                    "--env-dir",
+                    str(env_dir),
+                    "backup",
+                    "--url",
+                    source.as_uri(),
+                    "--output",
+                    str(output),
+                    "--update-init",
+                    "--i-understand-this-updates-tracked-seed",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Only use this path for synthetic, publishable seed data.", result.stdout)
+            self.assertEqual(
+                (env_dir / "mount/cluster.trig").read_text(encoding="utf-8"), source.read_text(encoding="utf-8")
+            )
 
     def test_services_requires_at_least_one_service_family(self) -> None:
         runner = CliRunner()

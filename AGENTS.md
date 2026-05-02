@@ -130,8 +130,13 @@ When Flexo graph state matters, run:
 mbse-lab flexo backup
 ```
 
-That writes a backup and refreshes `mount/cluster.trig` unless
-`--no-update-init` is used.
+That writes an ignored backup only. Refreshing `mount/cluster.trig` requires:
+
+```bash
+mbse-lab flexo backup --update-init --i-understand-this-updates-tracked-seed
+```
+
+Use the tracked seed update path only for synthetic, publishable startup data.
 
 ## Start and Health Check
 

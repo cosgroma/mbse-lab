@@ -1070,20 +1070,42 @@ def flexo_token(
 @click.option("--url", help="Fuseki dataset URL. Defaults to the generated Fuseki host port.")
 @click.option("--output", type=click.Path(path_type=Path), help="Backup file path.")
 @click.option("--timeout", type=int, default=60, show_default=True)
-@click.option("--update-init/--no-update-init", default=True, help="Refresh mount/cluster.trig after export.")
+@click.option(
+    "--update-init/--no-update-init",
+    default=False,
+    help="Also refresh tracked mount/cluster.trig after export.",
+)
+@click.option(
+    "--i-understand-this-updates-tracked-seed",
+    is_flag=True,
+    help="Required with --update-init to acknowledge that tracked seed data must be publishable.",
+)
 @click.option("--dry-run", is_flag=True)
 @click.pass_context
 def flexo_backup(
-    ctx: click.Context, url: str | None, output: Path | None, timeout: int, update_init: bool, dry_run: bool
+    ctx: click.Context,
+    url: str | None,
+    output: Path | None,
+    timeout: int,
+    update_init: bool,
+    i_understand_this_updates_tracked_seed: bool,
+    dry_run: bool,
 ) -> None:
     """Export the live Flexo Fuseki dataset to a durable backup."""
+    if update_init and not i_understand_this_updates_tracked_seed:
+        raise click.ClickException(
+            "Updating deploy/flexo-mms/mount/cluster.trig requires " "--i-understand-this-updates-tracked-seed."
+        )
+    if i_understand_this_updates_tracked_seed and not update_init:
+        raise click.ClickException("--i-understand-this-updates-tracked-seed requires --update-init.")
+
     args = ["backup", "--timeout", str(timeout)]
     if url:
         args.extend(["--url", url])
     if output:
         args.extend(["--output", str(output)])
-    if not update_init:
-        args.append("--no-update-init")
+    if update_init:
+        args.extend(["--update-init", "--i-understand-this-updates-tracked-seed"])
     run_flexo_env(ctx, args, dry_run)
 
 

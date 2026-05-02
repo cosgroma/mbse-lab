@@ -109,7 +109,9 @@ When a workflow produces an important Flexo graph state, run:
 make backup
 ```
 
-Then document the model/project IDs in `docs/` or the task notes.
+This writes ignored backup data. Refresh the tracked startup seed only with the
+explicit high-intent backup flags, and only for synthetic, publishable seed
+data. Then document the model/project IDs in `docs/` or the task notes.
 
 ## Constraints And Guardrails
 

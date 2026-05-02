@@ -54,14 +54,16 @@ mbse-lab flexo init-org
 mbse-lab flexo backup
 ```
 
-The backup matters because the local Fuseki container starts from
-`deploy/flexo-mms/mount/cluster.trig`.
+The backup writes ignored N-Quads data under `deploy/flexo-mms/backups/`.
+Refreshing the tracked startup seed requires `mbse-lab flexo backup
+--update-init --i-understand-this-updates-tracked-seed` and should be used only
+for synthetic, publishable seed data.
 
 | Check | Command | Expected signal |
 | --- | --- | --- |
 | Service status | `mbse-lab status` | Flexo and SysON containers are reachable. |
 | Flexo org exists | `mbse-lab flexo init-org` | Needed only when project creation reports the missing `sysmlv2` org. |
-| Graph seed is current | `mbse-lab flexo backup` | `deploy/flexo-mms/mount/cluster.trig` reflects org/setup changes. |
+| Graph backup exists | `mbse-lab flexo backup` | Ignored backup file is written under `deploy/flexo-mms/backups/`. |
 
 ## Flexo Commands
 

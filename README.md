@@ -342,9 +342,9 @@ mbse-lab flexo init-org
 mbse-lab flexo backup
 ```
 
-The backup step is important. The local Fuseki container starts from
-`deploy/flexo-mms/mount/cluster.trig`, so initialization changes should be
-persisted there.
+The backup step writes an ignored N-Quads backup under
+`deploy/flexo-mms/backups/`. The tracked startup seed is not refreshed by
+default.
 
 ## Health Checks
 
@@ -399,6 +399,14 @@ Backups are written to:
 
 ```text
 deploy/flexo-mms/backups/
+```
+
+The local Fuseki container starts from the tracked seed at
+`deploy/flexo-mms/mount/cluster.trig`. Updating that seed requires explicit
+intent and should be used only for synthetic, publishable startup data:
+
+```bash
+mbse-lab flexo backup --update-init --i-understand-this-updates-tracked-seed
 ```
 
 SysON stores its database in a host bind mount:
@@ -456,6 +464,10 @@ After meaningful Flexo changes:
 ```bash
 mbse-lab flexo backup
 ```
+
+This creates an ignored backup file. Use `--update-init
+--i-understand-this-updates-tracked-seed` only when intentionally refreshing the
+tracked synthetic startup seed.
 
 Inspect logs:
 

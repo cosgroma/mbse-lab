@@ -139,6 +139,7 @@ class DiagnosticsManifestTests(unittest.TestCase):
         self.assertNotIn("flexo-list-projects", rendered)
         self.assertNotIn("syson-list-projects", rendered)
         self.assertNotIn(" logs ", rendered)
+        self.assertIn("docker inspect --format", rendered)
         self.assertIn("scripts/flexo_mms_env.py status --with-sysmlv2", rendered)
 
     def test_public_safe_http_endpoints_omit_project_lists(self) -> None:

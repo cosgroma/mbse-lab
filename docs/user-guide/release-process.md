@@ -12,7 +12,7 @@ stable branch that users install from by default.
 Copilot-authored branches using the `copilot/*` prefix are accepted only when
 they target `develop`.
 
-## MVP Release Checklist
+## Release Checklist
 
 Before opening a release branch:
 
@@ -26,11 +26,24 @@ mbse-lab share-check
 Run the live smoke pass when Docker is available:
 
 ```bash
-export MBSE_MODEL_WORKSPACE=~/workspace/projects/mbse-mvp-smoke-models
+export MBSE_MODEL_WORKSPACE=~/workspace/projects/mbse-release-smoke-models
 mbse-lab init --model-workspace "$MBSE_MODEL_WORKSPACE"
 mbse-lab doctor
-mbse-lab services up
-mbse-lab first-model "MVP Smoke Model"
+python3 scripts/flexo_mms_env.py up --wait --timeout 180
+sleep 20
+python3 scripts/flexo_mms_env.py status --with-sysmlv2 --strict
+for attempt in {1..12}; do
+  if mbse-lab flexo init-org --timeout 60; then
+    org_initialized=true
+    break
+  fi
+  python3 scripts/flexo_mms_env.py status --with-sysmlv2 || true
+  sleep 5
+done
+test "${org_initialized:-false}" = "true"
+mbse-lab services up --no-flexo --syson --timeout 180
+mbse-lab flexo list --timeout 60
+mbse-lab first-model "Release Smoke Model"
 mbse-lab deployment verify
 make live-eval
 mbse-lab share-check
@@ -66,7 +79,7 @@ Start the release from `develop`:
 ```bash
 git switch develop
 git pull --ff-only origin develop
-git switch -c release/v0.1.0
+git switch -c release/v0.2.0
 ```
 
 Update release-facing documentation or version metadata if needed, then run the
@@ -75,8 +88,8 @@ release checklist. Commit any release-only cleanup on the `release/*` branch.
 Push the release branch and open a pull request into `main`:
 
 ```bash
-git push -u origin release/v0.1.0
-gh pr create --base main --head release/v0.1.0 --title "Release v0.1.0" --body "Release v0.1.0"
+git push -u origin release/v0.2.0
+gh pr create --base main --head release/v0.2.0 --title "Release v0.2.0" --body "Release v0.2.0"
 ```
 
 Squash or merge the release PR according to the repository setting, then tag
@@ -85,9 +98,9 @@ the resulting `main` commit:
 ```bash
 git switch main
 git pull --ff-only origin main
-git tag -a v0.1.0 -m "v0.1.0"
-git push origin v0.1.0
-gh release create v0.1.0 --generate-notes
+git tag -a v0.2.0 -m "v0.2.0"
+git push origin v0.2.0
+gh release create v0.2.0 --generate-notes
 ```
 
 ## Sync Back To Develop

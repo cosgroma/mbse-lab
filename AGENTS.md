@@ -125,14 +125,14 @@ Use a separate private workspace for real models:
 export MBSE_MODEL_WORKSPACE=~/work/my-private-models
 ```
 
-The tracked `deploy/flexo-mms/mount/cluster.trig` is the local startup dataset.
+The tracked `deploy/flexo-mms/mount/cluster.nq` is the local startup dataset.
 When Flexo graph state matters, run:
 
 ```bash
 mbse-lab flexo backup
 ```
 
-That writes an ignored backup only. Refreshing `mount/cluster.trig` requires:
+That writes an ignored backup only. Refreshing `mount/cluster.nq` requires:
 
 ```bash
 mbse-lab flexo backup --update-init --i-understand-this-updates-tracked-seed

@@ -4,9 +4,9 @@ I reviewed the repository statically from the GitHub contents on `main`, includi
 
 Overall, `cosgroma/mbse-lab` is already a credible reusable SysML v2 local lab kit. The purpose is unusually clear for a young tooling repo: the README says this is a “SysML v2 Local Lab Kit,” not the long-term home for models, and it explains the Flexo-to-SysON snapshot path near the top. The CLI surface is also much stronger than a typical script-only lab repo: `bootstrap`, `doctor`, `first-model`, `services`, `bridge`, `share-check`, `report`, and `cleanup` form a coherent workflow. The test/eval and CI story is meaningful for the maturity level.
 
-The biggest risk is that the public/private model-data boundary is documented but not yet hard enough to enforce. The most serious example is `scripts/flexo_mms_env.py backup`: by default it exports the live Fuseki dataset and refreshes `deploy/flexo-mms/mount/cluster.trig`, which is a tracked startup dataset. That creates a realistic path for private Flexo graph state to enter the public tooling repo unless users are very careful. The `.gitignore` protects backups, service data, env files, reports, runs, diagnostics, and `exports/`, but it does not protect the tracked Flexo startup dataset. The current `share-check` also does not appear to block tracked private exports or tracked changes to `cluster.trig`.
+The biggest risk is that the public/private model-data boundary is documented but not yet hard enough to enforce. The most serious example is `scripts/flexo_mms_env.py backup`: by default it exports the live Fuseki dataset and refreshes `deploy/flexo-mms/mount/cluster.nq`, which is a tracked startup dataset. That creates a realistic path for private Flexo graph state to enter the public tooling repo unless users are very careful. The `.gitignore` protects backups, service data, env files, reports, runs, diagnostics, and `exports/`, but it does not protect the tracked Flexo startup dataset. The current `share-check` also does not appear to block tracked private exports or tracked changes to `cluster.nq`.
 
-The highest-value improvement is to harden the artifact boundary: stop updating tracked `cluster.trig` by default, add a safe ignored runtime seed/state location, require or strongly prompt for `MBSE_MODEL_WORKSPACE` before model-generating commands, and expand `share-check` to catch tracked exports, tracked seed mutations, default credentials, and model-looking content.
+The highest-value improvement is to harden the artifact boundary: stop updating tracked `cluster.nq` by default, add a safe ignored runtime seed/state location, require or strongly prompt for `MBSE_MODEL_WORKSPACE` before model-generating commands, and expand `share-check` to catch tracked exports, tracked seed mutations, default credentials, and model-looking content.
 
 Usability rating: **7/10**. The repo is understandable and likely usable by a technically capable user, but it has a few high-impact safety and onboarding gaps that matter specifically because it is public MBSE tooling.
 
@@ -39,16 +39,16 @@ Tests are well aligned to the project’s maturity. There are deterministic brid
 ### 1. Tracked Flexo startup dataset can become a private model-data leak
 
 **Issue**
-`deploy/flexo-mms/mount/cluster.trig` is tracked, and `scripts/flexo_mms_env.py backup` updates it by default after exporting the live Fuseki dataset.
+`deploy/flexo-mms/mount/cluster.nq` is tracked, and `scripts/flexo_mms_env.py backup` updates it by default after exporting the live Fuseki dataset.
 
 **Why it matters**
 This is the sharpest mismatch with the repo boundary. Users are explicitly told to keep real models outside the public tooling repo, but the local Flexo graph state can be written into a tracked file. A user who creates real model data in Flexo and runs `backup` may unintentionally stage private graph data.
 
 **Evidence from the repo**
-The backup command writes an N-Quads backup and, unless `--no-update-init` is used, writes the same contents to `deploy/flexo-mms/mount/cluster.trig`.  The tracked `cluster.trig` already contains generated Flexo graph state with org/repo/commit/policy data.  `.gitignore` ignores backups and some service data, but not `deploy/flexo-mms/mount/cluster.trig`.
+The backup command writes an N-Quads backup and, unless `--no-update-init` is used, writes the same contents to `deploy/flexo-mms/mount/cluster.nq`.  The tracked `cluster.nq` already contains generated Flexo graph state with org/repo/commit/policy data.  `.gitignore` ignores backups and some service data, but not `deploy/flexo-mms/mount/cluster.nq`.
 
 **Recommended improvement**
-Make `backup` default to writing ignored backups only. Add a separate explicit command such as `mbse-lab flexo seed-update --org-only` or `scripts/flexo_mms_env.py backup --update-init --i-understand-this-updates-tracked-seed`. Move mutable startup data into an ignored path, or commit only a synthetic seed fixture. Add `share-check` detection for changes to `deploy/flexo-mms/mount/cluster.trig`.
+Make `backup` default to writing ignored backups only. Add a separate explicit command such as `mbse-lab flexo seed-update --org-only` or `scripts/flexo_mms_env.py backup --update-init --i-understand-this-updates-tracked-seed`. Move mutable startup data into an ignored path, or commit only a synthetic seed fixture. Add `share-check` detection for changes to `deploy/flexo-mms/mount/cluster.nq`.
 
 **Priority:** High
 **Effort:** Medium
@@ -77,16 +77,16 @@ For commands that create real model artifacts, require one of: `MBSE_MODEL_WORKS
 ### 3. `share-check` is valuable but incomplete for the repo’s highest-risk paths
 
 **Issue**
-`share-check` flags tracked runtime env/service paths, untracked `exports/flexo` and `exports/sysml` files, and a small set of hard-coded secret patterns. It does not appear to flag tracked private exports if force-added, tracked changes to `cluster.trig`, arbitrary `.sysml` files outside `exports/`, or high-entropy credentials.
+`share-check` flags tracked runtime env/service paths, untracked `exports/flexo` and `exports/sysml` files, and a small set of hard-coded secret patterns. It does not appear to flag tracked private exports if force-added, tracked changes to `cluster.nq`, arbitrary `.sysml` files outside `exports/`, or high-entropy credentials.
 
 **Why it matters**
 The command is positioned as the safety gate before sharing. Users handling private model data will trust it. If it misses the most likely model-data leak paths, it can create a false sense of security.
 
 **Evidence from the repo**
-The forbidden tracked paths/prefixes do not include `exports/` or `deploy/flexo-mms/mount/cluster.trig`; the forbidden untracked prefixes include only `exports/flexo/` and `exports/sysml/`.  The scanner checks tracked files only against a limited list of regex patterns.  Tests cover untracked generated export detection, but not tracked export detection or tracked seed mutation detection.
+The forbidden tracked paths/prefixes do not include `exports/` or `deploy/flexo-mms/mount/cluster.nq`; the forbidden untracked prefixes include only `exports/flexo/` and `exports/sysml/`.  The scanner checks tracked files only against a limited list of regex patterns.  Tests cover untracked generated export detection, but not tracked export detection or tracked seed mutation detection.
 
 **Recommended improvement**
-Add policy modes: block tracked generated exports unless under an explicit curated allowlist; flag any tracked `.sysml`, `.nq`, `.trig`, `.json` model-like artifact outside fixtures/docs unless allowlisted; detect dirty `cluster.trig`; scan for common token/secret entropy patterns; flag default values such as `change-me` in runtime `.env`.
+Add policy modes: block tracked generated exports unless under an explicit curated allowlist; flag any tracked `.sysml`, `.nq`, `.trig`, `.json` model-like artifact outside fixtures/docs unless allowlisted; detect dirty `cluster.nq`; scan for common token/secret entropy patterns; flag default values such as `change-me` in runtime `.env`.
 
 **Priority:** High
 **Effort:** Medium
@@ -277,7 +277,7 @@ evals/
 
 The README explains the major directories and distinguishes deployments, docs, scripts, and curated exports.  The structure supports the repo’s purpose well.
 
-The strongest structural concern is the Flexo deployment directory. `deploy/flexo-mms/` contains both source-controlled deployment templates and local runtime/state-adjacent material. Runtime `.env` and backups are ignored, but `mount/cluster.trig` is tracked and mutable through `backup`. That makes the distinction between “source-controlled template” and “local runtime output” unsafe.
+The strongest structural concern is the Flexo deployment directory. `deploy/flexo-mms/` contains both source-controlled deployment templates and local runtime/state-adjacent material. Runtime `.env` and backups are ignored, but `mount/cluster.nq` is tracked and mutable through `backup`. That makes the distinction between “source-controlled template” and “local runtime output” unsafe.
 
 `exports/` is clearly marked as curated publishable examples only, and the README says new files under `exports/` are ignored by default.  That is good, but the repo currently has no explicit curated-example subdirectory or metadata convention. If force-added examples are allowed, there should be a clear `exports/examples/` or `fixtures/exports/` convention and `share-check` should block everything else.
 
@@ -299,7 +299,7 @@ It does provide a good quickstart in pieces, but not as a single top-level “do
 
 It clearly explains Flexo, SysON, and the bridge. The bridge diagram is helpful. The “Flexo durable repository / SysON graphical review” distinction is one of the README’s strengths.
 
-It clearly states “tooling repo, not model repo,” but the operational guardrails do not fully match the statement. The README should explicitly warn about `cluster.trig` and backup behavior until the implementation is changed.
+It clearly states “tooling repo, not model repo,” but the operational guardrails do not fully match the statement. The README should explicitly warn about `cluster.nq` and backup behavior until the implementation is changed.
 
 The README should be reorganized into “quickstart first, details later.” Keep the following in README:
 
@@ -415,7 +415,7 @@ The current `docs/lab/modeling-conventions.md` is good and should become the bri
 | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `mbse-lab init`                | Good separation from `bootstrap`: it prepares env files and optional workspace without starting services. Dry-run behavior is tested. Improve by generating a random SysON password and writing a local config file or `.envrc` snippet so the workspace setting is less ephemeral.                |
 | `mbse-lab doctor`              | Strong command. It checks Python, Docker, Compose, repo markers, env files, workspace, ports, HTTP reachability, and SysON DB credential drift. Improve output grouping into “required failures,” “warnings,” and “next commands.”                                                                 |
-| `mbse-lab doctor --fix`        | Useful because it applies low-risk fixes only. It can create SysON `.env` and workspace layout, then prints next commands. Improve by refusing/default-warning on `change-me`, checking dirty `cluster.trig`, and explaining that it cannot persist shell env vars.                                |
+| `mbse-lab doctor --fix`        | Useful because it applies low-risk fixes only. It can create SysON `.env` and workspace layout, then prints next commands. Improve by refusing/default-warning on `change-me`, checking dirty `cluster.nq`, and explaining that it cannot persist shell env vars.                                |
 | `mbse-lab bootstrap`           | Compelling first-use command. It initializes FleON envs, starts services, initializes Flexo org, backs up Flexo, runs status, and prints service URLs. Improve by waiting for SysON HTTP/GraphQL readiness and by making the final “Next” command `mbse-lab first-model "My First Model"`.   |
 | `mbse-lab bootstrap --dry-run` | Excellent. It lowers anxiety and is covered by tests. Keep it prominent in README.                                                                                                                                                                                                             |
 | `mbse-lab services up`         | Good naming and supports `--flexo/--no-flexo`, `--syson/--no-syson`, timeout, and dry-run. Add readiness probes and clearer failure messages for port conflicts.                                                                                                                                   |
@@ -481,7 +481,7 @@ The repo has a strong safety intent and several good mechanisms:
 
 The main safety weaknesses are:
 
-1. **Tracked `cluster.trig` can contain runtime graph state.** This is the biggest issue. The backup command refreshes it by default.
+1. **Tracked `cluster.nq` can contain runtime graph state.** This is the biggest issue. The backup command refreshes it by default.
 
 2. **`share-check` does not appear to block tracked private exports.** It catches untracked files under `exports/flexo/` and `exports/sysml/`, but force-added files are not blocked by the current forbidden tracked paths.
 
@@ -497,8 +497,8 @@ Recommended stronger guardrails:
 
 ```text
 - Make MBSE_MODEL_WORKSPACE required for bridge/first-model unless explly overridden.
-- Stop updating tracked cluster.trig by default.
-- Add share-check detection for tracked exports, tracked .sysml/.nq/.trig, and dirty cluster.trig.
+- Stop updating tracked cluster.nq by default.
+- Add share-check detection for tracked exports, tracked .sysml/.nq/.trig, and dirty cluster.nq.
 - Add allowlist metadata for curated public examples.
 - Generate SysON password during init/bootstrap.
 - Add doctor checks for default credentials.
@@ -526,7 +526,7 @@ Tests are usefully categorized:
 Gaps to address:
 
 * Add tests for tracked export blocking.
-* Add tests for dirty/tracked `cluster.trig` detection.
+* Add tests for dirty/tracked `cluster.nq` detection.
 * Add tests for default SysON password warnings.
 * Add tests for bridge render manifests and skipped-element summaries.
 * Add a unit test for `syson-roots` resolving latest commit ID.
@@ -625,7 +625,7 @@ Then make `scripts/*.py` compatibility shims that import package functions.
 
 7. Have `doctor` flag `deploy/syson/.env` if it contains `SYSON_POSTGRES_PASSWORD=change-me`.
 
-8. Add `share-check` rules for tracked `exports/flexo/**`, tracked `exports/sysml/**`, tracked `.sysml`, tracked `.nq`, tracked `.trig`, and dirty `deploy/flexo-mms/mount/cluster.trig`.
+8. Add `share-check` rules for tracked `exports/flexo/**`, tracked `exports/sysml/**`, tracked `.sysml`, tracked `.nq`, tracked `.trig`, and dirty `deploy/flexo-mms/mount/cluster.nq`.
 
 9. Fix `syson-roots` to resolve the latest commit ID before fetching roots.
 
@@ -826,7 +826,7 @@ Then make `scripts/*.py` compatibility shims that import package functions.
 
 ### Data safety
 
-**Title:** Stop updating tracked `cluster.trig` by default during backup
+**Title:** Stop updating tracked `cluster.nq` by default during backup
 **Problem:** Backup can write live graph state into a tracked file.
 **Proposed change:** Make backup write ignored backup files only unless an explicit seed-update flag is used.
 **Acceptance criteria:** Default backup does not modify tracked files; seed update requires explicit flag and warning.
@@ -835,7 +835,7 @@ Then make `scripts/*.py` compatibility shims that import package functions.
 **Title:** Expand `share-check` to block tracked model artifacts
 **Problem:** Current share-check catches some untracked exports but not force-added tracked exports.
 **Proposed change:** Block tracked generated exports, `.sysml`, `.nq`, `.trig`, and model-looking JSON outside allowlisted fixtures/examples.
-**Acceptance criteria:** Tests cover tracked export, tracked `.sysml`, and dirty `cluster.trig`.
+**Acceptance criteria:** Tests cover tracked export, tracked `.sysml`, and dirty `cluster.nq`.
 **Suggested labels:** `data-safety`, `testing`, `share-check`
 
 **Title:** Generate random SysON database password on init/bootstrap
@@ -854,7 +854,7 @@ Then make `scripts/*.py` compatibility shims that import package functions.
 
 **Title:** Add tests for share-check safety gaps
 **Problem:** Tests do not cover tracked private exports or tracked seed mutation.
-**Proposed change:** Add unit tests for tracked exports, tracked `.sysml`, tracked `.trig`, dirty `cluster.trig`, and default credentials.
+**Proposed change:** Add unit tests for tracked exports, tracked `.sysml`, tracked `.trig`, dirty `cluster.nq`, and default credentials.
 **Acceptance criteria:** New tests fail before share-check fixes and pass after.
 **Suggested labels:** `testing`, `data-safety`
 
@@ -920,7 +920,7 @@ What would raise it by one point:
 * Make CLI-first docs the default.
 * Fix `syson-roots`.
 * Add readiness waits.
-* Expand `share-check` to catch tracked exports and dirty `cluster.trig`.
+* Expand `share-check` to catch tracked exports and dirty `cluster.nq`.
 
 What would raise it by three points:
 

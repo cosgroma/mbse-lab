@@ -17,7 +17,7 @@ services:
     hostname: quad-server
     env_file:
       - ./env/flexo-mms-quad-store.env
-    command: --file=/tmp/mount/cluster.trig --update /ds
+    command: --file=/tmp/mount/cluster.nq --update /ds
     volumes:
       - "${FLEXO_MMS_MOUNT_DIR:-./mount}:/tmp/mount"
     ports:

@@ -434,7 +434,7 @@ class CliTests(unittest.TestCase):
     def test_flexo_env_init_renders_compose_with_docker_env_placeholders(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             env_dir = Path(temp_dir) / "flexo"
-            cluster = env_dir / "mount" / "cluster.trig"
+            cluster = env_dir / "mount" / "cluster.nq"
             cluster.parent.mkdir(parents=True)
             cluster.write_text("# local fixture\n", encoding="utf-8")
 
@@ -994,7 +994,7 @@ class CliTests(unittest.TestCase):
 
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(output.read_text(encoding="utf-8"), source.read_text(encoding="utf-8"))
-            self.assertFalse((env_dir / "mount/cluster.trig").exists())
+            self.assertFalse((env_dir / "mount/cluster.nq").exists())
 
     def test_flexo_backup_script_requires_high_intent_seed_update(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -1054,7 +1054,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("Only use this path for synthetic, publishable seed data.", result.stdout)
             self.assertEqual(
-                (env_dir / "mount/cluster.trig").read_text(encoding="utf-8"), source.read_text(encoding="utf-8")
+                (env_dir / "mount/cluster.nq").read_text(encoding="utf-8"), source.read_text(encoding="utf-8")
             )
 
     def test_services_requires_at_least_one_service_family(self) -> None:
@@ -1251,16 +1251,16 @@ class CliTests(unittest.TestCase):
             cli.run_capture(["git", "init", "-b", "main"], repo)
             cli.run_capture(["git", "config", "user.email", "test@example.invalid"], repo)
             cli.run_capture(["git", "config", "user.name", "Test User"], repo)
-            cluster = repo / "deploy" / "flexo-mms" / "mount" / "cluster.trig"
+            cluster = repo / "deploy" / "flexo-mms" / "mount" / "cluster.nq"
             cluster.parent.mkdir(parents=True)
             cluster.write_text("# synthetic seed\n", encoding="utf-8")
-            cli.run_capture(["git", "add", "deploy/flexo-mms/mount/cluster.trig"], repo)
+            cli.run_capture(["git", "add", "deploy/flexo-mms/mount/cluster.nq"], repo)
             cli.run_capture(["git", "commit", "-m", "seed"], repo)
             cluster.write_text("# private live state\n", encoding="utf-8")
 
             issues = cli.scan_share_issues(repo)
 
-            self.assertIn("dirty Flexo startup dataset: deploy/flexo-mms/mount/cluster.trig", issues)
+            self.assertIn("dirty Flexo startup dataset: deploy/flexo-mms/mount/cluster.nq", issues)
 
 
 class SysonPasswordTests(unittest.TestCase):

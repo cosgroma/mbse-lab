@@ -1073,7 +1073,7 @@ def flexo_token(
 @click.option(
     "--update-init/--no-update-init",
     default=False,
-    help="Also refresh tracked mount/cluster.trig after export.",
+    help="Also refresh tracked mount/cluster.nq after export.",
 )
 @click.option(
     "--i-understand-this-updates-tracked-seed",
@@ -1094,7 +1094,7 @@ def flexo_backup(
     """Export the live Flexo Fuseki dataset to a durable backup."""
     if update_init and not i_understand_this_updates_tracked_seed:
         raise click.ClickException(
-            "Updating deploy/flexo-mms/mount/cluster.trig requires " "--i-understand-this-updates-tracked-seed."
+            "Updating deploy/flexo-mms/mount/cluster.nq requires " "--i-understand-this-updates-tracked-seed."
         )
     if i_understand_this_updates_tracked_seed and not update_init:
         raise click.ClickException("--i-understand-this-updates-tracked-seed requires --update-init.")
@@ -1114,7 +1114,7 @@ def flexo_backup(
 @click.option("--dry-run", is_flag=True)
 @click.pass_context
 def flexo_restore(ctx: click.Context, backup: Path, dry_run: bool) -> None:
-    """Restore Flexo mount/cluster.trig from a backup file."""
+    """Restore Flexo mount/cluster.nq from a backup file."""
     run_flexo_env(ctx, ["restore", str(backup)], dry_run)
 
 

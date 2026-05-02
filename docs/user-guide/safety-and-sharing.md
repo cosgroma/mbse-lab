@@ -61,7 +61,7 @@ Flexo model graph data is stored in Fuseki. In this local setup, Fuseki starts
 from:
 
 ```text
-deploy/flexo-mms/mount/cluster.trig
+deploy/flexo-mms/mount/cluster.nq
 ```
 
 Use a backup after creating important model data or changing Flexo cluster/org

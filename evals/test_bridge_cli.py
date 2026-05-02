@@ -599,6 +599,107 @@ class CliTests(unittest.TestCase):
         self.assertIn("Service readiness failed", result.output)
         create_flexo_project.assert_not_called()
 
+    def test_smoke_first_use_dry_run_prints_planned_workflow_without_docker(self) -> None:
+        runner = CliRunner()
+        with mock.patch.object(cli, "run_command") as run_command:
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "smoke",
+                    "first-use",
+                    "--dry-run",
+                    "--output-dir",
+                    "/tmp/mbse-lab-smoke",
+                    "--report-dir",
+                    "/tmp/mbse-lab-report",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: start Flexo services", result.output)
+        self.assertIn("dry-run: create Flexo project `First Use Smoke Model`", result.output)
+        self.assertIn("dry-run: write lab report to /tmp/mbse-lab-report/index.md", result.output)
+        run_command.assert_not_called()
+
+    def test_smoke_first_use_dry_run_json_outputs_plan(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            [
+                "--repo-root",
+                str(ROOT),
+                "smoke",
+                "first-use",
+                "Demo Smoke",
+                "--dry-run",
+                "--json-output",
+                "--output-dir",
+                "/tmp/mbse-lab-smoke",
+                "--report-dir",
+                "/tmp/mbse-lab-report",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        summary = json.loads(result.output)
+        self.assertEqual(summary["status"], "dry-run")
+        self.assertEqual(summary["model"]["model_name"], "Demo Smoke")
+        self.assertEqual(summary["report_path"], "/tmp/mbse-lab-report/index.md")
+        self.assertIn("planned_steps", summary)
+
+    def test_smoke_first_use_live_outputs_json_summary(self) -> None:
+        runner = CliRunner()
+        model_summary = {
+            "flexo_project_id": "flexo-1",
+            "flexo_commit_id": "commit-1",
+            "package_id": "package-1",
+            "package_name": "Demo Smoke",
+            "export_path": "/tmp/mbse-lab-smoke/flexo/flexo-1.json",
+            "sysml_path": "/tmp/mbse-lab-smoke/sysml/flexo-1.sysml",
+            "syson_project_id": "syson-1",
+            "syson_project_name": "Demo Smoke Review",
+            "syson_commit_id": "syson-commit-1",
+            "namespace_id": "namespace-1",
+            "editing_context_id": "editing-context-1",
+            "import_result": {"__typename": "SuccessPayload", "id": "import-1"},
+            "syson_url": "http://localhost:18090",
+        }
+        with (
+            mock.patch.object(cli, "run_command") as run_command,
+            mock.patch.object(cli, "wait_for_readiness") as wait_for_readiness,
+            mock.patch.object(cli, "create_first_model_summary", return_value=model_summary) as create_model,
+            mock.patch.object(cli, "report_data", return_value={"doctor": {}, "status": {}}),
+            mock.patch.object(cli, "write_report") as write_report,
+        ):
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "smoke",
+                    "first-use",
+                    "Demo Smoke",
+                    "--json-output",
+                    "--output-dir",
+                    "/tmp/mbse-lab-smoke",
+                    "--report-dir",
+                    "/tmp/mbse-lab-report",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        summary = json.loads(result.output)
+        self.assertEqual(summary["status"], "passed")
+        self.assertEqual(summary["model"]["flexo_project_id"], "flexo-1")
+        self.assertEqual(summary["model"]["syson_project_id"], "syson-1")
+        self.assertEqual(summary["report_path"], "/tmp/mbse-lab-report/index.md")
+        self.assertEqual(run_command.call_count, 3)
+        wait_for_readiness.assert_called_once()
+        create_model.assert_called_once()
+        write_report.assert_called_once()
+
     def test_services_down_dry_run_stops_syson_before_flexo(self) -> None:
         runner = CliRunner()
         result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "services", "down", "--dry-run"])

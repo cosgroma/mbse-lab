@@ -38,6 +38,7 @@ editing of imported SysML v2 textual content.
 | Bootstrap the local lab for first use | `mbse-lab bootstrap --model-workspace ~/work/my-private-models` | [CLI bootstrap](docs/user-guide/cli.md#bootstrap) |
 | Keep real model data outside this repo | `export MBSE_MODEL_WORKSPACE=~/work/my-private-models` | [Private model workspaces](docs/user-guide/private-model-workspaces.md) |
 | Create a tiny end-to-end model | `mbse-lab first-model "My First Model"` | [First model](docs/user-guide/cli.md#first-model) |
+| Prove the first-use workflow | `mbse-lab smoke first-use --json-output` | [First-use smoke](docs/user-guide/cli.md#first-use-smoke) |
 | Move a Flexo snapshot into SysON | `mbse-lab bridge run <flexo-project-id>` | [Bridge workflow](docs/lab/flexo-syson-bridge.md) |
 | Check what the bridge can render | Review supported element mappings | [Modeling conventions](docs/lab/modeling-conventions.md) |
 | Collect failure evidence | `mbse-lab diagnostics` | [Harness engineering](docs/lab/harness-engineering.md#observability) |
@@ -202,6 +203,13 @@ mbse-lab first-model "My First Model"
 That command creates a Flexo project with one package, exports and renders the
 model, creates a SysON review project, imports the rendered SysML text, and
 prints the resulting project IDs and artifact paths.
+
+Or run the first-use proof workflow, which starts services, initializes Flexo,
+creates/imports a disposable model, and writes the lab report:
+
+```bash
+mbse-lab smoke first-use --json-output
+```
 
 Routine bridge operations are also available through the CLI:
 

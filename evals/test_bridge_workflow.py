@@ -76,6 +76,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("mbse-lab services up --no-flexo --syson", text)
         self.assertIn("mbse-lab smoke first-use --json-output", text)
         self.assertIn("make live-eval", text)
+        self.assertIn("docker logs --tail 120 quad-server", text)
         self.assertIn("mbse-lab diagnostics --public-safe", text)
         self.assertIn("actions/upload-artifact", text)
 

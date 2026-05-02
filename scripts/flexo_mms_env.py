@@ -72,7 +72,7 @@ FLEXO_MMS_GRAPH_STORE_PROTOCOL_URL=http://quad-server:3030/ds/data
 FLEXO_MMS_ARTIFACT_USE_STORE=true
 """,
     "env/flexo-mms-quad-store.env.example": """\
-JAVA_OPTIONS="-Xmx512m -Xms128m"
+JAVA_OPTIONS=-Xmx512m -Xms128m
 """,
     "env/flexo-mms-store.env.example": """\
 S3_ENDPOINT=http://minio-server:9000

@@ -69,6 +69,10 @@ jobs:
       - name: Run live evals
         run: make live-eval
 
+      - name: Show quad logs on failure
+        if: failure()
+        run: docker logs --tail 120 quad-server || true
+
       - name: Collect diagnostics on failure
         if: failure()
         run: |

@@ -68,9 +68,9 @@ example model without the full smoke workflow.
 | Clean generated local output | `mbse-lab cleanup --dry-run` | Remove reports, diagnostics, runs, and temp output after previewing. |
 | Before sharing | `mbse-lab share-check` | Blocks common private data and credential leaks. |
 
-Direct `python3 scripts/...` and `docker compose ...` commands remain documented
-below for advanced inspection and manual recovery. Prefer `mbse-lab` commands
-for routine setup, service lifecycle, bridge, diagnostics, and safety checks.
+Direct `python3 scripts/...` and `docker compose ...` commands remain available
+for advanced inspection and manual recovery. Prefer `mbse-lab` commands for
+routine setup, service lifecycle, bridge, diagnostics, and safety checks.
 
 ## Tooling Repo, Not Model Repo
 
@@ -117,7 +117,7 @@ the full boundary.
 | [deploy/view-editor/](deploy/view-editor/README.md) | Experimental OpenMBEE View Editor compatibility probe. |
 | [deploy/view-editor-5/](deploy/view-editor-5/README.md) | Experimental source-built View Editor 5.x compatibility probe. |
 | [docs/index.md](docs/index.md) | Documentation landing page and task router. |
-| [docs/user-guide/](docs/user-guide/cli.md) | CLI, release, and private workspace guidance. |
+| [docs/user-guide/](docs/user-guide/cli.md) | CLI, services, safety, troubleshooting, release, and private workspace guidance. |
 | [docs/lab/](docs/lab/flexo-syson-bridge.md) | Local lab operations, bridge behavior, and harness notes. |
 | [docs/lab/view-editor-flexo-experiment.md](docs/lab/view-editor-flexo-experiment.md) | View Editor compatibility evidence. |
 | [docs/methodology/](docs/methodology/sysml-v2-verification-model-setup.md) | Reusable SysML v2 setup and transformation guidance. |
@@ -138,119 +138,46 @@ the full boundary.
 
 No Python packages are required for the scripts; they use the standard library.
 
-## Documentation Site
+## First Model
 
-The Markdown documentation under `docs/` is organized for MkDocs. Build the site
-through the Hatch-managed docs environment:
-
-```bash
-make docs-build
-```
-
-Release steps are documented in the
-[release process](docs/user-guide/release-process.md).
-
-Serve it locally while editing:
-
-```bash
-make docs-serve
-```
-
-## CLI
-
-Install the local CLI in editable mode:
-
-```bash
-make install-cli
-```
-
-Install directly from GitHub when you do not need an editable checkout:
-
-```bash
-python3 -m pip install "git+https://github.com/cosgroma/mbse-lab.git"
-```
-
-Then inspect the available commands:
-
-```bash
-mbse-lab --help
-```
-
-Print shell completion setup:
-
-```bash
-mbse-lab completion bash
-```
-
-Start with file setup and the environment doctor:
-
-```bash
-mbse-lab init --model-workspace ~/work/my-private-models
-mbse-lab doctor
-mbse-lab doctor --fix
-```
-
-The CLI is the primary user-facing command surface for Flexo, SysON, bridge,
-diagnostics, and deployment-verification workflows. The legacy `scripts/*.py`
-entry points remain available as compatibility and maintainer tools. The
-Flexo/SysON bridge implementation lives in `mbse_lab.bridge` package modules,
-with `scripts/flexo_syson_bridge.py` kept as a compatibility wrapper.
-
-For first use, run the guided bootstrap:
-
-```bash
-mbse-lab bootstrap --model-workspace ~/work/my-private-models
-```
-
-Bootstrap starts Flexo and SysON, then waits for the Flexo SysML v2 projects API
-and SysON web UI before continuing.
-
-Use `mbse-lab init` when you only want to generate local env files and optional
-workspace scaffolding without starting containers.
-
-Preview the bootstrap without changing files or starting containers:
-
-```bash
-mbse-lab bootstrap --dry-run --model-workspace ~/work/my-private-models
-```
-
-After setup, routine service lifecycle commands are available through the CLI:
-
-```bash
-mbse-lab services up
-mbse-lab services logs
-mbse-lab services down
-```
-
-`mbse-lab services up` waits for selected service APIs by default. Use
-`--no-wait` to return immediately after container startup.
-
-Create a tiny first model after the services are running:
+After setup, create a tiny end-to-end model:
 
 ```bash
 mbse-lab first-model "My First Model"
 ```
 
-That command creates a Flexo project with one package, exports and renders the
-model, creates a SysON review project, imports the rendered SysML text, and
-prints the resulting project IDs and artifact paths.
+That command creates a Flexo project, commits one root package, exports and
+renders a textual SysML snapshot, creates a SysON review project, imports the
+snapshot, and prints IDs plus artifact paths.
 
-Or run the first-use proof workflow, which starts services, initializes Flexo,
-creates/imports a disposable model, and writes the lab report:
+For a disposable proof of first-use setup, run:
 
 ```bash
 mbse-lab smoke first-use --json-output
 ```
 
-Routine bridge operations are also available through the CLI:
+## Bridge Scope
+
+Routine bridge operations are available through the CLI:
 
 ```bash
 mbse-lab flexo list
-mbse-lab syson list
 mbse-lab bridge run <flexo-project-id> \
   --create-syson-project "Imported From Flexo" \
   --json-output
 ```
+
+The bridge renderer currently emits a practical subset of SysML v2 packages,
+parts, attributes, ports, requirements, connections, interfaces, actions, and
+items. Unsupported element types remain preserved in the Flexo JSON export but
+are not emitted into the textual `.sysml` file yet. Diagram layout and live
+repository sync are not round-tripped.
+
+See the [bridge workflow](docs/lab/flexo-syson-bridge.md) for the full command
+sequence, artifact table, render coverage report, and existing-project import
+options.
+
+## Safety Boundary
 
 Before sharing or publishing the tooling repo, run:
 
@@ -258,289 +185,38 @@ Before sharing or publishing the tooling repo, run:
 mbse-lab share-check
 ```
 
-It checks for accidentally tracked runtime env files, service data, generated
-private exports, run logs, diagnostics bundles, and known local secret patterns.
-
-Generate a static local lab report:
+Keep real model data in a private workspace:
 
 ```bash
-mbse-lab report
+export MBSE_MODEL_WORKSPACE=~/work/my-private-models
 ```
 
-The report writes Markdown, HTML, and JSON snapshots under `reports/latest/`.
-When bridge run logs exist, it links the latest run log and generated artifact
-paths and summarizes render coverage counts without embedding model content.
+Runtime env files, service databases, private exports, run logs, reports, and
+diagnostics are local artifacts. The [safety and sharing
+guide](docs/user-guide/safety-and-sharing.md) documents what is ignored, what
+may be published, and how to clean generated output.
 
-Remove generated local reports, diagnostics, run logs, and temporary output:
+## Documentation
 
-```bash
-mbse-lab cleanup
-```
-
-Use `mbse-lab cleanup --dry-run` to preview cleanup targets first.
-
-## Credentials
-
-Runtime credential files are intentionally ignored by git:
-
-```text
-deploy/flexo-mms/.env
-deploy/flexo-mms/env/*.env
-deploy/syson/.env
-```
-
-Publishable templates are committed as `.example` files. Flexo runtime env files
-are generated by:
-
-```bash
-mbse-lab init
-```
-
-Rotate local Flexo credentials at any time:
-
-```bash
-mbse-lab flexo rotate-secrets
-```
-
-Restart Flexo after rotating credentials. For SysON, `mbse-lab init` creates a
-local env file from the example and replaces the placeholder database password.
-When doing that manually, copy the template and set a private password:
-
-```bash
-cp deploy/syson/.env.example deploy/syson/.env
-```
-
-## Services
-
-| Stack | Endpoint | URL |
-| --- | --- | --- |
-| Flexo MMS | Layer1 API | <http://localhost:18080> |
-| Flexo MMS | SysML v2 API | <http://localhost:18083> |
-| Flexo MMS | Auth login | <http://localhost:8082/login> |
-| Flexo MMS | Fuseki | <http://localhost:3030> |
-| Flexo MMS | MinIO | <http://localhost:9000> |
-| SysON | Web UI | <http://localhost:18090> |
-| SysON | GraphQL API | <http://localhost:18090/api/graphql> |
-| SysON | REST API docs | <http://localhost:18090/v3/api-docs/rest-apis> |
-
-## Initialize
-
-Create or refresh the Flexo deployment files:
-
-```bash
-mbse-lab init
-```
-
-Start Flexo and SysON:
-
-```bash
-mbse-lab services up
-```
-
-Initialize the Flexo org used by the SysML v2 service:
-
-```bash
-mbse-lab flexo init-org
-mbse-lab flexo backup
-```
-
-The backup step writes an ignored N-Quads backup under
-`deploy/flexo-mms/backups/`. The tracked startup seed is not refreshed by
-default.
-
-## Health Checks
-
-Check local service status:
-
-```bash
-mbse-lab status
-```
-
-Check APIs:
-
-```bash
-curl -s http://localhost:18083/projects | jq
-curl -I http://localhost:18090/
-```
-
-Run a disposable deployment smoke test without touching the normal local lab
-containers or data:
-
-```bash
-mbse-lab deployment isolated-smoke
-```
-
-The isolated smoke test uses a unique Docker Compose project name, random
-localhost-only host ports, and temporary bind-mounted data under
-`tmp/isolated-deployments/`. It tears the stack down after verification unless
-`--keep` is passed.
-
-Get a Flexo auth token:
-
-```bash
-mbse-lab flexo token
-```
-
-## Data Safety
-
-Flexo model graph data is stored in Fuseki. In this local setup, Fuseki is
-started from:
-
-```text
-deploy/flexo-mms/mount/cluster.trig
-```
-
-Use the backup command after creating important model data or changing Flexo
-cluster/org setup:
-
-```bash
-mbse-lab flexo backup
-```
-
-Backups are written to:
-
-```text
-deploy/flexo-mms/backups/
-```
-
-The local Fuseki container starts from the tracked seed at
-`deploy/flexo-mms/mount/cluster.trig`. Updating that seed requires explicit
-intent and should be used only for synthetic, publishable startup data:
-
-```bash
-mbse-lab flexo backup --update-init --i-understand-this-updates-tracked-seed
-```
-
-SysON stores its database in a host bind mount:
-
-```text
-deploy/syson/data/postgres/
-```
-
-Normal `docker compose down` will not delete that data. Avoid `down --volumes`
-or manual deletion of the data directories unless you intentionally want to
-reset the environment.
-
-## Common Workflows
-
-| Workflow | CLI command |
+| Need | Page |
 | --- | --- |
-| List Flexo projects | `mbse-lab flexo list` |
-| Create a Flexo SysML v2 project | `mbse-lab flexo create "Example Model"` |
-| Export Flexo JSON | `mbse-lab flexo export <flexo-project-id>` |
-| Render JSON to SysML text with coverage | `mbse-lab bridge render exports/flexo/<flexo-project-id>.json --report` |
-| Create a SysON project | `mbse-lab syson create "Imported From Flexo"` |
-| Find a SysON import namespace | `mbse-lab syson roots <syson-project-id>` |
-| Import a `.sysml` file into SysON | `mbse-lab bridge import exports/sysml/<flexo-project-id>.sysml --project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
-| Run the full Flexo-to-SysON pipeline | `mbse-lab bridge run <flexo-project-id> --create-syson-project "Imported From Flexo"` |
+| Install and use the CLI | [CLI guide](docs/user-guide/cli.md) |
+| Inspect every command and option | [CLI reference](docs/user-guide/cli-reference.md) |
+| Start, stop, and inspect services | [Services](docs/user-guide/services.md) |
+| Keep model data private | [Private model workspaces](docs/user-guide/private-model-workspaces.md) |
+| Share safely | [Safety and sharing](docs/user-guide/safety-and-sharing.md) |
+| Recover from common failures | [Troubleshooting](docs/user-guide/troubleshooting.md) |
+| Run Flexo-to-SysON bridge workflows | [Bridge workflow](docs/lab/flexo-syson-bridge.md) |
+| Prepare a release | [Release process](docs/user-guide/release-process.md) |
 
-Default artifacts are written under `exports/flexo/` and `exports/sysml/`, or
-under `$MBSE_MODEL_WORKSPACE/exports/` when the private workspace variable is
-set. The [bridge workflow](docs/lab/flexo-syson-bridge.md) has the full command
-sequence and output table.
-
-## Stop and Restart
-
-Stop SysON:
+Build the MkDocs site:
 
 ```bash
-mbse-lab services down --no-flexo
+make docs-build
 ```
 
-Stop Flexo:
+Serve it locally while editing:
 
 ```bash
-mbse-lab services down --no-syson
+make docs-serve
 ```
-
-Restart:
-
-```bash
-mbse-lab services restart
-```
-
-## Maintenance
-
-After meaningful Flexo changes:
-
-```bash
-mbse-lab flexo backup
-```
-
-This creates an ignored backup file. Use `--update-init
---i-understand-this-updates-tracked-seed` only when intentionally refreshing the
-tracked synthetic startup seed.
-
-Inspect logs:
-
-```bash
-mbse-lab services logs --tail 100
-```
-
-Update generated Flexo deployment files:
-
-```bash
-python3 scripts/flexo_mms_env.py init --with-sysmlv2 --force
-```
-
-The forced Flexo regeneration path remains a maintainer script command because
-it may overwrite local generated deployment files. Back up first if you have
-local edits.
-
-Rotate ignored local Flexo credentials:
-
-```bash
-mbse-lab flexo rotate-secrets
-mbse-lab services restart --no-syson
-```
-
-## Current Bridge Scope
-
-The bridge renderer currently emits a practical subset of SysML v2:
-
-- `Package`
-- `PartDefinition`
-- `PartUsage`
-- `AttributeUsage`
-- `PortUsage`
-- `RequirementDefinition`
-- `RequirementUsage`
-- `ConnectionDefinition`
-- `ConnectionUsage`
-- `InterfaceDefinition`
-- `InterfaceUsage`
-- `ActionDefinition`
-- `ActionUsage`
-- `ItemDefinition`
-- `ItemUsage`
-
-Unsupported element types remain preserved in the Flexo JSON export, but are not
-rendered into the textual `.sysml` file yet. Diagram layout is not round-tripped.
-
-## Troubleshooting
-
-If Flexo project creation fails with:
-
-```text
-Org <http://layer1-service/orgs/sysmlv2> does not exist
-```
-
-Run:
-
-```bash
-mbse-lab flexo init-org
-mbse-lab flexo backup
-```
-
-If a host port is already in use, edit the relevant `.env` file:
-
-```text
-deploy/flexo-mms/.env
-deploy/syson/.env
-```
-
-Then restart the affected stack.
-
-If SysON import succeeds but nothing useful appears graphically, check the
-generated `.sysml` file first. The import path depends on SysON's textual SysML
-parser, and the current renderer is intentionally conservative.

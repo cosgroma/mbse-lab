@@ -231,6 +231,13 @@ def check_mbse_lab_commands(failures: list[str]) -> None:
                     )
 
 
+def check_cli_reference(failures: list[str]) -> None:
+    result = run(["python3", "scripts/generate_cli_reference.py", "--check"])
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        fail(detail or "generated CLI reference is out of date", failures)
+
+
 def check_workflow_contract(failures: list[str]) -> None:
     if not WORKFLOW_FILE.exists():
         fail("WORKFLOW.md is missing", failures)
@@ -266,6 +273,7 @@ def validate_workflow() -> list[str]:
 def validate_docs() -> list[str]:
     failures: list[str] = []
     check_discoverability(failures)
+    check_cli_reference(failures)
     check_make_commands(failures)
     check_python_commands(failures)
     check_mbse_lab_commands(failures)

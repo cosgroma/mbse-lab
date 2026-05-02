@@ -25,6 +25,10 @@ nav:
   - User Guide:
       - Private Model Workspaces: user-guide/private-model-workspaces.md
       - CLI: user-guide/cli.md
+      - CLI Reference: user-guide/cli-reference.md
+      - Services: user-guide/services.md
+      - Safety And Sharing: user-guide/safety-and-sharing.md
+      - Troubleshooting: user-guide/troubleshooting.md
       - Release Process: user-guide/release-process.md
   - Local Lab:
       - Bridge Workflow: lab/flexo-syson-bridge.md

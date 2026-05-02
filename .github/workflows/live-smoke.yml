@@ -39,11 +39,16 @@ jobs:
       - name: Initialize lab files
         run: mbse-lab init --model-workspace "$MBSE_MODEL_WORKSPACE" --no-workspace-git
 
-      - name: Start services
-        run: mbse-lab services up --timeout 180
+      - name: Start Flexo containers
+        run: python3 scripts/flexo_mms_env.py up --wait --timeout 180
 
       - name: Initialize Flexo SysML v2 org
         run: mbse-lab flexo init-org --timeout 60
+
+      - name: Start SysON and wait for service APIs
+        run: |
+          mbse-lab services up --no-flexo --syson --timeout 180
+          mbse-lab flexo list --timeout 60
 
       - name: Run first-use smoke
         run: mbse-lab smoke first-use --json-output --timeout 180

@@ -67,7 +67,9 @@ class WorkflowContractTests(unittest.TestCase):
         text = LIVE_SMOKE_WORKFLOW.read_text(encoding="utf-8")
 
         self.assertIn("workflow_dispatch:", text)
-        self.assertIn("mbse-lab services up", text)
+        self.assertIn("scripts/flexo_mms_env.py up --wait", text)
+        self.assertIn("mbse-lab flexo init-org", text)
+        self.assertIn("mbse-lab services up --no-flexo --syson", text)
         self.assertIn("mbse-lab smoke first-use --json-output", text)
         self.assertIn("make live-eval", text)
         self.assertIn("mbse-lab diagnostics --public-safe", text)

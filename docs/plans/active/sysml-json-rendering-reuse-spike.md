@@ -192,6 +192,33 @@ External source references to inspect:
    - Adopt a discovered direct JSON-to-text renderer if one exists and has
      acceptable licensing and operational fit.
 
+   Status: complete as of 2026-05-02. No discovered tool provides a supported
+   offline Flexo/API JSON file to textual `.sysml` path. The recommended
+   near-term path is to keep the existing Python renderer as the bridge's
+   production renderer, constrain its supported subset in
+   `docs/lab/modeling-conventions.md`, and expand it only through fixtures and
+   SysON import validation.
+
+   SysON remains useful as the graphical review/editing target and as a
+   reference serializer for hand-built EMF probes, but its public REST
+   data-version facade did not import the tested API-shaped payload into a
+   usable SysON document. A SysON Java harness would still require a semantic
+   Flexo JSON to SysON EMF adapter, which is likely more expensive than
+   maintaining the current renderer for the narrow supported subset.
+
+   The Pilot Implementation remains useful as a reference for standard SysML v2
+   API semantics and possibly as a future validation harness. It does not
+   remove the adapter boundary because it lacks a supported offline
+   `APIModel.fromJson` or JSON-file-to-text command. A Pilot adapter would need
+   to parse/validate Flexo JSON, populate `APIModel`, handle UUID/library
+   tracking, run `EMFModelRefresher`, and then save or serialize EMF resources.
+
+   Revisit a Java adapter only if the bridge needs broad semantic coverage such
+   as typed relationships, memberships, specialization, connector ends, or
+   library-aware references that would make the Python renderer drift into a
+   broad SysML implementation. Until then, the adapter complexity and Java/Tycho
+   packaging cost are not justified by the current bridge scope.
+
 ## Progress Log
 
 - 2026-05-02: Created this spike plan after broad source and web inspection.
@@ -223,6 +250,12 @@ External source references to inspect:
   was found. A targeted Java 21 Docker build of the relevant Pilot modules
   completed successfully, confirming the harness route is buildable but still
   adapter-heavy.
+- 2026-05-02: Completed the option comparison. The spike did not find a direct
+  reusable renderer or supported import/export chain. The recommendation is to
+  keep the local Python renderer as the production bridge path, keep its subset
+  explicit and fixture-driven, and use SysON/Pilot only as reference or
+  validation tooling unless the required SysML coverage grows beyond the
+  current conservative declarations.
 
 ## Validation Commands
 
@@ -293,6 +326,14 @@ before updating the supported workflow documentation.
   possible adapter target from SysON EMF objects to Pilot `APIModel` plus
   `EMFModelRefresher`, and may be useful as a validation/reference harness for
   standard API semantics.
+- Final spike recommendation: keep the current Python renderer as the supported
+  bridge renderer for now. Maintain the subset contract, add fixture coverage
+  before each new mapping, and validate generated text through SysON import
+  behavior rather than adopting a Java adapter prematurely.
+- Revisit SysON or Pilot adapters only when one of these conditions is met:
+  a supported upstream JSON import path appears, a narrow adapter can be proven
+  with fixture coverage, or bridge requirements expand into semantic
+  relationship coverage that would make the Python renderer too broad to own.
 - Treat licensing as part of the technical decision. SysON and the Pilot
   Implementation have different licenses, so vendoring code is a materially
   different choice from invoking an external tool or service.
@@ -306,3 +347,5 @@ before updating the supported workflow documentation.
 - Update `docs/lab/flexo-syson-bridge.md` if the bridge flow changes from local
   Python rendering to SysON-mediated rendering.
 - Add fixture coverage for any adopted adapter path.
+- Add a short reuse-spike summary to the bridge documentation if this plan is
+  archived or referenced from a PR description.

@@ -45,6 +45,8 @@ Primary references:
 - `scripts/flexo_syson_bridge.py`
 - `deploy/view-editor/docker-compose.yml`
 - `deploy/view-editor/README.md`
+- `deploy/view-editor-5/docker-compose.yml`
+- `deploy/view-editor-5/README.md`
 - `docs/lab/view-editor-flexo-experiment.md`
 
 ## View Editor Runtime Inventory
@@ -110,6 +112,13 @@ client endpoints are absent: `/authentication`, `/checkAuth`, `/orgs`, and
 `/projects/<project-id>/refs` returned 404, while `/projects` returned only the
 OMG-style SysML v2 project array.
 
+Durable source-build note: `deploy/view-editor-5/` now provides a repeatable
+source-build experiment for View Editor 5.0.0. It builds the production webpack
+bundle directly and serves it through nginx with `apiUrl` set to
+`http://localhost:18092/api`. nginx proxies `/api/` to
+`http://flexo-sysmlv2:8080/` on the shared Docker network so browser traces are
+not blocked first by CORS.
+
 ## Experiment Scope
 
 This is a contained spike. Do not add View Editor to the main supported workflow
@@ -165,11 +174,12 @@ Out of scope for the first spike:
    - Avoid changing the supported Flexo compose file until compatibility is
      proven.
 
-   Status: complete as of 2026-05-01 for the legacy published image. The
-   compose file runs `openmbee/view-editor:3.6.1-omg` on host port `18091`,
-   joins the external `flexo-mms-test-network`, and defaults the View Editor
-   proxy target to `layer1-service:8080`. The target can be changed with
-   `VIEW_EDITOR_MMS_HOST` and `VIEW_EDITOR_MMS_PORT`.
+   Status: complete as of 2026-05-02. The legacy compose file runs
+   `openmbee/view-editor:3.6.1-omg` on host port `18091`, joins the external
+   `flexo-mms-test-network`, and defaults the View Editor proxy target to
+   `layer1-service:8080`. The source-built 5.x compose file builds
+   `Open-MBEE/exec-ve` tag `5.0.0`, serves it on host port `18092`, and proxies
+   same-origin `/api/` requests to `flexo-sysmlv2:8080`.
 
 4. Probe backend targets in this order:
 
@@ -192,21 +202,23 @@ Out of scope for the first spike:
    - Container logs from View Editor and Flexo services.
    - Whether any operation reaches a useful model view.
 
-   Status: partial as of 2026-05-01. HTTP and container-log summaries are
-   captured in `docs/lab/view-editor-flexo-experiment.md`. Browser console
-   evidence is still pending and may not add much until a proxying or baseline
-   View Editor setup is available.
+   Status: complete for the direct-compatibility spike as of 2026-05-02. HTTP,
+   container-log, and browser-level summaries are captured in
+   `docs/lab/view-editor-flexo-experiment.md`. A Playwright login trace against
+   the source-built 5.x deployment showed `POST /api/authentication` returning
+   404. A synthetic-token trace showed `GET /api/checkAuth` returning 404.
 
 6. If direct Flexo integration fails, run or inspect a known legacy MMS/View
    Editor baseline to separate View Editor setup issues from API mismatch.
 
-   Status: partial as of 2026-05-01. A View Editor 5.0.0 source-build path was
-   inspected and a local webpack-only proof image was built. This separated the
-   older `openmbee/view-editor:3.6.1-omg` proxy behavior from the API contract
-   mismatch: View Editor 5.x can be served and configured against
-   `http://localhost:18083`, but Flexo SysML v2 still does not expose the 5.x
-   MMS authentication, org, ref, document/view, element, artifact, and search
-   endpoints.
+   Status: complete enough for direct compatibility as of 2026-05-02. A durable
+   source-built View Editor 5.0.0 deployment was added under
+   `deploy/view-editor-5/`. This separated the older
+   `openmbee/view-editor:3.6.1-omg` proxy behavior from the API contract
+   mismatch: View Editor 5.x can be served, configured, and browser-tested
+   against a same-origin Flexo SysML v2 proxy, but Flexo SysML v2 still does not
+   expose the 5.x MMS authentication, auth-check, org, ref, document/view,
+   element, artifact, and search endpoints.
 
 7. Write a compatibility report with one of these outcomes:
 
@@ -249,6 +261,7 @@ If the future spike adds compose or docs navigation:
 
 ```bash
 docker compose -f deploy/view-editor/docker-compose.yml config --quiet
+docker compose -f deploy/view-editor-5/docker-compose.yml config --quiet
 make docs-build
 make share-check
 ```
@@ -313,10 +326,21 @@ make live-eval
   `/authentication`, `/checkAuth`, `/orgs`, and
   `/projects/<project-id>/refs`; `/projects` remained reachable only as
   OMG-style SysML v2 JSON.
+- 2026-05-02: Added the durable `deploy/view-editor-5/` source-build
+  experiment. The compose path builds `Open-MBEE/exec-ve` tag `5.0.0`, runs the
+  production webpack bundle directly, serves it from nginx on
+  `http://localhost:18092/`, and proxies `http://localhost:18092/api/` to
+  `flexo-sysmlv2:8080`. HTTP probes through the proxy returned 200 for
+  `/api/projects` and 404 for `/api/authentication`, `/api/checkAuth`,
+  `/api/orgs`, and `/api/projects/<project-id>/refs`. Playwright browser traces
+  confirmed the login page renders, submitting synthetic credentials posts to
+  `/api/authentication` and receives 404, and a synthetic preloaded token
+  triggers `/api/checkAuth` and receives 404.
 
 ## Follow-Up Debt
 
-- Decide whether to add a durable `deploy/view-editor-5/` source-build path or
-  keep the 5.0.0 webpack-only Dockerfile as disposable spike evidence.
-- If an adapter is needed, define the minimal legacy MMS document/view facade
-  required by View Editor 5.x.
+- Write the compatibility report and close the direct-compatibility spike as
+  not compatible without an adapter unless a new control run changes the
+  evidence.
+- Define the minimal legacy MMS document/view facade required by View Editor
+  5.x.

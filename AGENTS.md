@@ -47,6 +47,8 @@ deploy/syson/docker-compose.yml
 deploy/syson/README.md            SysON deployment-specific operations
 deploy/view-editor/docker-compose.yml
 deploy/view-editor/README.md      Experimental View Editor compatibility probe
+deploy/view-editor-5/docker-compose.yml
+deploy/view-editor-5/README.md    Source-built View Editor 5.x experiment
 scripts/flexo_mms_env.py          Flexo environment manager
 scripts/flexo_syson_bridge.py     Flexo/SysON bridge CLI
 Makefile                          Stable command targets for routine workflows

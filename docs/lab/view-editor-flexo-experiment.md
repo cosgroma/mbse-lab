@@ -1,7 +1,7 @@
 # OpenMBEE View Editor Flexo Experiment
 
 This page records redacted request evidence for the experimental OpenMBEE View
-Editor deployment in `deploy/view-editor/`.
+Editor deployments in `deploy/view-editor/` and `deploy/view-editor-5/`.
 
 The experiment is not part of the supported SysML v2 graphical workflow. SysON
 remains the documented graphical review path unless this experiment proves a
@@ -178,24 +178,75 @@ explanation for failure. However, the 5.x client still expects MMS-style
 authentication, org, ref, document/view, element, artifact, and search
 resources that are not exposed by Flexo SysML v2.
 
+## View Editor 5.x Durable Compose Probe
+
+Evidence captured on 2026-05-02 UTC.
+
+The disposable 5.0.0 source-build path was converted into
+`deploy/view-editor-5/` so the experiment can be repeated from repo-owned
+files. The compose file builds `Open-MBEE/exec-ve` tag `5.0.0`, runs the
+production webpack bundle directly, and serves it from nginx. The runtime
+config points View Editor at the same-origin URL:
+
+```text
+http://localhost:18092/api
+```
+
+nginx proxies that prefix to the Flexo SysML v2 container on the shared Docker
+network:
+
+```text
+http://flexo-sysmlv2:8080/
+```
+
+This avoids direct browser CORS failures and lets request traces show the
+underlying API contract mismatch.
+
+Observed HTTP request summary through the compose-managed container:
+
+| Request | Status | Response summary |
+| --- | ---: | --- |
+| `GET http://localhost:18092/` | 200 | View Editor 5.0.0 HTML shell |
+| `GET http://localhost:18092/config/config.json` | 200 | Runtime config with `apiUrl` set to `http://localhost:18092/api` |
+| `GET http://localhost:18092/api/projects` | 200 | Proxied Flexo SysML v2 project JSON array |
+| `GET http://localhost:18092/api/authentication` | 404 | Proxied Flexo SysML v2 has no View Editor 5.x authentication endpoint |
+| `GET http://localhost:18092/api/checkAuth` | 404 | Proxied Flexo SysML v2 has no View Editor 5.x auth-check endpoint |
+| `GET http://localhost:18092/api/orgs` | 404 | Proxied Flexo SysML v2 has no View Editor 5.x org endpoint |
+| `GET http://localhost:18092/api/projects/<project-id>/refs` | 404 | Proxied Flexo SysML v2 has no View Editor 5.x refs endpoint |
+
+Browser trace summary with Playwright:
+
+| Browser action | Observed result |
+| --- | --- |
+| Open `http://localhost:18092/` | Login page rendered with the configured experiment warning text. No API request was made before interaction. |
+| Submit login with synthetic credentials | Browser sent `POST http://localhost:18092/api/authentication`; response was 404 and the UI displayed `Not Found`. |
+| Load with a synthetic token already in local storage | Browser sent `GET http://localhost:18092/api/checkAuth`; response was 404 and the app remained on the login page. |
+
+Durable 5.x result: View Editor 5.0.0 can now be rebuilt and run from this repo
+without the older published image, and browser-level tracing confirms the first
+runtime blocker is API contract mismatch at authentication. The same-origin
+proxy removes CORS as the immediate explanation.
+
 ## Interim Compatibility Finding
 
-The published `openmbee/view-editor:3.6.1-omg` image is not directly compatible
-with the current local Flexo stack.
+The tested OpenMBEE View Editor paths are not directly compatible with the
+current local Flexo stack.
 
-There are two separate blockers:
+There are separate blockers:
 
 - Runtime/proxy blocker: in this image mode, legacy GET paths under
   `/alfresco/service/...` are handled by the View Editor single-page-app
   fallback instead of being proxied to the configured backend.
-- API contract blocker: neither Flexo Layer1 nor Flexo SysML v2 exposes the
-  legacy Alfresco MMS login, document, view, and project resources expected by
-  this View Editor generation. Flexo SysML v2 exposes OMG SysML v2 resources
-  instead.
+- Legacy API contract blocker: neither Flexo Layer1 nor Flexo SysML v2 exposes
+  the legacy Alfresco MMS login, document, view, and project resources expected
+  by the published `openmbee/view-editor:3.6.1-omg` image. Flexo SysML v2
+  exposes OMG SysML v2 resources instead.
+- View Editor 5.x API contract blocker: the source-built 5.0.0 client reaches
+  the configured same-origin proxy, but Flexo SysML v2 does not expose the MMS
+  5.x authentication, auth-check, org, ref, document/view, element, artifact,
+  and search resources it expects.
 
-The next useful probe is either to run a known legacy MMS/View Editor baseline
-to prove the image behavior against its intended backend, or to build the
-current View Editor 5.x source with explicit Flexo-facing configuration to see
-whether its newer container path proxies requests differently. Neither path is
-expected to remove the need for a legacy MMS document/view facade if View Editor
-is to work with Flexo SysML v2.
+The remaining useful work is to define the smallest adapter/facade boundary
+that could satisfy View Editor 5.x from Flexo SysML v2 data, or to run a known
+legacy MMS/View Editor baseline only if we need a control proving the View
+Editor client behavior against its intended backend.

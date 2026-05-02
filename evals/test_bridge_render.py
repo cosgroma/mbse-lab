@@ -204,6 +204,62 @@ class BridgeRenderTests(unittest.TestCase):
             self.assertEqual(record["steps"][2]["details"]["coverage_summary"]["unsupported_elements"], 1)
             self.assertEqual(json.loads(render_report.read_text(encoding="utf-8"))["summary"]["rendered_elements"], 5)
 
+    def test_bridge_run_can_create_syson_project_and_emit_json_summary(self) -> None:
+        fixture = ROOT / "evals" / "fixtures" / "flexo-basic-package.json"
+        snapshot = json.loads(fixture.read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "exports"
+            run_log = Path(temp_dir) / "run.json"
+            args = argparse.Namespace(
+                flexo_project_id="project-1",
+                commit_id=None,
+                syson_project_id=None,
+                namespace_id=None,
+                create_syson_project="Imported From Flexo",
+                editing_context_id=None,
+                output_dir=output_dir,
+                run_log=run_log,
+                run_log_dir=Path(temp_dir) / "runs",
+                flexo_url="http://flexo.local",
+                syson_url="http://syson.local",
+                timeout=10,
+                json_output=True,
+            )
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            with (
+                mock.patch.object(flexo_syson_bridge, "export_flexo_project", return_value=snapshot),
+                mock.patch.object(
+                    flexo_syson_bridge,
+                    "create_syson_project",
+                    return_value={
+                        "id": "syson-project-1",
+                        "name": "Imported From Flexo",
+                        "currentEditingContext": {"id": "ctx-1"},
+                    },
+                ),
+                mock.patch.object(flexo_syson_bridge, "syson_latest_commit_id", return_value="syson-commit-1"),
+                mock.patch.object(flexo_syson_bridge, "syson_root_package_id", return_value="namespace-1"),
+                mock.patch.object(
+                    flexo_syson_bridge,
+                    "import_sysml_text",
+                    return_value={"editing_context_id": "ctx-1", "result": {"status": "ok"}},
+                ),
+                contextlib.redirect_stdout(stdout),
+                contextlib.redirect_stderr(stderr),
+            ):
+                flexo_syson_bridge.cmd_flexo_to_syson(args)
+
+            summary = json.loads(stdout.getvalue())
+            record = json.loads(run_log.read_text(encoding="utf-8"))
+
+        self.assertEqual(summary["syson_project_id"], "syson-project-1")
+        self.assertEqual(summary["namespace_id"], "namespace-1")
+        self.assertEqual(summary["artifacts"]["render_report"], record["artifacts"]["render_report"])
+        self.assertIn("Created SysON project: syson-project-1", stderr.getvalue())
+        self.assertIn("discover-syson-root", [step["name"] for step in record["steps"]])
+
     def test_coverage_matrix_matches_renderer_registry(self) -> None:
         doc = (ROOT / "docs" / "lab" / "modeling-conventions.md").read_text(encoding="utf-8")
         matrix_types = set()

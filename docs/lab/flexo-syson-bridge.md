@@ -81,7 +81,7 @@ for synthetic, publishable seed data.
 | Create project | `mbse-lab syson create "Imported From Flexo"` |
 | Find import namespace | `mbse-lab syson roots <syson-project-id>` |
 | Import SysML text | `mbse-lab bridge import exports/sysml/<flexo-project-id>.sysml --project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
-| Run full pipeline | `mbse-lab bridge run <flexo-project-id> --syson-project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
+| Run full pipeline | `mbse-lab bridge run <flexo-project-id> --create-syson-project "Imported From Flexo"` |
 
 The roots command resolves the latest SysON REST commit before fetching root
 namespace elements. Use `mbse-lab syson roots <syson-project-id> --json-output`
@@ -91,9 +91,14 @@ For the full pipeline, the expanded CLI form is:
 
 ```bash
 mbse-lab bridge run <flexo-project-id> \
-  --syson-project-id <syson-project-id> \
-  --namespace-id <syson-root-package-id>
+  --create-syson-project "Imported From Flexo" \
+  --json-output
 ```
+
+Use `--syson-project-id` and `--namespace-id` when importing into an existing
+SysON project. With `--create-syson-project`, the bridge creates the review
+project, discovers its root package, writes the Flexo export, SysML text,
+render report, and run log, then prints the created SysON IDs and URL.
 
 ## Artifacts
 

@@ -1259,6 +1259,23 @@ def cmd_syson_list_projects(args: argparse.Namespace) -> None:
 
 
 def cmd_syson_create_project(args: argparse.Namespace) -> None:
+    project = create_syson_project(
+        args.syson_url,
+        args.name,
+        args.timeout,
+        template_id=args.template_id,
+        library_ids=args.library_ids,
+    )
+    print(json.dumps(project, indent=2))
+
+
+def create_syson_project(
+    syson_url: str,
+    name: str,
+    timeout: int,
+    template_id: str = "sysmlv2-template",
+    library_ids: list[str] | None = None,
+) -> dict[str, Any]:
     mutation = """
     mutation CreateProject($input: CreateProjectInput!) {
       createProject(input: $input) {
@@ -1273,16 +1290,19 @@ def cmd_syson_create_project(args: argparse.Namespace) -> None:
     variables = {
         "input": {
             "id": str(uuid.uuid4()),
-            "name": args.name,
-            "templateId": args.template_id,
-            "libraryIds": args.library_ids,
+            "name": name,
+            "templateId": template_id,
+            "libraryIds": library_ids or [],
         }
     }
-    response = graphql(args.syson_url, mutation, variables, timeout=args.timeout)
+    response = graphql(syson_url, mutation, variables, timeout=timeout)
     result = response["data"]["createProject"]
     if result["__typename"] == "ErrorPayload":
         fail(result["message"])
-    print(json.dumps(result["project"], indent=2))
+    project = result["project"]
+    if not isinstance(project, dict):
+        fail("SysON createProject response was not an object")
+    return project
 
 
 def syson_latest_commit_id(syson_url: str, project_id: str, timeout: int) -> str:
@@ -1302,19 +1322,33 @@ def syson_latest_commit_id(syson_url: str, project_id: str, timeout: int) -> str
 def cmd_syson_roots(args: argparse.Namespace) -> None:
     project_id = args.project_id
     commit_id = syson_latest_commit_id(args.syson_url, project_id, args.timeout)
-    roots = request_json(
-        "GET",
-        (
-            f"{trim_url(args.syson_url)}/api/rest/projects/{urllib.parse.quote(project_id, safe='')}"
-            f"/commits/{urllib.parse.quote(commit_id, safe='')}/roots"
-        ),
-        timeout=args.timeout,
-    )
+    roots = syson_roots(args.syson_url, project_id, commit_id, args.timeout)
     if args.json:
         print(json.dumps(roots, indent=2))
         return
     for root in roots:
         print(f"{root.get('@id')}  {root.get('@type')}  {root.get('declaredName') or root.get('name')}")
+
+
+def syson_roots(syson_url: str, project_id: str, commit_id: str, timeout: int) -> list[dict[str, Any]]:
+    roots = request_json(
+        "GET",
+        (
+            f"{trim_url(syson_url)}/api/rest/projects/{urllib.parse.quote(project_id, safe='')}"
+            f"/commits/{urllib.parse.quote(commit_id, safe='')}/roots"
+        ),
+        timeout=timeout,
+    )
+    if not isinstance(roots, list):
+        fail(f"SysON roots response was not a list for project {project_id}")
+    return [root for root in roots if isinstance(root, dict)]
+
+
+def syson_root_package_id(syson_url: str, project_id: str, commit_id: str, timeout: int) -> str:
+    for root in syson_roots(syson_url, project_id, commit_id, timeout):
+        if root.get("@type") == "Package" and root.get("@id"):
+            return str(root["@id"])
+    fail(f"no root Package found in SysON project {project_id}")
 
 
 def syson_editing_context_id(syson_url: str, project_id: str, timeout: int) -> str:
@@ -1390,12 +1424,23 @@ def cmd_syson_import_text(args: argparse.Namespace) -> None:
 
 
 def cmd_flexo_to_syson(args: argparse.Namespace) -> None:
+    create_syson_project_name = getattr(args, "create_syson_project", None)
+    syson_project_id = args.syson_project_id
+    namespace_id = args.namespace_id
+    editing_context_id = args.editing_context_id
+    if create_syson_project_name and (syson_project_id or namespace_id):
+        fail("--create-syson-project cannot be combined with --syson-project-id or --namespace-id")
+    if not create_syson_project_name and (not syson_project_id or not namespace_id):
+        fail("provide --syson-project-id and --namespace-id, or use --create-syson-project")
+
     run_id = str(uuid.uuid4())
     workflow = "flexo-to-syson"
     log_path = args.run_log or run_log_path(args.run_log_dir, workflow, run_id)
     output_dir = args.output_dir or default_output_dir()
     if args.output_dir is None and not os.environ.get(MODEL_WORKSPACE_ENV):
         warn_repo_local_exports(output_dir)
+    json_output = getattr(args, "json_output", False)
+    log_info = (lambda message: print(message, file=sys.stderr)) if json_output else info
     started_at = utc_now()
     started_perf = time.perf_counter()
     record: dict[str, Any] = {
@@ -1403,12 +1448,14 @@ def cmd_flexo_to_syson(args: argparse.Namespace) -> None:
         "workflow": workflow,
         "status": "running",
         "started_at": started_at,
+        "run_log_path": str(log_path),
         "inputs": {
             "flexo_project_id": args.flexo_project_id,
             "commit_id": args.commit_id,
-            "syson_project_id": args.syson_project_id,
-            "namespace_id": args.namespace_id,
-            "editing_context_id_provided": bool(args.editing_context_id),
+            "syson_project_id": syson_project_id,
+            "namespace_id": namespace_id,
+            "create_syson_project": create_syson_project_name,
+            "editing_context_id_provided": bool(editing_context_id),
             "output_dir": str(output_dir),
             "flexo_url": args.flexo_url,
             "syson_url": args.syson_url,
@@ -1417,8 +1464,8 @@ def cmd_flexo_to_syson(args: argparse.Namespace) -> None:
         "artifacts": {},
         "flexo": {},
         "syson": {
-            "project_id": args.syson_project_id,
-            "namespace_id": args.namespace_id,
+            "project_id": syson_project_id,
+            "namespace_id": namespace_id,
         },
         "steps": [],
     }
@@ -1484,18 +1531,66 @@ def cmd_flexo_to_syson(args: argparse.Namespace) -> None:
         )
         record["artifacts"]["sysml_text"] = str(sysml_path)
         record["artifacts"]["render_report"] = str(render_report_path)
-        info(f"Wrote Flexo export: {export_path}")
-        info(f"Wrote SysML textual export: {sysml_path}")
-        info(f"Wrote render coverage report: {render_report_path}")
+        log_info(f"Wrote Flexo export: {export_path}")
+        log_info(f"Wrote SysML textual export: {sysml_path}")
+        log_info(f"Wrote render coverage report: {render_report_path}")
+
+        if create_syson_project_name:
+            step_start = utc_now()
+            step_perf = time.perf_counter()
+            syson_project = create_syson_project(args.syson_url, create_syson_project_name, args.timeout)
+            syson_project_id = str(syson_project["id"])
+            editing_context = syson_project.get("currentEditingContext") or {}
+            editing_context_id = (
+                str(editing_context["id"]) if isinstance(editing_context, dict) and editing_context.get("id") else None
+            )
+            add_step(
+                record,
+                "create-syson-project",
+                "succeeded",
+                step_start,
+                time.perf_counter() - step_perf,
+                {
+                    "project_id": syson_project_id,
+                    "project_name": syson_project.get("name"),
+                    "editing_context_id": editing_context_id,
+                },
+            )
+            record["syson"].update(
+                {
+                    "project_id": syson_project_id,
+                    "project_name": syson_project.get("name"),
+                    "editing_context_id": editing_context_id,
+                }
+            )
+            log_info(f"Created SysON project: {syson_project_id}")
+
+            step_start = utc_now()
+            step_perf = time.perf_counter()
+            syson_commit_id = syson_latest_commit_id(args.syson_url, syson_project_id, args.timeout)
+            namespace_id = syson_root_package_id(args.syson_url, syson_project_id, syson_commit_id, args.timeout)
+            add_step(
+                record,
+                "discover-syson-root",
+                "succeeded",
+                step_start,
+                time.perf_counter() - step_perf,
+                {"commit_id": syson_commit_id, "namespace_id": namespace_id},
+            )
+            record["syson"]["commit_id"] = syson_commit_id
+            record["syson"]["namespace_id"] = namespace_id
+            log_info(f"Discovered SysON root namespace: {namespace_id}")
+        else:
+            record["syson"].update({"project_id": syson_project_id, "namespace_id": namespace_id})
 
         step_start = utc_now()
         step_perf = time.perf_counter()
         import_result = import_sysml_text(
             args.syson_url,
-            args.syson_project_id,
-            args.namespace_id,
+            str(syson_project_id),
+            str(namespace_id),
             sysml_text,
-            args.editing_context_id,
+            editing_context_id,
             args.timeout,
         )
         add_step(
@@ -1508,7 +1603,7 @@ def cmd_flexo_to_syson(args: argparse.Namespace) -> None:
         )
         record["syson"]["editing_context_id"] = import_result["editing_context_id"]
         record["syson"]["import_result"] = import_result["result"]
-        info(f"Imported {sysml_path} into SysON project {args.syson_project_id}.")
+        log_info(f"Imported {sysml_path} into SysON project {syson_project_id}.")
         record["status"] = "succeeded"
     except BaseException as exc:
         record["status"] = "failed"
@@ -1522,7 +1617,47 @@ def cmd_flexo_to_syson(args: argparse.Namespace) -> None:
         record["completed_at"] = utc_now()
         record["duration_seconds"] = round(time.perf_counter() - started_perf, 6)
         write_run_log(log_path, record)
-        info(f"Wrote run log: {log_path}")
+        log_info(f"Wrote run log: {log_path}")
+    if json_output:
+        print(json.dumps(flexo_to_syson_summary(record, args.syson_url), indent=2, sort_keys=True))
+    elif record["status"] == "succeeded":
+        summary = flexo_to_syson_summary(record, args.syson_url)
+        info("Bridge run completed.")
+        info(f"  Flexo project:      {summary.get('flexo_project_id')}")
+        info(f"  SysON project:      {summary.get('syson_project_id')}")
+        info(f"  SysON namespace:    {summary.get('namespace_id')}")
+        info(f"  Flexo export:       {summary['artifacts'].get('flexo_export')}")
+        info(f"  SysML text:         {summary['artifacts'].get('sysml_text')}")
+        info(f"  Render report:      {summary['artifacts'].get('render_report')}")
+        info(f"  Run log:            {summary.get('run_log')}")
+        info(f"  Open SysON:         {summary.get('syson_url')}")
+
+
+def flexo_to_syson_summary(record: dict[str, Any], syson_url: str) -> dict[str, Any]:
+    syson = record.get("syson", {}) if isinstance(record.get("syson"), dict) else {}
+    flexo = record.get("flexo", {}) if isinstance(record.get("flexo"), dict) else {}
+    artifacts = record.get("artifacts", {}) if isinstance(record.get("artifacts"), dict) else {}
+    return {
+        "status": record.get("status"),
+        "run_id": record.get("run_id"),
+        "run_log": record.get("run_log_path"),
+        "flexo_project_id": flexo.get("project_id"),
+        "flexo_commit_id": flexo.get("commit_id"),
+        "syson_project_id": syson.get("project_id"),
+        "syson_project_name": syson.get("project_name"),
+        "namespace_id": syson.get("namespace_id"),
+        "editing_context_id": syson.get("editing_context_id"),
+        "artifacts": artifacts,
+        "render_summary": next(
+            (
+                step.get("details", {}).get("coverage_summary")
+                for step in record.get("steps", [])
+                if isinstance(step, dict) and step.get("name") == "render-sysml"
+            ),
+            None,
+        ),
+        "syson_url": trim_url(syson_url),
+    }
 
 
 def add_common_url_args(parser: argparse.ArgumentParser) -> None:
@@ -1644,8 +1779,11 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline = subparsers.add_parser("flexo-to-syson", help="Export from Flexo, render .sysml, and import into SysON")
     pipeline.add_argument("flexo_project_id")
     pipeline.add_argument("--commit-id")
-    pipeline.add_argument("--syson-project-id", required=True)
-    pipeline.add_argument("--namespace-id", required=True)
+    pipeline.add_argument("--syson-project-id")
+    pipeline.add_argument("--namespace-id")
+    pipeline.add_argument(
+        "--create-syson-project", help="Create a SysON review project and import into its root package."
+    )
     pipeline.add_argument("--editing-context-id")
     pipeline.add_argument(
         "--output-dir",
@@ -1659,6 +1797,7 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline.add_argument("--run-log-dir", type=Path, default=DEFAULT_RUN_DIR, help="Directory for generated run logs.")
     pipeline.add_argument("--flexo-url", default=DEFAULT_FLEXO_URL)
     pipeline.add_argument("--syson-url", default=DEFAULT_SYSON_URL)
+    pipeline.add_argument("--json-output", action="store_true")
     add_common_url_args(pipeline)
     pipeline.set_defaults(func=cmd_flexo_to_syson)
 

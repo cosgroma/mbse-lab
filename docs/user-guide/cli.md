@@ -416,9 +416,12 @@ mbse-lab bridge import exports/sysml/<flexo-project-id>.sysml \
   --project-id <syson-project-id> \
   --namespace-id <syson-root-package-id>
 mbse-lab bridge run <flexo-project-id> \
-  --syson-project-id <syson-project-id> \
-  --namespace-id <syson-root-package-id>
+  --create-syson-project "Imported From Flexo" \
+  --json-output
 ```
+
+Use `--syson-project-id` and `--namespace-id` instead when importing into an
+existing SysON project.
 
 Inspect and verify the container deployment contract:
 

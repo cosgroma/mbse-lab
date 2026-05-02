@@ -39,6 +39,11 @@ mbse-lab share-check
 The live smoke pass creates disposable Flexo and SysON projects and writes
 generated artifacts under the private model workspace.
 
+Before publishing a release, also run the manual GitHub Actions workflow
+`Live smoke` from the Actions tab. It starts Flexo and SysON, runs the
+first-use smoke workflow and live evals, and uploads a public-safe diagnostics
+artifact if the workflow fails.
+
 ## Troubleshooting Live Smoke
 
 If `syson-app` exits with a Postgres message such as:

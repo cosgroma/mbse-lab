@@ -580,6 +580,36 @@ class CliTests(unittest.TestCase):
         self.assertIn("--namespace-id namespace-1", result.output)
         self.assertIn("--output-dir exports", result.output)
 
+    def test_bridge_run_create_syson_project_dry_run_shows_plan(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            [
+                "--repo-root",
+                str(ROOT),
+                "bridge",
+                "run",
+                "flexo-project-1",
+                "--create-syson-project",
+                "Imported From Flexo",
+                "--json-output",
+                "--dry-run",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: export Flexo project `flexo-project-1`", result.output)
+        self.assertIn("dry-run: create SysON review project `Imported From Flexo`", result.output)
+        self.assertIn("--create-syson-project Imported From Flexo", result.output)
+        self.assertIn("--json-output", result.output)
+
+    def test_bridge_run_requires_existing_or_created_syson_target(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "bridge", "run", "flexo-project-1", "--dry-run"])
+
+        self.assertNotEqual(result.exit_code, 0, result.output)
+        self.assertIn("Provide --syson-project-id and --namespace-id, or use --create-syson-project.", result.output)
+
     def test_services_up_dry_run_builds_start_commands(self) -> None:
         runner = CliRunner()
         result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "services", "up", "--timeout", "45", "--dry-run"])

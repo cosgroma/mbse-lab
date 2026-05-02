@@ -107,6 +107,77 @@ SysML v2 result: direct Flexo SysML v2 project discovery works at `/projects`,
 but the response shape is the OMG API shape, not the legacy MMS envelope that
 View Editor expects. The legacy View Editor paths are absent.
 
+## View Editor 5.0.0 Source Build Probe
+
+Evidence captured on 2026-05-01.
+
+Public image lookup found no usable `openmbee/exec-ve:5.0.0` image. Docker Hub
+lists `openmbee/view-editor`, but the public OpenMBEE namespace only exposed
+the older `openmbee/view-editor:3.6.1-omg` View Editor image during this
+probe. The `Open-MBEE/exec-ve` source repository does contain a `5.0.0` tag
+with a root `Dockerfile`.
+
+The source-tag Dockerfile path was tested from `Open-MBEE/exec-ve` tag
+`5.0.0`:
+
+```bash
+docker build -t mbse-view-editor:5.0.0-local /tmp/exec-ve-5.0.0
+```
+
+That exact build did not complete. The tag's `.dockerignore` excludes dotfiles
+needed by the build's lint/format precheck, so ESLint first failed because it
+could not find its configuration. After copying the source tree to a temporary
+context and allowing the lint/format config files through `.dockerignore`, the
+build reached the lint step but failed on existing lint and formatting errors.
+
+As a narrower source-build proof, the same tag was built with a temporary
+Dockerfile that keeps the upstream dependency install and production webpack
+bundle, but bypasses the `prebuild` lint/format gate:
+
+```bash
+docker build \
+  -f /tmp/exec-ve-5.0.0-build/Dockerfile.webpack \
+  -t mbse-view-editor:5.0.0-webpack-local \
+  /tmp/exec-ve-5.0.0-build
+```
+
+That image built successfully and served the View Editor 5.0.0 static bundle
+from nginx. It also confirmed the 5.x runtime config file can be replaced after
+image build by mounting over:
+
+```text
+/usr/share/nginx/html/config/config.json
+```
+
+The local proof container was started on host port `18092` with `apiUrl`
+pointing at the Flexo SysML v2 service:
+
+```text
+View Editor 5.0.0 proof URL: http://localhost:18092/
+apiUrl: http://localhost:18083
+```
+
+Observed request summary:
+
+| Request | Status | Response summary |
+| --- | ---: | --- |
+| `GET http://localhost:18092/` | 200 | View Editor 5.0.0 HTML shell |
+| `GET http://localhost:18092/config/config.json` | 200 | Runtime config with `apiUrl` set to `http://localhost:18083` |
+| `GET http://localhost:18083/projects` | 200 | OMG-style project JSON array |
+| `GET http://localhost:18083/authentication` | 404 | Flexo SysML v2 has no View Editor 5.x authentication endpoint |
+| `GET http://localhost:18083/checkAuth` | 404 | Flexo SysML v2 has no View Editor 5.x auth-check endpoint |
+| `GET http://localhost:18083/orgs` | 404 | Flexo SysML v2 has no View Editor 5.x org endpoint |
+| `GET http://localhost:18083/projects/<project-id>/refs` | 404 | Flexo SysML v2 has no View Editor 5.x refs endpoint |
+| `OPTIONS http://localhost:18083/projects` from `http://localhost:18092` | 405 | Browser CORS preflight would not succeed for this direct static-app target |
+
+View Editor 5.0.0 result: the newer source line gives us a buildable local
+test path if we bypass the source tag's lint/format gate, and its runtime
+configuration can point directly at the Flexo SysML v2 host port. That removes
+the legacy `openmbee/view-editor:3.6.1-omg` proxy behavior as the only
+explanation for failure. However, the 5.x client still expects MMS-style
+authentication, org, ref, document/view, element, artifact, and search
+resources that are not exposed by Flexo SysML v2.
+
 ## Interim Compatibility Finding
 
 The published `openmbee/view-editor:3.6.1-omg` image is not directly compatible

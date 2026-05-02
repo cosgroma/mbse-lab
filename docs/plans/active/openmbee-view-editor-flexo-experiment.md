@@ -98,6 +98,18 @@ resources. `GET /authentication` returned 404 on both local Layer1 and SysML v2
 ports, which is consistent with View Editor requiring a legacy MMS auth
 endpoint or an adapter rather than only the Flexo SSO login endpoint.
 
+Follow-up source-build note: the `Open-MBEE/exec-ve` tag `5.0.0` includes a
+root Dockerfile, but no public `openmbee/exec-ve:5.0.0` image was found. The
+tagged Dockerfile failed locally because the Docker context excluded lint and
+format configuration files and then failed on existing lint/format errors once
+those files were allowed through. A narrower temporary image that ran the
+production webpack bundle directly did build and serve View Editor 5.0.0 on
+`http://localhost:18092/`, with a mounted runtime `config/config.json` pointing
+`apiUrl` at `http://localhost:18083`. Direct Flexo probes still showed the 5.x
+client endpoints are absent: `/authentication`, `/checkAuth`, `/orgs`, and
+`/projects/<project-id>/refs` returned 404, while `/projects` returned only the
+OMG-style SysML v2 project array.
+
 ## Experiment Scope
 
 This is a contained spike. Do not add View Editor to the main supported workflow
@@ -187,6 +199,14 @@ Out of scope for the first spike:
 
 6. If direct Flexo integration fails, run or inspect a known legacy MMS/View
    Editor baseline to separate View Editor setup issues from API mismatch.
+
+   Status: partial as of 2026-05-01. A View Editor 5.0.0 source-build path was
+   inspected and a local webpack-only proof image was built. This separated the
+   older `openmbee/view-editor:3.6.1-omg` proxy behavior from the API contract
+   mismatch: View Editor 5.x can be served and configured against
+   `http://localhost:18083`, but Flexo SysML v2 still does not expose the 5.x
+   MMS authentication, org, ref, document/view, element, artifact, and search
+   endpoints.
 
 7. Write a compatibility report with one of these outcomes:
 
@@ -282,8 +302,21 @@ make live-eval
   `docs/lab/view-editor-flexo-experiment.md`. Validation passed with `docker
   compose -f deploy/view-editor/docker-compose.yml config --quiet`, `make
   docs-build`, and `make check`.
+- 2026-05-01: Investigated the requested View Editor 5.0.0 image path before
+  declaring adapter-only compatibility. No public `openmbee/exec-ve:5.0.0`
+  image was found, but the `Open-MBEE/exec-ve` `5.0.0` tag contains a
+  Dockerfile. The exact tagged build failed locally at the lint/format gate; a
+  temporary webpack-only image built successfully as
+  `mbse-view-editor:5.0.0-webpack-local` and served on
+  `http://localhost:18092/` with `apiUrl=http://localhost:18083`. Direct probes
+  against Flexo SysML v2 still returned 404 for View Editor 5.x
+  `/authentication`, `/checkAuth`, `/orgs`, and
+  `/projects/<project-id>/refs`; `/projects` remained reachable only as
+  OMG-style SysML v2 JSON.
 
 ## Follow-Up Debt
 
+- Decide whether to add a durable `deploy/view-editor-5/` source-build path or
+  keep the 5.0.0 webpack-only Dockerfile as disposable spike evidence.
 - If an adapter is needed, define the minimal legacy MMS document/view facade
-  required by View Editor.
+  required by View Editor 5.x.

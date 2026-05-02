@@ -192,8 +192,9 @@ mbse-lab doctor --fix
 
 The CLI is the primary user-facing command surface for Flexo, SysON, bridge,
 diagnostics, and deployment-verification workflows. The legacy `scripts/*.py`
-entry points remain available as compatibility and maintainer tools while their
-logic is migrated into package modules.
+entry points remain available as compatibility and maintainer tools. The
+Flexo/SysON bridge implementation lives in `mbse_lab.bridge` package modules,
+with `scripts/flexo_syson_bridge.py` kept as a compatibility wrapper.
 
 For first use, run the guided bootstrap:
 

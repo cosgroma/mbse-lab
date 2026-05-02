@@ -83,6 +83,10 @@ Flexo graph state can still become easy to stage or publish.
 - 2026-05-01: Added `mbse-lab diagnostics --public-safe` and
   `scripts/collect_diagnostics.py --public-safe` to collect reduced bundles that
   omit project-list probes and recent service logs.
+- 2026-05-01: Moved the Flexo/SysON bridge implementation behind
+  `mbse_lab.bridge` package modules, kept `scripts/flexo_syson_bridge.py` as a
+  compatibility wrapper, and added typed validation for Flexo snapshots,
+  deployment contracts, and deployment verification reports.
 - 2026-05-01: Selected non-breaking repo-local export warnings for the generated
   artifact placement chunk. Commands still allow repo-local `exports/`, but
   warn when `MBSE_MODEL_WORKSPACE` is unset and no explicit output path was

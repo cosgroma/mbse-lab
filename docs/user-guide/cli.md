@@ -14,7 +14,7 @@ and private workspace workflows behind one command tree.
 | Create a smoke-test model | `first-model` | `mbse-lab first-model "My First Model"` |
 | Prove first-use setup | `smoke` | `mbse-lab smoke first-use --json-output` |
 | Keep artifacts private | `workspace` | `mbse-lab workspace init ~/work/my-private-models` |
-| Move snapshots between tools | `flexo`, `syson`, `bridge` | `mbse-lab bridge run <flexo-project-id>` |
+| Move snapshots between tools | `flexo`, `syson`, `bridge` | `mbse-lab bridge run <flexo-project-id> --create-syson-project "Imported From Flexo"` |
 | Collect evidence | `diagnostics`, `report`, `deployment` | `mbse-lab diagnostics` |
 | Prepare sharing | `share-check`, `cleanup` | `mbse-lab share-check` |
 
@@ -51,6 +51,10 @@ Check the command surface:
 ```bash
 mbse-lab --help
 ```
+
+For every command and option, use the generated
+[CLI Reference](cli-reference.md). `make docs-check` fails when that reference
+drifts from the Click command tree.
 
 Print shell completion setup:
 
@@ -454,6 +458,10 @@ mbse-lab --repo-root ~/work/sysmlv2-lab doctor
 | Page | Why it matters |
 | --- | --- |
 | [Private Model Workspaces](private-model-workspaces.md) | Explains the `MBSE_MODEL_WORKSPACE` boundary used by bridge commands. |
+| [CLI Reference](cli-reference.md) | Generated reference for every `mbse-lab` command and option. |
+| [Services](services.md) | Focused service lifecycle, endpoint, status, and maintenance commands. |
+| [Safety And Sharing](safety-and-sharing.md) | Share-check, credentials, service data, cleanup, and private artifact boundaries. |
+| [Troubleshooting](troubleshooting.md) | Symptom-oriented recovery steps for common local lab failures. |
 | [Bridge Workflow](../lab/flexo-syson-bridge.md) | Shows the Flexo export, SysML render, and SysON import sequence. |
 | [Harness Engineering](../lab/harness-engineering.md) | Documents evals, diagnostics, reports, and guardrails behind the CLI. |
 | [Release Process](release-process.md) | Uses the CLI for release smoke tests and share checks. |

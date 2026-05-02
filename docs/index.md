@@ -8,8 +8,9 @@ specifications.
 
 | Goal | Start with | Then use |
 | --- | --- | --- |
-| Install and operate the lab CLI | [CLI](user-guide/cli.md) | [Bridge Workflow](lab/flexo-syson-bridge.md) |
-| Keep private model data out of the tooling repo | [Private Model Workspaces](user-guide/private-model-workspaces.md) | [Modeling Conventions](lab/modeling-conventions.md) |
+| Install and operate the lab CLI | [CLI](user-guide/cli.md) | [CLI Reference](user-guide/cli-reference.md) |
+| Start, stop, or inspect services | [Services](user-guide/services.md) | [Troubleshooting](user-guide/troubleshooting.md) |
+| Keep private model data out of the tooling repo | [Private Model Workspaces](user-guide/private-model-workspaces.md) | [Safety And Sharing](user-guide/safety-and-sharing.md) |
 | Move a Flexo model snapshot into SysON | [Bridge Workflow](lab/flexo-syson-bridge.md) | [Transformation Pipeline](methodology/sysml-v2-transformation-pipeline-design.md) |
 | Understand supported rendered SysML v2 content | [Modeling Conventions](lab/modeling-conventions.md) | [Bridge Workflow](lab/flexo-syson-bridge.md) |
 | Prepare or publish a release | [Release Process](user-guide/release-process.md) | [MVP Feature Catalog](plans/active/mvp-feature-catalog.md) |
@@ -25,7 +26,7 @@ specifications.
 | Start services | `mbse-lab services up` |
 | Create demo model | `mbse-lab first-model "My First Model"` |
 | Prove first-use path | `mbse-lab smoke first-use --json-output` |
-| Bridge existing model | `mbse-lab bridge run <flexo-project-id>` |
+| Bridge existing model | `mbse-lab bridge run <flexo-project-id> --create-syson-project "Imported From Flexo"` |
 | Collect diagnostics | `mbse-lab diagnostics` |
 | Generate report | `mbse-lab report` |
 | Clean generated local output | `mbse-lab cleanup --dry-run` |
@@ -55,6 +56,10 @@ flowchart LR
 | --- | --- |
 | [Private Model Workspaces](user-guide/private-model-workspaces.md) | Separating reusable tooling from private SysML v2 source, exports, run logs, and service data. |
 | [CLI](user-guide/cli.md) | Installing `mbse-lab`, running doctor/bootstrap, managing services, creating a first model, and using bridge commands. |
+| [CLI Reference](user-guide/cli-reference.md) | Generated command and option reference built from the Click command tree. |
+| [Services](user-guide/services.md) | Starting, stopping, checking, and maintaining the local Flexo and SysON services. |
+| [Safety And Sharing](user-guide/safety-and-sharing.md) | Credential, service-data, private-workspace, share-check, report, and cleanup boundaries. |
+| [Troubleshooting](user-guide/troubleshooting.md) | Symptom-oriented recovery paths for Docker, ports, Flexo org setup, SysON startup, and bridge imports. |
 | [Release Process](user-guide/release-process.md) | Preparing release branches, smoke testing, tagging, and syncing release work back to `develop`. |
 
 ## Local Lab

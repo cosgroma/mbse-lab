@@ -31,6 +31,7 @@ mbse-lab init --model-workspace "$MBSE_MODEL_WORKSPACE"
 mbse-lab doctor
 python3 scripts/flexo_mms_env.py up --wait --timeout 180
 sleep 20
+python3 scripts/flexo_mms_env.py status --with-sysmlv2 --strict
 for attempt in {1..12}; do
   if mbse-lab flexo init-org --timeout 60; then
     org_initialized=true

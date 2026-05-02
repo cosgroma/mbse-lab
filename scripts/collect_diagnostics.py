@@ -16,6 +16,14 @@ from pathlib import Path
 DEFAULT_OUTPUT = Path("diagnostics/latest")
 DEFAULT_TIMEOUT = 10
 DEFAULT_LOG_TAIL = 120
+FLEXO_CONTAINERS = [
+    "openldap-server",
+    "quad-server",
+    "minio-server",
+    "auth-service",
+    "store-service",
+    "layer1-service",
+]
 
 REDACTION_PATTERNS = [
     re.compile(r"(?i)(password\s*[:=]\s*)([^\s\"']+)"),
@@ -111,6 +119,14 @@ def diagnostic_commands(log_tail: int, public_safe: bool) -> list[list[str]]:
     common_commands = [
         ["git", "log", "--oneline", "--decorate", "-5"],
         ["docker", "ps", "--format", "json"],
+        [
+            "docker",
+            "inspect",
+            "--format",
+            "{{.Name}} status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} "
+            "error={{.State.Error}} started={{.State.StartedAt}} finished={{.State.FinishedAt}}",
+            *FLEXO_CONTAINERS,
+        ],
         ["docker", "compose", "-f", "deploy/flexo-mms/docker-compose.yml", "ps"],
         ["docker", "compose", "-f", "deploy/syson/docker-compose.yml", "ps"],
         ["python3", "scripts/flexo_mms_env.py", "status", "--with-sysmlv2"],

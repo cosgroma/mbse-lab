@@ -45,6 +45,7 @@ jobs:
       - name: Initialize Flexo SysML v2 org
         run: |
           sleep 20
+          python3 scripts/flexo_mms_env.py status --with-sysmlv2 --strict
           for attempt in {1..12}; do
             if mbse-lab flexo init-org --timeout 60; then
               exit 0

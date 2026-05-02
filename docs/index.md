@@ -45,7 +45,7 @@ flowchart LR
 | [Bridge Workflow](lab/flexo-syson-bridge.md) | Exporting from Flexo, rendering textual SysML v2, and importing into SysON. |
 | [Harness Engineering](lab/harness-engineering.md) | Understanding command surfaces, guardrails, evals, diagnostics, and agent-oriented operating rules. |
 | [Modeling Conventions](lab/modeling-conventions.md) | Checking which Flexo element types are rendered into textual SysML v2 and how names are sanitized. |
-| [View Editor Flexo Experiment](lab/view-editor-flexo-experiment.md) | Request evidence and interim compatibility findings for the experimental OpenMBEE View Editor deployments. |
+| [View Editor Flexo Experiment](lab/view-editor-flexo-experiment.md) | Final compatibility report and request evidence for the experimental OpenMBEE View Editor deployments. |
 
 ## Methodology
 
@@ -72,6 +72,7 @@ flowchart LR
 | [Plans](plans/README.md) | Execution plan conventions for active and completed work. |
 | [MVP Feature Catalog](plans/active/mvp-feature-catalog.md) | Current MVP feature status, evidence, gaps, and validation work. |
 | [Usability Remediation](plans/active/usability-remediation.md) | Active work plan for converting the usability review into validated safety, onboarding, and bridge improvements. |
+| [View Editor Flexo Experiment](plans/completed/openmbee-view-editor-flexo-experiment.md) | Completed direct-compatibility spike and final adapter decision. |
 
 ## Reviews
 

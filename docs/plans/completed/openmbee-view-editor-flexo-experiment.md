@@ -7,6 +7,9 @@ MMS deployment, including `flexo-mms-sysmlv2`, and determine whether any
 compatibility layer is needed before treating it as a supported graphical
 frontend option.
 
+Status: complete as of 2026-05-02. Final outcome: not compatible without an
+adapter.
+
 The experiment should answer:
 
 - Can View Editor authenticate against the local Flexo MMS auth service?
@@ -119,6 +122,50 @@ bundle directly and serves it through nginx with `apiUrl` set to
 `http://flexo-sysmlv2:8080/` on the shared Docker network so browser traces are
 not blocked first by CORS.
 
+## Final Decision
+
+Direct compatibility is closed as not compatible without an adapter.
+
+Evidence supporting the decision:
+
+- The published `openmbee/view-editor:3.6.1-omg` image expects legacy Alfresco
+  MMS paths under `/alfresco/service/...`; those paths are absent from Flexo
+  Layer1 and Flexo SysML v2.
+- The source-built `Open-MBEE/exec-ve` 5.0.0 client can be built, hosted, and
+  browser-tested from `deploy/view-editor-5/`, so the remaining blocker is not
+  only the old public Docker image.
+- The 5.0.0 client reaches the same-origin `/api/` proxy to Flexo SysML v2, but
+  `POST /api/authentication` and `GET /api/checkAuth` return 404.
+- `GET /api/projects` returns Flexo SysML v2 project JSON, but in OMG API shape
+  rather than the MMS envelope expected by View Editor.
+- 5.x repository and content paths such as `/api/orgs`,
+  `/api/projects/<project-id>/refs`, documents, views, elements, artifacts, and
+  search are not exposed by Flexo SysML v2.
+
+Direct View Editor/Flexo integration should therefore stay outside the
+supported workflow. SysON remains the supported graphical review path.
+
+## Adapter Boundary
+
+If View Editor remains a desired frontend, the next path is a read-only MMS
+facade in front of Flexo SysML v2.
+
+Minimal first milestone:
+
+- Provide View Editor-compatible `POST /authentication` and `GET /checkAuth`
+  using Flexo auth/token behavior.
+- Return a synthetic or discovered org list from `GET /orgs`.
+- Map Flexo SysML v2 `/projects` into MMS-shaped `GET /projects` and
+  `GET /projects/<project-id>` responses.
+- Map Flexo project branches into `GET /projects/<project-id>/refs`.
+- Generate enough read-only group/document/view responses for View Editor to
+  open a synthetic project.
+- Map Flexo SysML v2 elements into MMS-shaped element list/detail responses.
+- Add a small adapter-side search response over mapped elements.
+
+Keep editing, artifact upload, and round-trip persistence out of the first
+adapter milestone.
+
 ## Experiment Scope
 
 This is a contained spike. Do not add View Editor to the main supported workflow
@@ -226,6 +273,10 @@ Out of scope for the first spike:
    - Partially compatible with configuration constraints.
    - Not compatible without an adapter.
    - Inconclusive, with exact missing evidence.
+
+   Status: complete as of 2026-05-02. Outcome: not compatible without an
+   adapter. The compatibility report and minimal adapter boundary are captured
+   in `docs/lab/view-editor-flexo-experiment.md`.
 
 ## Expected Outcomes
 
@@ -336,11 +387,15 @@ make live-eval
   confirmed the login page renders, submitting synthetic credentials posts to
   `/api/authentication` and receives 404, and a synthetic preloaded token
   triggers `/api/checkAuth` and receives 404.
+- 2026-05-02: Closed the direct-compatibility spike as not compatible without
+  an adapter. The final report identifies a read-only View Editor 5.x facade as
+  the next implementation path and keeps SysON as the supported graphical
+  review workflow.
 
 ## Follow-Up Debt
 
-- Write the compatibility report and close the direct-compatibility spike as
-  not compatible without an adapter unless a new control run changes the
-  evidence.
-- Define the minimal legacy MMS document/view facade required by View Editor
-  5.x.
+- Build a small read-only View Editor 5.x facade only if View Editor remains a
+  product target.
+- Keep the View Editor experiments isolated from the supported Flexo/SysON
+  workflow until the facade can authenticate, list projects, list refs, and
+  open a generated document/view from a synthetic Flexo project.

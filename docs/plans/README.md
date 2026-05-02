@@ -24,5 +24,8 @@ use one.
 ## Active Plans
 
 - [MVP Feature Catalog](active/mvp-feature-catalog.md)
-- [OpenMBEE View Editor Flexo Experiment](active/openmbee-view-editor-flexo-experiment.md)
 - [Usability Remediation](active/usability-remediation.md)
+
+## Completed Plans
+
+- [OpenMBEE View Editor Flexo Experiment](completed/openmbee-view-editor-flexo-experiment.md)

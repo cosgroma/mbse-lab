@@ -227,12 +227,34 @@ without the older published image, and browser-level tracing confirms the first
 runtime blocker is API contract mismatch at authentication. The same-origin
 proxy removes CORS as the immediate explanation.
 
-## Interim Compatibility Finding
+## Compatibility Report
+
+Final outcome: not compatible without an adapter.
 
 The tested OpenMBEE View Editor paths are not directly compatible with the
-current local Flexo stack.
+current local Flexo stack. This conclusion covers both the older published
+`openmbee/view-editor:3.6.1-omg` image and the source-built
+`Open-MBEE/exec-ve` 5.0.0 client.
 
-There are separate blockers:
+The decisive evidence is:
+
+- The published 3.6.1 image expects legacy Alfresco MMS paths under
+  `/alfresco/service/...`; those paths are absent from Flexo Layer1 and Flexo
+  SysML v2.
+- The source-built 5.0.0 client can load, render its login page, and reach the
+  same-origin `/api/` proxy to Flexo SysML v2, so CORS and static hosting are
+  not the immediate blocker.
+- View Editor 5.0.0 login sends `POST /api/authentication`; Flexo SysML v2
+  returns 404.
+- View Editor 5.0.0 auth validation sends `GET /api/checkAuth`; Flexo SysML v2
+  returns 404.
+- Flexo SysML v2 returns project discovery from `/projects`, but in OMG SysML
+  v2 shape rather than the MMS response shape expected by View Editor.
+- View Editor 5.0.0 repository and content endpoints such as `/orgs`,
+  `/projects/<project-id>/refs`, documents, views, elements, artifacts, and
+  search are not exposed by Flexo SysML v2.
+
+There are three separate findings:
 
 - Runtime/proxy blocker: in this image mode, legacy GET paths under
   `/alfresco/service/...` are handled by the View Editor single-page-app
@@ -246,7 +268,25 @@ There are separate blockers:
   5.x authentication, auth-check, org, ref, document/view, element, artifact,
   and search resources it expects.
 
-The remaining useful work is to define the smallest adapter/facade boundary
-that could satisfy View Editor 5.x from Flexo SysML v2 data, or to run a known
-legacy MMS/View Editor baseline only if we need a control proving the View
-Editor client behavior against its intended backend.
+## Minimal Adapter Boundary
+
+If View Editor 5.x remains a target, the next implementation path is a facade
+in front of Flexo SysML v2, not more container configuration. The smallest
+useful facade should start with read-only discovery and authentication
+compatibility:
+
+| Facade area | View Editor 5.x expectation | Flexo source |
+| --- | --- | --- |
+| Authentication | `POST /authentication`, `GET /checkAuth`, bearer token behavior, and user/session response shape | Flexo auth service and local token workflow |
+| Organizations | `GET /orgs` and optional org-filtered project listing | Synthetic default org or Flexo organization metadata if exposed elsewhere |
+| Projects | MMS-shaped `GET /projects` and `GET /projects/<project-id>` responses | Flexo SysML v2 `/projects` OMG project resources |
+| Refs | `GET /projects/<project-id>/refs` and branch/ref metadata | Flexo SysML v2 `defaultBranch` and branch resources |
+| Documents and views | `groups`, `documents`, `views`, and `views/<element-id>` endpoints | Derived read-only documents/views from SysML v2 packages/elements, or adapter-owned view records |
+| Elements | MMS-shaped element list and element detail endpoints | Flexo SysML v2 elements and relationships |
+| Search | `GET /projects/<project-id>/refs/<ref-id>/search` | Adapter-side index over Flexo SysML v2 elements |
+| Artifacts | Element artifact subresources | Out of scope for first read-only adapter unless required by a specific View Editor screen |
+
+The first adapter milestone should be read-only. It should allow login, project
+list, ref list, and opening a generated document/view for a synthetic Flexo
+project. Editing and artifact upload should remain out of scope until the read
+path proves that View Editor can display useful content from Flexo SysML v2.

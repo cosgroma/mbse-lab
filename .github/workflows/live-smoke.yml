@@ -43,7 +43,16 @@ jobs:
         run: python3 scripts/flexo_mms_env.py up --wait --timeout 180
 
       - name: Initialize Flexo SysML v2 org
-        run: mbse-lab flexo init-org --timeout 60
+        run: |
+          sleep 20
+          for attempt in {1..12}; do
+            if mbse-lab flexo init-org --timeout 60; then
+              exit 0
+            fi
+            python3 scripts/flexo_mms_env.py status --with-sysmlv2 || true
+            sleep 5
+          done
+          exit 1
 
       - name: Start SysON and wait for service APIs
         run: |

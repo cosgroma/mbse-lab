@@ -25,7 +25,7 @@ Flexo graph state can still become easy to stage or publish.
 - `scripts/flexo_syson_bridge.py`
 - `evals/test_bridge_cli.py`
 - `evals/test_bridge_render.py`
-- `deploy/flexo-mms/mount/cluster.trig`
+- `deploy/flexo-mms/mount/cluster.nq`
 
 ## Planned Steps
 
@@ -33,7 +33,7 @@ Flexo graph state can still become easy to stage or publish.
    - Block force-added generated exports.
    - Flag tracked model-looking `.sysml`, `.nq`, and `.trig` artifacts outside
      curated allowlists.
-   - Flag dirty `deploy/flexo-mms/mount/cluster.trig`.
+   - Flag dirty `deploy/flexo-mms/mount/cluster.nq`.
    - Add focused deterministic tests.
 
 2. Fix bounded bridge workflow bugs.

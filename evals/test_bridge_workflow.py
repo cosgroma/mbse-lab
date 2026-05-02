@@ -68,7 +68,10 @@ class WorkflowContractTests(unittest.TestCase):
 
         self.assertIn("workflow_dispatch:", text)
         self.assertIn("scripts/flexo_mms_env.py up --wait", text)
+        self.assertIn("sleep 20", text)
+        self.assertIn("for attempt in {1..12}", text)
         self.assertIn("mbse-lab flexo init-org", text)
+        self.assertIn("scripts/flexo_mms_env.py status --with-sysmlv2", text)
         self.assertIn("mbse-lab services up --no-flexo --syson", text)
         self.assertIn("mbse-lab smoke first-use --json-output", text)
         self.assertIn("make live-eval", text)

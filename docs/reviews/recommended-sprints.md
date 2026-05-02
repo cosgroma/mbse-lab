@@ -89,7 +89,7 @@ Make it much harder for private model state, service data, generated artifacts, 
 
 Primary:
 
-* #25 — Stop updating tracked `cluster.trig` by default during backup
+* #25 — Stop updating tracked `cluster.nq` by default during backup
 * #26 — Expand share-check to block tracked model artifacts
 * #27 — Add public-safe diagnostics mode
 * #28 — Add tests for share-check safety gaps
@@ -107,7 +107,7 @@ Users can run backups, diagnostics, bridge exports, and share checks with much s
 ## Acceptance criteria
 
 * Default Flexo backup writes ignored backup files only.
-* Updating tracked `deploy/flexo-mms/mount/cluster.trig` requires an explicit high-intent flag or separate command.
+* Updating tracked `deploy/flexo-mms/mount/cluster.nq` requires an explicit high-intent flag or separate command.
 * `share-check` catches tracked generated exports, tracked `.sysml`, tracked `.nq`/`.trig` outside allowlists, and dirty tracked seed files.
 * Public-safe diagnostics omits or hashes project names, IDs, private artifact paths, and import logs by default.
 * Tests use temporary repos and do not require live services.

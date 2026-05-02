@@ -19,7 +19,7 @@ SECRET_PATTERNS = (
     re.compile("JWT_SECRET=thi" "s"),
 )
 
-FLEXO_STARTUP_DATASET = "deploy/flexo-mms/mount/cluster.trig"
+FLEXO_STARTUP_DATASET = "deploy/flexo-mms/mount/cluster.nq"
 MODEL_ARTIFACT_SUFFIXES = (".sysml", ".nq", ".trig")
 
 

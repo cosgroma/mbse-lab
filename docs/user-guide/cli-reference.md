@@ -319,7 +319,7 @@ Commands:
   export          Export a Flexo project snapshot.
   init-org        Create the Flexo org used by the SysML v2 service.
   list            List Flexo SysML v2 projects.
-  restore         Restore Flexo mount/cluster.trig from a backup file.
+  restore         Restore Flexo mount/cluster.nq from a backup file.
   rotate-secrets  Regenerate ignored local Flexo runtime secrets.
   token           Request a local Flexo JWT from the auth service.
 ```
@@ -370,7 +370,7 @@ Options:
   --output PATH                   Backup file path.
   --timeout INTEGER               [default: 60]
   --update-init / --no-update-init
-                                  Also refresh tracked mount/cluster.trig after export.
+                                  Also refresh tracked mount/cluster.nq after export.
   --i-understand-this-updates-tracked-seed
                                   Required with --update-init to acknowledge that tracked seed data
                                   must be publishable.
@@ -383,7 +383,7 @@ Options:
 ```text
 Usage: mbse-lab flexo restore [OPTIONS] BACKUP
 
-  Restore Flexo mount/cluster.trig from a backup file.
+  Restore Flexo mount/cluster.nq from a backup file.
 
 Options:
   --dry-run

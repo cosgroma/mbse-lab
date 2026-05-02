@@ -30,7 +30,16 @@ export MBSE_MODEL_WORKSPACE=~/workspace/projects/mbse-release-smoke-models
 mbse-lab init --model-workspace "$MBSE_MODEL_WORKSPACE"
 mbse-lab doctor
 python3 scripts/flexo_mms_env.py up --wait --timeout 180
-mbse-lab flexo init-org --timeout 60
+sleep 20
+for attempt in {1..12}; do
+  if mbse-lab flexo init-org --timeout 60; then
+    org_initialized=true
+    break
+  fi
+  python3 scripts/flexo_mms_env.py status --with-sysmlv2 || true
+  sleep 5
+done
+test "${org_initialized:-false}" = "true"
 mbse-lab services up --no-flexo --syson --timeout 180
 mbse-lab flexo list --timeout 60
 mbse-lab first-model "Release Smoke Model"

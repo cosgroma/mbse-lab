@@ -150,7 +150,8 @@ The bootstrap command:
 - initializes the Flexo SysML v2 org
 - backs up Flexo graph state after org initialization
 - runs final status checks
-- prints local service URLs and next commands
+- prints local service URLs and next commands, including
+  `mbse-lab first-model "My First Model"`
 
 Preview the planned operations without changing files or starting containers:
 

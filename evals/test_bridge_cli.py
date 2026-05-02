@@ -330,6 +330,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("dry-run: python3 scripts/flexo_mms_env.py init --with-sysmlv2", result.output)
             self.assertIn("dry-run: copy deploy/syson/.env.example to deploy/syson/.env", result.output)
             self.assertIn(f"dry-run: initialize model workspace {workspace}", result.output)
+            self.assertIn('mbse-lab first-model "My First Model"', result.output)
             self.assertFalse(workspace.exists())
 
     def test_init_dry_run_prepares_files_without_starting_services(self) -> None:

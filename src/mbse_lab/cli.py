@@ -388,6 +388,7 @@ def bootstrap(
     click.echo("Next:")
     click.echo("  mbse-lab doctor")
     click.echo("  mbse-lab workspace env <private-workspace>")
+    click.echo('  mbse-lab first-model "My First Model"')
 
 
 @main.command("first-model")

@@ -146,6 +146,7 @@ The bootstrap command:
 - creates `deploy/syson/.env` from the publishable example when needed
 - optionally initializes a private model workspace
 - starts Flexo and SysON
+- waits for the Flexo `/projects` API and SysON web UI to answer
 - initializes the Flexo SysML v2 org
 - backs up Flexo graph state after org initialization
 - runs final status checks
@@ -172,6 +173,10 @@ Start both Flexo and SysON:
 ```bash
 mbse-lab services up
 ```
+
+By default, `services up` waits for the selected service APIs before printing
+the service URLs. Use `--no-wait` only when you want to start containers and
+return immediately.
 
 Stop both service families without deleting runtime data:
 

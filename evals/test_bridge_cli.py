@@ -501,6 +501,103 @@ class CliTests(unittest.TestCase):
         self.assertIn("dry-run: python3 scripts/flexo_mms_env.py up --wait --timeout 45", result.output)
         self.assertIn("dry-run: docker compose -f deploy/syson/docker-compose.yml up -d", result.output)
 
+    def test_wait_for_readiness_succeeds_after_retry(self) -> None:
+        probe = cli.ReadinessProbe("Demo API", "http://example.invalid/ready", "mbse-lab services up")
+        with (
+            mock.patch.object(cli, "fetch_status", side_effect=[None, 200]),
+            mock.patch.object(cli.time, "sleep") as sleep,
+        ):
+            cli.wait_for_readiness([probe], timeout=5, interval=0)
+
+        sleep.assert_called_once_with(0)
+
+    def test_wait_for_readiness_failure_explains_next_command(self) -> None:
+        probe = cli.ReadinessProbe("Demo API", "http://example.invalid/ready", "mbse-lab services up")
+        with (
+            mock.patch.object(cli, "fetch_status", return_value=None),
+            self.assertRaises(cli.click.ClickException) as raised,
+        ):
+            cli.wait_for_readiness([probe], timeout=0, interval=0)
+
+        self.assertIn("Service readiness failed after 0s", str(raised.exception))
+        self.assertIn("Demo API", str(raised.exception))
+        self.assertIn("no HTTP response", str(raised.exception))
+        self.assertIn("mbse-lab services up", str(raised.exception))
+
+    def test_services_up_waits_for_selected_service_apis(self) -> None:
+        runner = CliRunner()
+        with (
+            mock.patch.object(cli, "run_command") as run_command,
+            mock.patch.object(cli, "wait_for_readiness") as wait_for_readiness,
+        ):
+            result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "services", "up", "--no-flexo"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        run_command.assert_called_once_with(
+            ["docker", "compose", "-f", "deploy/syson/docker-compose.yml", "up", "-d"],
+            ROOT,
+            False,
+        )
+        wait_for_readiness.assert_called_once()
+        probes = wait_for_readiness.call_args.args[0]
+        self.assertEqual([probe.label for probe in probes], ["SysON Web UI"])
+
+    def test_bootstrap_waits_for_service_readiness_after_start(self) -> None:
+        runner = CliRunner()
+        with (
+            mock.patch.object(cli, "run_command") as run_command,
+            mock.patch.object(cli, "ensure_syson_env"),
+            mock.patch.object(cli, "wait_for_readiness") as wait_for_readiness,
+        ):
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "bootstrap",
+                    "--skip-flexo-org",
+                    "--skip-status",
+                    "--timeout",
+                    "45",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(run_command.call_count, 3)
+        self.assertIn("init", run_command.call_args_list[0].args[0])
+        self.assertIn("up", run_command.call_args_list[1].args[0])
+        self.assertIn("deploy/syson/docker-compose.yml", run_command.call_args_list[2].args[0])
+        wait_for_readiness.assert_called_once()
+        self.assertEqual(wait_for_readiness.call_args.args[1], 45)
+
+    def test_first_model_preflight_failure_stops_before_creating_projects(self) -> None:
+        runner = CliRunner()
+        with (
+            mock.patch.object(
+                cli,
+                "wait_for_readiness",
+                side_effect=cli.click.ClickException("Service readiness failed after 1s: Flexo unavailable"),
+            ),
+            mock.patch.object(cli, "create_flexo_project") as create_flexo_project,
+        ):
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "first-model",
+                    "Demo",
+                    "--output-dir",
+                    "/tmp/mbse-lab-demo",
+                    "--timeout",
+                    "1",
+                ],
+            )
+
+        self.assertNotEqual(result.exit_code, 0, result.output)
+        self.assertIn("Service readiness failed", result.output)
+        create_flexo_project.assert_not_called()
+
     def test_services_down_dry_run_stops_syson_before_flexo(self) -> None:
         runner = CliRunner()
         result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "services", "down", "--dry-run"])

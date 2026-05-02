@@ -12,6 +12,7 @@ and private workspace workflows behind one command tree.
 | Prepare runtime files | `init`, `bootstrap` | `mbse-lab bootstrap --model-workspace ~/work/my-private-models` |
 | Manage containers | `services` | `mbse-lab services up` |
 | Create a smoke-test model | `first-model` | `mbse-lab first-model "My First Model"` |
+| Prove first-use setup | `smoke` | `mbse-lab smoke first-use --json-output` |
 | Keep artifacts private | `workspace` | `mbse-lab workspace init ~/work/my-private-models` |
 | Move snapshots between tools | `flexo`, `syson`, `bridge` | `mbse-lab bridge run <flexo-project-id>` |
 | Collect evidence | `diagnostics`, `report`, `deployment` | `mbse-lab diagnostics` |
@@ -110,6 +111,25 @@ project name, random localhost-only host ports, and temp data directories under
 by Compose labels rather than fixed container names, then runs
 `docker compose down --remove-orphans --volumes` for that project. Pass `--keep`
 to leave the disposable stack running for inspection.
+
+## First-Use Smoke
+
+Run the first-use proof workflow when you want one command to start services,
+initialize the Flexo SysML v2 org, create a disposable model, import it into
+SysON, and write the lab report:
+
+```bash
+mbse-lab smoke first-use --json-output
+```
+
+Preview the same workflow without Docker or service calls:
+
+```bash
+mbse-lab smoke first-use --dry-run --json-output
+```
+
+The JSON output includes overall status, Flexo and SysON IDs, generated artifact
+paths, service URLs, and the report path.
 
 ## Init
 

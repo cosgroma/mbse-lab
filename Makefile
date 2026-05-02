@@ -19,7 +19,7 @@ ISOLATED_COMPOSE_FILES = \
 	-f deploy/flexo-mms/docker-compose.isolated.yml \
 	-f deploy/syson/docker-compose.isolated.yml
 
-.PHONY: help install-cli bootstrap first-model doctor report cleanup share-check init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify deployment-isolated-smoke
+.PHONY: help install-cli bootstrap first-model first-use-smoke doctor report cleanup share-check init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify deployment-isolated-smoke
 
 help:
 	@printf '%s\n' 'MBSE local lab commands:'
@@ -27,6 +27,7 @@ help:
 	@printf '  %-16s %s\n' 'install-cli' 'Install the mbse-lab CLI in editable mode'
 	@printf '  %-16s %s\n' 'bootstrap' 'Prepare and start the local SysML v2 lab'
 	@printf '  %-16s %s\n' 'first-model' 'Create a tiny Flexo model and import it into SysON'
+	@printf '  %-16s %s\n' 'first-use-smoke' 'Run the first-use proof workflow'
 	@printf '  %-16s %s\n' 'doctor' 'Run mbse-lab environment checks'
 	@printf '  %-16s %s\n' 'report' 'Generate reports/latest local lab report'
 	@printf '  %-16s %s\n' 'cleanup' 'Remove generated reports, diagnostics, runs, and tmp output'
@@ -61,6 +62,9 @@ bootstrap:
 
 first-model:
 	mbse-lab first-model "First Model"
+
+first-use-smoke:
+	mbse-lab smoke first-use
 
 doctor:
 	mbse-lab doctor

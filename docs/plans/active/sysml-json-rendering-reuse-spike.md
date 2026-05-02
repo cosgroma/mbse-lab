@@ -153,6 +153,33 @@ External source references to inspect:
    - If it does not exist, document the missing boundary and avoid treating the
      Pilot stack as a near-term renderer.
 
+   Status: complete as of 2026-05-02. The Pilot Implementation has a real
+   standard repository API to EMF path, but not a supported offline Flexo JSON
+   file to textual SysML renderer. `SysMLRepositoryLoadUtil` and the
+   interactive `load` flow download projects through `ProjectRepository`,
+   build an in-memory `APIModel` from repository roots and elements, and then
+   use `EMFModelRefresher` to materialize generated SysML EMF objects. That is
+   the closest reusable boundary found.
+
+   The missing piece is the file/import side. Source inspection found
+   `SysML2JSON` and `JsonElementProcessingFacade` for text/EMF to API JSON,
+   but no `JSON2SysML`, `fromJson`, or equivalent offline parser that accepts a
+   Flexo export JSON file and returns an `APIModel` or textual `.sysml`.
+   `APIModel` stores UUID-keyed roots/elements and can serialize itself back to
+   JSON, but it does not parse API JSON. A Flexo-to-Pilot path would therefore
+   still need an adapter that validates API-shaped JSON, normalizes ids when
+   needed, populates `APIModel`, tracks library UUIDs through
+   `EObjectUUIDTracker`, runs `EMFModelRefresher`, and saves/serializes the
+   resulting EMF resources.
+
+   Practical notes: the public example Flexo export uses UUID-shaped element
+   ids and is closer to Pilot expectations than the synthetic fixture with
+   ids such as `pkg-1`. The Pilot source is `LGPL-3.0-or-later`; invoking it as
+   an external harness is lower risk than copying implementation code. A
+   targeted Java 21 Docker build of the core, KerML Xtext, SysML Xtext, and
+   target modules succeeded, so a harness is buildable, but it remains a
+   heavyweight Java/Tycho dependency path.
+
 5. Compare options and make a recommendation.
 
    Possible outcomes:
@@ -188,6 +215,14 @@ External source references to inspect:
   in-memory SysON EMF package. The remaining work for this path is an API JSON
   to SysON EMF adapter, with the main complexity in reconstructing SysML
   relationship/membership objects rather than calling the serializer.
+- 2026-05-02: Inspected the SysML v2 Pilot Implementation API repository and
+  Xtext tooling. The strongest reusable component is
+  `EMFModelRefresher`, reached from `SysMLRepositoryLoadUtil` after a live
+  repository project has already been loaded into an `APIModel`. No supported
+  offline API JSON file to `.sysml` command or `APIModel.fromJson` equivalent
+  was found. A targeted Java 21 Docker build of the relevant Pilot modules
+  completed successfully, confirming the harness route is buildable but still
+  adapter-heavy.
 
 ## Validation Commands
 
@@ -210,6 +245,20 @@ docker run --rm \
 
 The host Maven build is expected to fail until `javac` 21 is available on
 `PATH`; this workspace currently has a Java 21 runtime but a Java 17 compiler.
+
+Pilot API repository/Xtext build probe:
+
+```bash
+docker run --rm \
+  -v /tmp/SysML-v2-Pilot-Implementation:/work \
+  -v "$HOME/.m2":/root/.m2 \
+  -w /work \
+  maven:3.9-eclipse-temurin-21 \
+  mvn -pl org.omg.sysml,org.omg.kerml.expressions.xtext,org.omg.kerml.xtext,org.omg.sysml.xtext -am -DskipTests package
+```
+
+This completed successfully against local commit
+`96a0212 Merge pull request #751 from Systems-Modeling/ST6RI-898`.
 
 Use live service checks only when probing a running SysON or Flexo stack:
 
@@ -240,6 +289,10 @@ before updating the supported workflow documentation.
   Implementation for an API JSON to EMF/text path. If that path exists, it could
   avoid rebuilding the same semantic relationship reconstruction against SysON's
   generated model.
+- The Pilot Implementation does not remove the adapter need. It changes the
+  possible adapter target from SysON EMF objects to Pilot `APIModel` plus
+  `EMFModelRefresher`, and may be useful as a validation/reference harness for
+  standard API semantics.
 - Treat licensing as part of the technical decision. SysON and the Pilot
   Implementation have different licenses, so vendoring code is a materially
   different choice from invoking an external tool or service.

@@ -70,6 +70,29 @@ External source references to inspect:
      existing exporter.
    - Record whether the path works without custom Java code.
 
+   Status: complete as of 2026-05-02. The exposed SysON OpenAPI surface includes
+   OMG-style project, branch, commit, change, root, and element REST endpoints,
+   including `POST /api/rest/projects/{projectId}/commits`. A minimal
+   Flexo/API-shaped `Package` payload submitted through that commit endpoint
+   returned HTTP 201, but it did not create a new commit or add the submitted
+   package to the SysON element list. The route is therefore not a viable
+   no-code Flexo JSON to SysON model import path.
+
+   Export note: SysON's existing document download endpoint can invoke the
+   textual exporter for normal SysON documents. A disposable SysON template
+   project exposed a `SysMLv2.sysml` document in the database, and
+   `GET /api/editingcontexts/{editingContextId}/documents/{documentId}` with
+   `Accept: text/html` returned textual SysML:
+
+   ```sysml
+   package Package1 {
+   	view view1 : StandardViewDefinitions::GeneralView;
+   }
+   ```
+
+   This confirms SysON's serializer is reachable through the running service,
+   but only after content already exists as a SysON EMF document.
+
 3. If the REST path is not viable, assess a Java harness around SysON's
    serializer.
 
@@ -80,6 +103,8 @@ External source references to inspect:
    - Determine whether Flexo API JSON can be mapped mechanically into SysON's
      EMF model without depending on private SysON internals.
    - Record license and packaging implications.
+
+   Status: next.
 
 4. Inspect the SysML v2 Pilot Implementation for API JSON to EMF to text
    support.
@@ -115,6 +140,12 @@ External source references to inspect:
     found in the first pass.
   - The public SysML v2 API Python client appears to be a generated REST client,
     not a textual renderer.
+- 2026-05-02: Probed the running SysON `v2026.1.0` service. The OpenAPI
+  document exposes `POST /api/rest/projects/{projectId}/commits`, but a minimal
+  API-shaped `Package` `DataVersion` payload was not incorporated into either a
+  REST-created project or a normal `sysmlv2-template` project. The same run
+  confirmed that SysON document download can call the textual exporter for an
+  existing SysON document when requested with `Accept: text/html`.
 
 ## Validation Commands
 
@@ -141,6 +172,10 @@ before updating the supported workflow documentation.
   code into this repository.
 - Do not expand the local Python renderer beyond narrow fixture needs until the
   SysON and Pilot reuse paths are tested.
+- SysON's public REST data-version endpoint is not sufficient by itself for
+  Flexo API JSON to SysON model import. Continue with a Java harness or internal
+  SysON model-adapter assessment rather than trying to force the REST commit
+  facade.
 - Treat licensing as part of the technical decision. SysON and the Pilot
   Implementation have different licenses, so vendoring code is a materially
   different choice from invoking an external tool or service.

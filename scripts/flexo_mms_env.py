@@ -581,6 +581,14 @@ def cmd_token(args: argparse.Namespace) -> None:
 
 
 def cmd_backup(args: argparse.Namespace) -> None:
+    if args.update_init and not args.i_understand_this_updates_tracked_seed:
+        fail(
+            "updating mount/cluster.trig requires "
+            "--i-understand-this-updates-tracked-seed because it is tracked startup data"
+        )
+    if args.i_understand_this_updates_tracked_seed and not args.update_init:
+        fail("--i-understand-this-updates-tracked-seed requires --update-init")
+
     env_dir = args.env_dir
     fuseki_port = read_env_value(env_dir / ".env", "FLEXO_MMS_FUSEKI_HOST_PORT", "3030")
     url = args.url or f"http://localhost:{fuseki_port}/ds"
@@ -603,6 +611,7 @@ def cmd_backup(args: argparse.Namespace) -> None:
 
     if args.update_init:
         init_path = env_dir / "mount" / "cluster.trig"
+        info("WARNING: updating tracked startup dataset. " "Only use this path for synthetic, publishable seed data.")
         init_path.parent.mkdir(parents=True, exist_ok=True)
         init_path.write_bytes(contents)
         info(f"Updated startup dataset file: {init_path}")
@@ -673,12 +682,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     backup_parser.add_argument("--timeout", type=int, default=60, help="HTTP timeout in seconds.")
     backup_parser.add_argument(
+        "--update-init",
+        dest="update_init",
+        action="store_true",
+        help="Also refresh tracked mount/cluster.trig after exporting the backup.",
+    )
+    backup_parser.add_argument(
         "--no-update-init",
         dest="update_init",
         action="store_false",
-        help="Do not refresh mount/cluster.trig after exporting the backup.",
+        help="Compatibility no-op. Backup does not refresh mount/cluster.trig by default.",
     )
-    backup_parser.set_defaults(func=cmd_backup, update_init=True)
+    backup_parser.add_argument(
+        "--i-understand-this-updates-tracked-seed",
+        action="store_true",
+        help="Required with --update-init to acknowledge that tracked seed data must be publishable.",
+    )
+    backup_parser.set_defaults(func=cmd_backup, update_init=False)
 
     restore_parser = subparsers.add_parser("restore", help="Restore mount/cluster.trig from a backup file.")
     restore_parser.add_argument("backup", type=Path, help="Backup file to copy into mount/cluster.trig.")

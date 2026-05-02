@@ -43,7 +43,7 @@ help:
 	@printf '  %-16s %s\n' 'workflow-check' 'Validate WORKFLOW.md policy contract'
 	@printf '  %-16s %s\n' 'eval' 'Run deterministic local evals'
 	@printf '  %-16s %s\n' 'live-eval' 'Run optional live service evals'
-	@printf '  %-16s %s\n' 'backup' 'Export Flexo Fuseki data and refresh startup dataset'
+	@printf '  %-16s %s\n' 'backup' 'Export Flexo Fuseki data to ignored backup storage'
 	@printf '  %-16s %s\n' 'rotate-secrets' 'Regenerate ignored local Flexo runtime secrets'
 	@printf '  %-16s %s\n' 'flexo-list' 'List Flexo SysML v2 projects'
 	@printf '  %-16s %s\n' 'syson-list' 'List SysON projects'

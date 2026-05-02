@@ -47,6 +47,7 @@ nav:
   - Reviews:
       - Usability Review: reviews/usability-review.md
       - Recommended Features Review: reviews/recommended-features.md
+      - Recommended Sprint Sequence: reviews/recommended-sprints.md
 
 markdown_extensions:
   - admonition

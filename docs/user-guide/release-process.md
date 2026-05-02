@@ -3,12 +3,14 @@
 `mbse-lab` uses a lightweight Git Flow policy:
 
 ```text
-feature/*, bugfix/*, dependabot/* -> develop
-release/*, hotfix/*               -> main
+feature/*, bugfix/*, dependabot/*, copilot/* -> develop
+release/*, hotfix/*                          -> main
 ```
 
 Use `develop` for normal integration work. Use `main` for the published,
 stable branch that users install from by default.
+Copilot-authored branches using the `copilot/*` prefix are accepted only when
+they target `develop`.
 
 ## MVP Release Checklist
 

@@ -127,6 +127,20 @@ The renderer currently handles a practical subset:
 Unsupported element types remain in the raw Flexo JSON export but are not emitted
 into the textual `.sysml` file yet.
 
+## Renderer Reuse Assessment
+
+A reuse spike checked whether this bridge could replace the local renderer with
+an existing SysML v2 JSON-to-text path. No supported offline renderer was found.
+SysON can export textual SysML from existing SysON EMF documents, but its public
+REST data-version facade did not materialize a tested API-shaped Flexo payload
+into an exportable document. The OMG SysML v2 Pilot Implementation has a
+repository API to EMF path, but no supported JSON file to `.sysml` command.
+
+For now, the supported path remains the conservative Python renderer shown
+above. Keep additions fixture-driven, update
+[Modeling Conventions](modeling-conventions.md), and validate generated text
+through SysON import behavior before broadening the subset.
+
 ## Related Docs
 
 | Page | Why it matters |

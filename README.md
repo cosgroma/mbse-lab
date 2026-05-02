@@ -170,6 +170,9 @@ For first use, run the guided bootstrap:
 mbse-lab bootstrap --model-workspace ~/work/my-private-models
 ```
 
+Bootstrap starts Flexo and SysON, then waits for the Flexo SysML v2 projects API
+and SysON web UI before continuing.
+
 Use `mbse-lab init` when you only want to generate local env files and optional
 workspace scaffolding without starting containers.
 
@@ -186,6 +189,9 @@ mbse-lab services up
 mbse-lab services logs
 mbse-lab services down
 ```
+
+`mbse-lab services up` waits for selected service APIs by default. Use
+`--no-wait` to return immediately after container startup.
 
 Create a tiny first model after the services are running:
 

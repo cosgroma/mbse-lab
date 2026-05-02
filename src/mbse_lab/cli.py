@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -122,6 +123,65 @@ def print_service_urls() -> None:
     click.echo("  Flexo SysML v2 API: http://localhost:18083")
     click.echo("  SysON Web UI:       http://localhost:18090")
     click.echo("  SysON GraphQL API:  http://localhost:18090/api/graphql")
+
+
+@dataclass(frozen=True)
+class ReadinessProbe:
+    label: str
+    url: str
+    next_step: str
+
+
+def readiness_probes(
+    flexo: bool = True,
+    syson: bool = True,
+    flexo_url: str = DEFAULT_FLEXO_URL,
+    syson_url: str = DEFAULT_SYSON_URL,
+) -> list[ReadinessProbe]:
+    probes: list[ReadinessProbe] = []
+    if flexo:
+        probes.append(
+            ReadinessProbe(
+                label="Flexo SysML v2 API",
+                url=f"{trim_url(flexo_url)}/projects",
+                next_step="mbse-lab services up --flexo --timeout 60",
+            )
+        )
+    if syson:
+        probes.append(
+            ReadinessProbe(
+                label="SysON Web UI",
+                url=f"{trim_url(syson_url)}/",
+                next_step="mbse-lab services up --syson --timeout 60",
+            )
+        )
+    return probes
+
+
+def wait_for_readiness(probes: list[ReadinessProbe], timeout: int, interval: float = 2.0) -> None:
+    if not probes:
+        return
+    deadline = time.monotonic() + max(timeout, 0)
+    pending = {probe.label: probe for probe in probes}
+    last_status: dict[str, int | None] = {probe.label: None for probe in probes}
+
+    while pending:
+        for label, probe in list(pending.items()):
+            status = fetch_status(probe.url)
+            last_status[label] = status
+            if status is not None and status < 500:
+                del pending[label]
+        if not pending:
+            click.echo("Service readiness checks passed.")
+            return
+        if time.monotonic() >= deadline:
+            details = []
+            for label, probe in pending.items():
+                status = last_status[label]
+                status_detail = f"last status {status}" if status is not None else "no HTTP response"
+                details.append(f"{label} at {probe.url} ({status_detail}; next: `{probe.next_step}`)")
+            raise click.ClickException(f"Service readiness failed after {timeout}s: " + "; ".join(details))
+        time.sleep(min(interval, max(deadline - time.monotonic(), 0)))
 
 
 def unique_lines(lines: list[str]) -> list[str]:
@@ -307,6 +367,8 @@ def bootstrap(
             dry_run,
         )
         run_command(["docker", "compose", "-f", "deploy/syson/docker-compose.yml", "up", "-d"], repo_root, dry_run)
+        if not dry_run:
+            wait_for_readiness(readiness_probes(), timeout)
 
     if not skip_flexo_org:
         run_command(["python3", "scripts/flexo_syson_bridge.py", "init-flexo-org"], repo_root, dry_run)
@@ -374,6 +436,8 @@ def first_model(
         click.echo(f"dry-run: create SysON project `{resolved_syson_project_name}` at {syson_url}")
         click.echo(f"dry-run: import package `{package_identifier}` into the SysON root package")
         return
+
+    wait_for_readiness(readiness_probes(flexo_url=flexo_url, syson_url=syson_url), timeout)
 
     package_id = str(uuid.uuid4())
     flexo_project = create_flexo_project(flexo_url, name, timeout)
@@ -579,8 +643,8 @@ def services() -> None:
 @services.command("up")
 @click.option("--flexo/--no-flexo", default=True, help="Start Flexo services.")
 @click.option("--syson/--no-syson", default=True, help="Start SysON services.")
-@click.option("--wait/--no-wait", default=True, help="Wait for Flexo health during startup.")
-@click.option("--timeout", type=int, default=60, show_default=True, help="Flexo startup wait timeout in seconds.")
+@click.option("--wait/--no-wait", default=True, help="Wait for selected service APIs during startup.")
+@click.option("--timeout", type=int, default=60, show_default=True, help="Startup readiness timeout in seconds.")
 @click.option("--dry-run", is_flag=True, help="Print commands without changing containers.")
 @click.pass_context
 def services_up(ctx: click.Context, flexo: bool, syson: bool, wait: bool, timeout: int, dry_run: bool) -> None:
@@ -594,6 +658,8 @@ def services_up(ctx: click.Context, flexo: bool, syson: bool, wait: bool, timeou
         run_flexo_env(ctx, args, dry_run)
     if syson:
         run_syson_compose(ctx, ["up", "-d"], dry_run)
+    if wait and not dry_run:
+        wait_for_readiness(readiness_probes(flexo=flexo, syson=syson), timeout)
     if not dry_run:
         print_service_urls()
 

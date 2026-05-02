@@ -14,7 +14,7 @@ from click.testing import CliRunner
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from mbse_lab import cli, health  # noqa: E402
+from mbse_lab import cli, health, reports  # noqa: E402
 
 
 class CliTests(unittest.TestCase):
@@ -252,6 +252,67 @@ class CliTests(unittest.TestCase):
             self.assertEqual(json.loads((output_dir / "doctor.json").read_text(encoding="utf-8")), doctor)
             self.assertIn("# MBSE Lab Report", (output_dir / "index.md").read_text(encoding="utf-8"))
 
+    def test_report_handles_no_bridge_run_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bridge = reports.latest_bridge_run_report(Path(temp_dir))
+
+        self.assertFalse(bridge["latest_exists"])
+        self.assertEqual(bridge["status"], "not-found")
+
+    def test_report_links_latest_bridge_artifacts_without_model_content(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            run_log = repo / "runs" / "flexo-to-syson" / "run-1.json"
+            render_report = repo / "exports" / "reports" / "project-1.render-report.json"
+            render_report.parent.mkdir(parents=True)
+            render_report.write_text(
+                json.dumps(
+                    {
+                        "schema": "mbse-lab.render-report.v1",
+                        "summary": {
+                            "total_elements": 3,
+                            "rendered_elements": 2,
+                            "skipped_elements": 0,
+                            "unsupported_elements": 1,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            run_log.parent.mkdir(parents=True)
+            run_log.write_text(
+                json.dumps(
+                    {
+                        "status": "succeeded",
+                        "artifacts": {
+                            "flexo_export": str(repo / "exports" / "flexo" / "private.json"),
+                            "sysml_text": str(repo / "exports" / "sysml" / "private.sysml"),
+                            "render_report": str(render_report),
+                        },
+                        "steps": [{"name": "import-syson", "status": "succeeded"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            data = {
+                "generated_at": "2026-01-01T00:00:00+00:00",
+                "repo_root": str(repo),
+                "model_workspace": None,
+                "service_urls": {},
+                "doctor": {"status": "passed"},
+                "status": {"status": "passed", "containers": []},
+                "share_issues": [],
+                "diagnostics": {"latest_index": "diagnostics/latest/index.md", "latest_exists": False},
+                "bridge": reports.latest_bridge_run_report(repo),
+            }
+            markdown = reports.render_report_markdown(data)
+
+        self.assertIn("Latest run log: `runs/flexo-to-syson/run-1.json`", markdown)
+        self.assertIn("Artifact `render_report`: `exports/reports/project-1.render-report.json`", markdown)
+        self.assertIn("`2` rendered, `0` skipped, `1` unsupported", markdown)
+        self.assertNotIn("package Private", markdown)
+
     def test_cleanup_dry_run_keeps_generated_files(self) -> None:
         runner = CliRunner()
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -457,6 +518,30 @@ class CliTests(unittest.TestCase):
         self.assertIn("dry-run: python3 scripts/flexo_syson_bridge.py flexo-export project-1", result.output)
         self.assertIn("--commit-id commit-1", result.output)
         self.assertIn("--output out.json", result.output)
+
+    def test_bridge_render_wrapper_builds_report_command(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            [
+                "--repo-root",
+                str(ROOT),
+                "bridge",
+                "render",
+                "export.json",
+                "--output",
+                "out.sysml",
+                "--report",
+                "--report-output",
+                "render-report.json",
+                "--dry-run",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: python3 scripts/flexo_syson_bridge.py render-sysml export.json", result.output)
+        self.assertIn("--output out.sysml", result.output)
+        self.assertIn("--report --report-output render-report.json", result.output)
 
     def test_syson_roots_wrapper_builds_bridge_command(self) -> None:
         runner = CliRunner()

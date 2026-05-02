@@ -119,6 +119,101 @@ class BridgeRenderTests(unittest.TestCase):
         self.assertNotIn("OwningMembership", rendered)
         self.assertNotIn("NotRendered", rendered)
 
+    def test_render_report_counts_rendered_and_unsupported_types(self) -> None:
+        fixture = ROOT / "evals" / "fixtures" / "flexo-basic-package.json"
+        snapshot = json.loads(fixture.read_text(encoding="utf-8"))
+
+        _rendered, report = bridge_render.render_snapshot_with_report(snapshot)
+
+        self.assertEqual(report["summary"]["total_elements"], 6)
+        self.assertEqual(report["summary"]["rendered_elements"], 5)
+        self.assertEqual(report["summary"]["skipped_elements"], 0)
+        self.assertEqual(report["summary"]["unsupported_elements"], 1)
+        self.assertEqual(report["types"]["Package"], {"total": 1, "rendered": 1, "skipped": 0, "unsupported": 0})
+        self.assertEqual(
+            report["types"]["OwningMembership"], {"total": 1, "rendered": 0, "skipped": 0, "unsupported": 1}
+        )
+        self.assertIn("unsupported Flexo @type `OwningMembership`: 1 element(s)", report["warnings"])
+
+    def test_all_fixture_render_reports_are_deterministic(self) -> None:
+        for fixture in sorted((ROOT / "evals" / "fixtures").glob("*.json")):
+            with self.subTest(fixture=fixture.name):
+                snapshot = json.loads(fixture.read_text(encoding="utf-8"))
+
+                _first_text, first_report = bridge_render.render_snapshot_with_report(snapshot)
+                _second_text, second_report = bridge_render.render_snapshot_with_report(snapshot)
+
+                self.assertEqual(first_report, second_report)
+                total = len([element for element in snapshot.get("elements", []) if isinstance(element, dict)])
+                summary = first_report["summary"]
+                self.assertEqual(summary["total_elements"], total)
+                self.assertEqual(
+                    summary["total_elements"],
+                    summary["rendered_elements"] + summary["skipped_elements"] + summary["unsupported_elements"],
+                )
+
+    def test_render_sysml_report_option_writes_json_report(self) -> None:
+        fixture = ROOT / "evals" / "fixtures" / "flexo-basic-package.json"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = Path(temp_dir) / "model.sysml"
+            report_output = Path(temp_dir) / "render-report.json"
+            args = argparse.Namespace(input=fixture, output=output, report=True, report_output=report_output)
+
+            flexo_syson_bridge.cmd_render_sysml(args)
+
+            report = json.loads(report_output.read_text(encoding="utf-8"))
+
+            self.assertTrue(output.exists())
+            self.assertEqual(report["schema"], "mbse-lab.render-report.v1")
+            self.assertEqual(report["summary"]["unsupported_elements"], 1)
+
+    def test_bridge_run_writes_render_report_artifact_and_run_log_reference(self) -> None:
+        fixture = ROOT / "evals" / "fixtures" / "flexo-basic-package.json"
+        snapshot = json.loads(fixture.read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_dir = Path(temp_dir) / "exports"
+            run_log = Path(temp_dir) / "run.json"
+            args = argparse.Namespace(
+                flexo_project_id="project-1",
+                commit_id=None,
+                syson_project_id="syson-project-1",
+                namespace_id="namespace-1",
+                editing_context_id=None,
+                output_dir=output_dir,
+                run_log=run_log,
+                run_log_dir=Path(temp_dir) / "runs",
+                flexo_url="http://flexo.local",
+                syson_url="http://syson.local",
+                timeout=10,
+            )
+
+            with (
+                mock.patch.object(flexo_syson_bridge, "export_flexo_project", return_value=snapshot),
+                mock.patch.object(
+                    flexo_syson_bridge,
+                    "import_sysml_text",
+                    return_value={"editing_context_id": "ctx-1", "result": {"status": "ok"}},
+                ),
+            ):
+                flexo_syson_bridge.cmd_flexo_to_syson(args)
+
+            record = json.loads(run_log.read_text(encoding="utf-8"))
+            render_report = Path(record["artifacts"]["render_report"])
+
+            self.assertTrue(render_report.exists())
+            self.assertEqual(record["steps"][2]["details"]["coverage_summary"]["unsupported_elements"], 1)
+            self.assertEqual(json.loads(render_report.read_text(encoding="utf-8"))["summary"]["rendered_elements"], 5)
+
+    def test_coverage_matrix_matches_renderer_registry(self) -> None:
+        doc = (ROOT / "docs" / "lab" / "modeling-conventions.md").read_text(encoding="utf-8")
+        matrix_types = set()
+        for line in doc.splitlines():
+            if not line.startswith("| `"):
+                continue
+            matrix_types.add(line.split("|", 2)[1].strip().strip("`"))
+
+        self.assertEqual(matrix_types, bridge_render.RENDERABLE_TYPES)
+
     def test_render_rejects_malformed_snapshot_contract(self) -> None:
         with self.assertRaisesRegex(ValueError, "project"):
             bridge_render.render_snapshot(

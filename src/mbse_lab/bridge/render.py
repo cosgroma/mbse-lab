@@ -1,5 +1,19 @@
 """SysML textual rendering helpers for Flexo snapshots."""
 
-from mbse_lab.bridge.workflow import FlexoSnapshot, render_element, render_snapshot
+from mbse_lab.bridge.workflow import (
+    RENDERABLE_TYPES,
+    FlexoSnapshot,
+    render_coverage_report,
+    render_element,
+    render_snapshot,
+    render_snapshot_with_report,
+)
 
-__all__ = ("FlexoSnapshot", "render_element", "render_snapshot")
+__all__ = (
+    "RENDERABLE_TYPES",
+    "FlexoSnapshot",
+    "render_coverage_report",
+    "render_element",
+    "render_snapshot",
+    "render_snapshot_with_report",
+)

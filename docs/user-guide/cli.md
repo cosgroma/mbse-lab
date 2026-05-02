@@ -323,6 +323,10 @@ Generate a static local lab report:
 mbse-lab report
 ```
 
+When bridge run logs exist, the report links the latest run log and generated
+artifact paths and summarizes render coverage counts without embedding Flexo
+JSON or SysML model content.
+
 The report writes:
 
 ```text
@@ -407,7 +411,7 @@ raw root IDs for a scripted import.
 Render, import, or run the full bridge:
 
 ```bash
-mbse-lab bridge render exports/flexo/<flexo-project-id>.json
+mbse-lab bridge render exports/flexo/<flexo-project-id>.json --report
 mbse-lab bridge import exports/sysml/<flexo-project-id>.sysml \
   --project-id <syson-project-id> \
   --namespace-id <syson-root-package-id>

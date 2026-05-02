@@ -15,6 +15,25 @@ specifications.
 | Prepare or publish a release | [Release Process](user-guide/release-process.md) | [MVP Feature Catalog](plans/active/mvp-feature-catalog.md) |
 | Extend the local harness or evals | [Harness Engineering](lab/harness-engineering.md) | [Plans](plans/README.md) |
 
+## Which Command Should I Run?
+
+| Goal | Command |
+| --- | --- |
+| Install the CLI | `make install-cli` |
+| First setup | `mbse-lab bootstrap --model-workspace ~/work/my-private-models` |
+| Check environment | `mbse-lab doctor` |
+| Start services | `mbse-lab services up` |
+| Create demo model | `mbse-lab first-model "My First Model"` |
+| Prove first-use path | `mbse-lab smoke first-use --json-output` |
+| Bridge existing model | `mbse-lab bridge run <flexo-project-id>` |
+| Collect diagnostics | `mbse-lab diagnostics` |
+| Generate report | `mbse-lab report` |
+| Clean generated local output | `mbse-lab cleanup --dry-run` |
+| Before sharing | `mbse-lab share-check` |
+
+Use the `mbse-lab` command surface for routine work. Direct script and Docker
+commands are advanced/manual recovery paths in the deployment and bridge pages.
+
 ## Local Lab Flow
 
 ```mermaid

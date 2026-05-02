@@ -315,7 +315,7 @@ def apply_doctor_fixes(repo_root: Path | None) -> tuple[list[str], list[str]]:
         next_steps.append("mbse-lab --repo-root <path-to-mbse-repo> doctor --fix")
     else:
         if not (repo_root / "deploy/flexo-mms/.env").exists():
-            next_steps.append("python3 scripts/flexo_mms_env.py init --with-sysmlv2")
+            next_steps.append("mbse-lab init")
 
         syson_env = repo_root / "deploy/syson/.env"
         if not syson_env.exists():
@@ -346,12 +346,12 @@ def apply_doctor_fixes(repo_root: Path | None) -> tuple[list[str], list[str]]:
         flexo_reachable = tcp_connects("localhost", 18083)
         syson_reachable = tcp_connects("localhost", 18090)
         if not flexo_reachable:
-            next_steps.append("python3 scripts/flexo_mms_env.py up --wait --timeout 60")
+            next_steps.append("mbse-lab services up --flexo --timeout 60")
         if not syson_reachable:
-            next_steps.append("docker compose -f deploy/syson/docker-compose.yml up -d")
+            next_steps.append("mbse-lab services up --syson --timeout 60")
         if not flexo_reachable:
-            next_steps.append("python3 scripts/flexo_syson_bridge.py init-flexo-org")
-            next_steps.append("python3 scripts/flexo_mms_env.py backup")
+            next_steps.append("mbse-lab flexo init-org")
+            next_steps.append("mbse-lab flexo backup")
 
     return fixed, unique_lines(next_steps)
 
@@ -857,16 +857,20 @@ def services_up(ctx: click.Context, flexo: bool, syson: bool, wait: bool, timeou
 @services.command("down")
 @click.option("--flexo/--no-flexo", default=True, help="Stop Flexo services.")
 @click.option("--syson/--no-syson", default=True, help="Stop SysON services.")
+@click.option("--volumes", is_flag=True, help="Also remove Flexo compose-managed volumes.")
 @click.option("--dry-run", is_flag=True, help="Print commands without changing containers.")
 @click.pass_context
-def services_down(ctx: click.Context, flexo: bool, syson: bool, dry_run: bool) -> None:
+def services_down(ctx: click.Context, flexo: bool, syson: bool, volumes: bool, dry_run: bool) -> None:
     """Stop Flexo and SysON services without deleting runtime data."""
     if not flexo and not syson:
         raise click.ClickException("Select at least one service family.")
     if syson:
         run_syson_compose(ctx, ["down"], dry_run)
     if flexo:
-        run_flexo_env(ctx, ["down"], dry_run)
+        args = ["down"]
+        if volumes:
+            args.append("--volumes")
+        run_flexo_env(ctx, args, dry_run)
 
 
 @services.command("restart")
@@ -897,17 +901,37 @@ def services_restart(ctx: click.Context, flexo: bool, syson: bool, wait: bool, t
 @services.command("logs")
 @click.option("--flexo/--no-flexo", default=True, help="Show Flexo logs.")
 @click.option("--syson/--no-syson", default=True, help="Show SysON app logs.")
+@click.option("--flexo-service", "flexo_services", multiple=True, help="Flexo compose service to include.")
+@click.option("--syson-service", "syson_services", multiple=True, help="SysON compose service to include.")
+@click.option("--follow", "-f", is_flag=True, help="Follow logs.")
 @click.option("--tail", type=int, default=100, show_default=True, help="Number of log lines to show.")
 @click.option("--dry-run", is_flag=True, help="Print commands without reading logs.")
 @click.pass_context
-def services_logs(ctx: click.Context, flexo: bool, syson: bool, tail: int, dry_run: bool) -> None:
+def services_logs(
+    ctx: click.Context,
+    flexo: bool,
+    syson: bool,
+    flexo_services: tuple[str, ...],
+    syson_services: tuple[str, ...],
+    follow: bool,
+    tail: int,
+    dry_run: bool,
+) -> None:
     """Show recent Flexo and SysON service logs."""
     if not flexo and not syson:
         raise click.ClickException("Select at least one service family.")
     if flexo:
-        run_flexo_env(ctx, ["logs", "--tail", str(tail)], dry_run)
+        args = ["logs", "--tail", str(tail)]
+        if follow:
+            args.append("--follow")
+        args.extend(flexo_services)
+        run_flexo_env(ctx, args, dry_run)
     if syson:
-        run_syson_compose(ctx, ["logs", "--tail", str(tail), "app"], dry_run)
+        args = ["logs", "--tail", str(tail)]
+        if follow:
+            args.append("--follow")
+        args.extend(syson_services or ("app",))
+        run_syson_compose(ctx, args, dry_run)
 
 
 @main.command()
@@ -916,13 +940,19 @@ def services_logs(ctx: click.Context, flexo: bool, syson: bool, tail: int, dry_r
     is_flag=True,
     help="Omit project lists and recent service logs from the diagnostics bundle.",
 )
+@click.option("--output", type=click.Path(path_type=Path), help="Diagnostics bundle output directory.")
+@click.option("--timeout", type=int, default=20, show_default=True, help="Command and HTTP timeout in seconds.")
+@click.option("--log-tail", type=int, default=80, show_default=True, help="Number of service log lines to collect.")
 @click.pass_context
-def diagnostics(ctx: click.Context, public_safe: bool) -> None:
+def diagnostics(ctx: click.Context, public_safe: bool, output: Path | None, timeout: int, log_tail: int) -> None:
     """Collect a redacted diagnostics bundle."""
     repo_root = require_repo_root(ctx)
     args = ["python3", "scripts/collect_diagnostics.py"]
     if public_safe:
         args.append("--public-safe")
+    if output:
+        args.extend(["--output", str(output)])
+    args.extend(["--timeout", str(timeout), "--log-tail", str(log_tail)])
     run_command(args, repo_root)
 
 
@@ -977,6 +1007,101 @@ def share_check(ctx: click.Context) -> None:
 @main.group()
 def flexo() -> None:
     """Work with Flexo SysML v2 projects."""
+
+
+@flexo.command("init-org")
+@click.option("--layer1-url", default="http://localhost:18080", show_default=True)
+@click.option("--env-dir", type=click.Path(path_type=Path), default=Path("deploy/flexo-mms"), show_default=True)
+@click.option("--org-id", default="sysmlv2", show_default=True)
+@click.option("--title", default="SysML v2", show_default=True)
+@click.option("--token")
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def flexo_init_org(
+    ctx: click.Context,
+    layer1_url: str,
+    env_dir: Path,
+    org_id: str,
+    title: str,
+    token: str | None,
+    timeout: int,
+    dry_run: bool,
+) -> None:
+    """Create the Flexo org used by the SysML v2 service."""
+    args = [
+        "init-flexo-org",
+        "--layer1-url",
+        layer1_url,
+        "--env-dir",
+        str(env_dir),
+        "--org-id",
+        org_id,
+        "--title",
+        title,
+        "--timeout",
+        str(timeout),
+    ]
+    if token:
+        args.extend(["--token", token])
+    run_bridge(ctx, args, dry_run)
+
+
+@flexo.command("token")
+@click.option("--url", help="Auth service login URL. Defaults to the generated auth host port.")
+@click.option("--username", default="user01", show_default=True)
+@click.option("--password", help="LDAP password. Defaults to FLEXO_MMS_LDAP_USER01_PASSWORD in .env.")
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def flexo_token(
+    ctx: click.Context, url: str | None, username: str, password: str | None, timeout: int, dry_run: bool
+) -> None:
+    """Request a local Flexo JWT from the auth service."""
+    args = ["token", "--username", username, "--timeout", str(timeout)]
+    if url:
+        args.extend(["--url", url])
+    if password:
+        args.extend(["--password", password])
+    run_flexo_env(ctx, args, dry_run)
+
+
+@flexo.command("backup")
+@click.option("--url", help="Fuseki dataset URL. Defaults to the generated Fuseki host port.")
+@click.option("--output", type=click.Path(path_type=Path), help="Backup file path.")
+@click.option("--timeout", type=int, default=60, show_default=True)
+@click.option("--update-init/--no-update-init", default=True, help="Refresh mount/cluster.trig after export.")
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def flexo_backup(
+    ctx: click.Context, url: str | None, output: Path | None, timeout: int, update_init: bool, dry_run: bool
+) -> None:
+    """Export the live Flexo Fuseki dataset to a durable backup."""
+    args = ["backup", "--timeout", str(timeout)]
+    if url:
+        args.extend(["--url", url])
+    if output:
+        args.extend(["--output", str(output)])
+    if not update_init:
+        args.append("--no-update-init")
+    run_flexo_env(ctx, args, dry_run)
+
+
+@flexo.command("restore")
+@click.argument("backup", type=click.Path(path_type=Path))
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def flexo_restore(ctx: click.Context, backup: Path, dry_run: bool) -> None:
+    """Restore Flexo mount/cluster.trig from a backup file."""
+    run_flexo_env(ctx, ["restore", str(backup)], dry_run)
+
+
+@flexo.command("rotate-secrets")
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def flexo_rotate_secrets(ctx: click.Context, dry_run: bool) -> None:
+    """Regenerate ignored local Flexo runtime secrets."""
+    run_flexo_env(ctx, ["rotate-secrets"], dry_run)
 
 
 @flexo.command("list")
@@ -1294,14 +1419,22 @@ def deployment() -> None:
 
 
 @deployment.command("contract")
+@click.option("--fixture", type=click.Path(path_type=Path), help="Deployment fixture path.")
+@click.option("--json-output", is_flag=True, help="Print a machine-readable JSON contract.")
 @click.pass_context
-def deployment_contract(ctx: click.Context) -> None:
+def deployment_contract(ctx: click.Context, fixture: Path | None, json_output: bool) -> None:
     """Print the fixture-derived deployment runtime contract."""
     repo_root = require_repo_root(ctx)
-    run_command(["python3", "scripts/flexo_syson_bridge.py", "deployment-contract"], repo_root)
+    args = ["python3", "scripts/flexo_syson_bridge.py", "deployment-contract"]
+    if fixture:
+        args.extend(["--fixture", str(fixture)])
+    if json_output:
+        args.append("--json")
+    run_command(args, repo_root)
 
 
 @deployment.command("verify")
+@click.option("--fixture", type=click.Path(path_type=Path), help="Deployment fixture path.")
 @click.option(
     "--project-name",
     help="Inspect containers by Compose project and service labels instead of fixed container names.",
@@ -1312,6 +1445,7 @@ def deployment_contract(ctx: click.Context) -> None:
 @click.pass_context
 def deployment_verify(
     ctx: click.Context,
+    fixture: Path | None,
     project_name: str | None,
     timeout: int,
     json_output: bool,
@@ -1320,6 +1454,8 @@ def deployment_verify(
     """Verify Docker runtime state against the deployment contract."""
     repo_root = require_repo_root(ctx)
     args = ["python3", "scripts/flexo_syson_bridge.py", "deployment-verify", "--timeout", str(timeout)]
+    if fixture:
+        args.extend(["--fixture", str(fixture)])
     if project_name:
         args.extend(["--project-name", project_name])
     if json_output:
@@ -1330,6 +1466,7 @@ def deployment_verify(
 
 
 @deployment.command("isolated-smoke")
+@click.option("--fixture", type=click.Path(path_type=Path), help="Deployment fixture path.")
 @click.option("--project-name", help="Compose project name. Defaults to a generated unique name.")
 @click.option(
     "--runtime-dir",
@@ -1343,6 +1480,7 @@ def deployment_verify(
 @click.pass_context
 def deployment_isolated_smoke(
     ctx: click.Context,
+    fixture: Path | None,
     project_name: str | None,
     runtime_dir: Path | None,
     timeout: int,
@@ -1353,6 +1491,8 @@ def deployment_isolated_smoke(
     """Start and verify a disposable isolated deployment."""
     repo_root = require_repo_root(ctx)
     args = ["python3", "scripts/flexo_syson_bridge.py", "deployment-isolated-smoke", "--timeout", str(timeout)]
+    if fixture:
+        args.extend(["--fixture", str(fixture)])
     if project_name:
         args.extend(["--project-name", project_name])
     if runtime_dir:

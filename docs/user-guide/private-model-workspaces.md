@@ -66,15 +66,15 @@ scratch work that will not be shared.
 For example:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py flexo-export <flexo-project-id>
-python3 scripts/flexo_syson_bridge.py render-sysml \
+mbse-lab flexo export <flexo-project-id>
+mbse-lab bridge render \
   ~/work/my-private-models/exports/flexo/<flexo-project-id>.json
 ```
 
 The full bridge also respects the workspace default:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
+mbse-lab bridge run <flexo-project-id> \
   --syson-project-id <syson-project-id> \
   --namespace-id <syson-root-package-id>
 ```
@@ -82,9 +82,9 @@ python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
 You can still override paths explicitly for one-off runs:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py flexo-export <flexo-project-id> \
+mbse-lab flexo export <flexo-project-id> \
   --output ~/work/my-private-models/exports/flexo/model.json
-python3 scripts/flexo_syson_bridge.py render-sysml \
+mbse-lab bridge render \
   ~/work/my-private-models/exports/flexo/model.json \
   --output ~/work/my-private-models/exports/sysml/model.sysml
 ```

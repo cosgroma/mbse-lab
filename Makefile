@@ -52,7 +52,7 @@ help:
 	@printf '  %-16s %s\n' 'deployment-isolated-smoke' 'Verify a disposable isolated Docker deployment'
 
 init:
-	python3 scripts/flexo_mms_env.py init --with-sysmlv2
+	mbse-lab init
 
 install-cli:
 	python3 -m pip install -e .
@@ -79,23 +79,19 @@ share-check:
 	PYTHONPATH=src python3 -m mbse_lab.cli share-check
 
 up:
-	python3 scripts/flexo_mms_env.py up --wait --timeout 60
-	docker compose -f deploy/syson/docker-compose.yml up -d
+	mbse-lab services up --timeout 60
 
 down:
-	docker compose -f deploy/syson/docker-compose.yml down
-	python3 scripts/flexo_mms_env.py down
+	mbse-lab services down
 
 status:
-	python3 scripts/flexo_mms_env.py status --with-sysmlv2 --strict
-	docker compose -f deploy/syson/docker-compose.yml ps
+	mbse-lab status
 
 logs:
-	python3 scripts/flexo_mms_env.py logs --tail 100
-	docker compose -f deploy/syson/docker-compose.yml logs --tail 100 app
+	mbse-lab services logs --tail 100
 
 diagnostics:
-	python3 scripts/collect_diagnostics.py
+	mbse-lab diagnostics
 
 check:
 	python3 -m py_compile scripts/flexo_mms_env.py scripts/flexo_syson_bridge.py scripts/collect_diagnostics.py scripts/check_docs.py src/mbse_lab/*.py
@@ -132,19 +128,19 @@ secret-scan:
 	@git grep -n -E 'thisissomethingreallylon[g]|admi[n]test|adminpasswor[d]|passwor[d]1|passwor[d]2|eyJhb[G]ci|SYSON_POSTGRES_PASSWORD=passwor[d]|JWT_SECRET=thi[s]' HEAD || true
 
 backup:
-	python3 scripts/flexo_mms_env.py backup
+	mbse-lab flexo backup
 
 rotate-secrets:
-	python3 scripts/flexo_mms_env.py rotate-secrets
+	mbse-lab flexo rotate-secrets
 
 syson-up:
-	docker compose -f deploy/syson/docker-compose.yml up -d
+	mbse-lab services up --no-flexo
 
 syson-down:
-	docker compose -f deploy/syson/docker-compose.yml down
+	mbse-lab services down --no-flexo
 
 syson-status:
-	docker compose -f deploy/syson/docker-compose.yml ps
+	mbse-lab status
 
 flexo-list:
 	mbse-lab flexo list

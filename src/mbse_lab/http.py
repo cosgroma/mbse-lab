@@ -13,6 +13,23 @@ def trim_url(url: str) -> str:
     return url.rstrip("/")
 
 
+def request_bytes(
+    method: str,
+    url: str,
+    body: bytes | None = None,
+    headers: dict[str, str] | None = None,
+    timeout: int = 30,
+) -> tuple[int, bytes, dict[str, str]]:
+    request = urllib.request.Request(url, data=body, method=method)
+    for key, value in (headers or {}).items():
+        request.add_header(key, value)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.status, response.read(), dict(response.headers)
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read(), dict(exc.headers)
+
+
 def request_json(
     method: str,
     url: str,
@@ -21,24 +38,20 @@ def request_json(
     expected: set[int] | None = None,
 ) -> object:
     body = None if payload is None else json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(url, data=body, method=method)
-    request.add_header("Accept", "application/json")
+    headers = {"Accept": "application/json"}
     if body is not None:
-        request.add_header("Content-Type", "application/json")
+        headers["Content-Type"] = "application/json"
     expected_status = expected or {200}
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read().decode("utf-8", errors="replace")
-            if response.status not in expected_status:
-                raise click.ClickException(f"{method} {url} returned {response.status}: {raw}")
-            if not raw.strip():
-                return {}
-            return json.loads(raw)
-    except urllib.error.HTTPError as exc:
-        raw = exc.read().decode("utf-8", errors="replace")
-        raise click.ClickException(f"{method} {url} returned {exc.code}: {raw}") from exc
+        status, raw_bytes, _headers = request_bytes(method, url, body=body, headers=headers, timeout=timeout)
     except urllib.error.URLError as exc:
         raise click.ClickException(f"{method} {url} failed: {exc}") from exc
+    raw = raw_bytes.decode("utf-8", errors="replace")
+    if status not in expected_status:
+        raise click.ClickException(f"{method} {url} returned {status}: {raw}")
+    if not raw.strip():
+        return {}
+    return json.loads(raw)
 
 
 def graphql(

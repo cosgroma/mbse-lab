@@ -5,6 +5,7 @@ import contextlib
 import io
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -12,17 +13,31 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "src"))
 
-import flexo_syson_bridge  # noqa: E402
+from mbse_lab.bridge import contracts as bridge_contracts  # noqa: E402
+from mbse_lab.bridge import render as bridge_render  # noqa: E402
+from mbse_lab.bridge import workflow as flexo_syson_bridge  # noqa: E402
+from mbse_lab.deployment import verify as deployment_verify  # noqa: E402
 
 
 class BridgeRenderTests(unittest.TestCase):
+    def test_compatibility_script_remains_callable(self) -> None:
+        result = subprocess.run(
+            ["python3", "scripts/flexo_syson_bridge.py", "--help"],
+            cwd=ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertIn("flexo-to-syson", result.stdout)
+
     def test_fixture_renders_deterministic_sysml_subset(self) -> None:
         fixture = ROOT / "evals" / "fixtures" / "flexo-basic-package.json"
         snapshot = json.loads(fixture.read_text(encoding="utf-8"))
 
-        rendered = flexo_syson_bridge.render_snapshot(snapshot)
+        rendered = bridge_render.render_snapshot(snapshot)
 
         self.assertEqual(
             rendered,
@@ -99,16 +114,26 @@ class BridgeRenderTests(unittest.TestCase):
         fixture = ROOT / "evals" / "fixtures" / "flexo-basic-package.json"
         snapshot = json.loads(fixture.read_text(encoding="utf-8"))
 
-        rendered = flexo_syson_bridge.render_snapshot(snapshot)
+        rendered = bridge_render.render_snapshot(snapshot)
 
         self.assertNotIn("OwningMembership", rendered)
         self.assertNotIn("NotRendered", rendered)
+
+    def test_render_rejects_malformed_snapshot_contract(self) -> None:
+        with self.assertRaisesRegex(ValueError, "project"):
+            bridge_render.render_snapshot(
+                {
+                    "commit": {"@id": "commit-1"},
+                    "roots": [],
+                    "elements": [],
+                }
+            )
 
     def test_rf_link_budget_fixture_renders_spec_backbone(self) -> None:
         fixture = ROOT / "evals" / "fixtures" / "rf-link-budget-basic.json"
         snapshot = json.loads(fixture.read_text(encoding="utf-8"))
 
-        rendered = flexo_syson_bridge.render_snapshot(snapshot)
+        rendered = bridge_render.render_snapshot(snapshot)
 
         self.assertEqual(
             rendered,
@@ -148,7 +173,7 @@ class BridgeRenderTests(unittest.TestCase):
         fixture = ROOT / "evals" / "fixtures" / "container-deployment-basic.json"
         snapshot = json.loads(fixture.read_text(encoding="utf-8"))
 
-        rendered = flexo_syson_bridge.render_snapshot(snapshot)
+        rendered = bridge_render.render_snapshot(snapshot)
 
         self.assertEqual(
             rendered,
@@ -187,7 +212,7 @@ class BridgeRenderTests(unittest.TestCase):
         fixture = ROOT / "evals" / "fixtures" / "container-deployment-basic.json"
         snapshot = json.loads(fixture.read_text(encoding="utf-8"))
 
-        contract = flexo_syson_bridge.deployment_contract_from_snapshot(snapshot)
+        contract = bridge_contracts.deployment_contract_from_snapshot(snapshot)
         services = {service["containerName"]: service for service in contract["services"]}
 
         self.assertEqual(9, contract["serviceCount"])
@@ -211,12 +236,23 @@ class BridgeRenderTests(unittest.TestCase):
         self.assertEqual("deploy/syson/data/postgres", services["syson-database"]["mounts"][0]["hostPath"])
         self.assertEqual("syson", services["syson-app"]["stackName"])
 
+    def test_deployment_contract_rejects_malformed_required_fields(self) -> None:
+        with self.assertRaisesRegex(ValueError, "serviceCount"):
+            bridge_contracts.DeploymentContract.from_mapping(
+                {
+                    "project": {"name": "Fixture"},
+                    "commit": {"@id": "commit-1"},
+                    "serviceCount": 2,
+                    "services": [{"containerName": "demo-container"}],
+                }
+            )
+
     def test_deployment_contract_table_is_inspectable(self) -> None:
         fixture = ROOT / "evals" / "fixtures" / "container-deployment-basic.json"
         snapshot = json.loads(fixture.read_text(encoding="utf-8"))
 
-        contract = flexo_syson_bridge.deployment_contract_from_snapshot(snapshot)
-        rendered = flexo_syson_bridge.format_deployment_contract_table(contract)
+        contract = bridge_contracts.deployment_contract_from_snapshot(snapshot)
+        rendered = bridge_contracts.format_deployment_contract_table(contract)
 
         self.assertIn("CONTAINER", rendered)
         self.assertIn("flexo-sysmlv2", rendered)
@@ -270,6 +306,25 @@ class BridgeRenderTests(unittest.TestCase):
         self.assertEqual("passed", report["status"])
         self.assertEqual(3, report["summary"]["passedChecks"])
         self.assertIn("PASSED demo-container", flexo_syson_bridge.format_deployment_verification_report(report))
+
+    def test_deployment_verification_report_rejects_malformed_checks(self) -> None:
+        with self.assertRaisesRegex(ValueError, "checks"):
+            deployment_verify.DeploymentVerificationReport.from_mapping(
+                {
+                    "status": "passed",
+                    "checkedAt": "2026-05-01T00:00:00Z",
+                    "project": {},
+                    "commit": {},
+                    "composeProject": None,
+                    "summary": {},
+                    "services": [
+                        {
+                            "containerName": "demo-container",
+                            "status": "passed",
+                        }
+                    ],
+                }
+            )
 
     def test_deployment_verification_can_inspect_compose_project_services(self) -> None:
         contract = {
@@ -331,7 +386,7 @@ class BridgeRenderTests(unittest.TestCase):
             ],
         }
 
-        checks = flexo_syson_bridge.verify_deployment_mounts(
+        checks = deployment_verify.verify_deployment_mounts(
             container,
             expected,
             ROOT,

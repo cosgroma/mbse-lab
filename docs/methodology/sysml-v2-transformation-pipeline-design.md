@@ -105,9 +105,9 @@ exports/sysml/<project-id>.sysml
 Current commands:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py flexo-export <flexo-project-id>
-python3 scripts/flexo_syson_bridge.py render-sysml exports/flexo/<flexo-project-id>.json
-python3 scripts/flexo_syson_bridge.py syson-import-text \
+mbse-lab flexo export <flexo-project-id>
+mbse-lab bridge render exports/flexo/<flexo-project-id>.json
+mbse-lab bridge import \
   exports/sysml/<flexo-project-id>.sysml \
   --project-id <syson-project-id> \
   --namespace-id <syson-root-package-id>

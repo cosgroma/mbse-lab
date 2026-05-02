@@ -7,11 +7,11 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys_path = str(ROOT / "scripts")
+sys_path = str(ROOT / "src")
 if sys_path not in sys.path:
     sys.path.insert(0, sys_path)
 
-import flexo_syson_bridge  # noqa: E402
+from mbse_lab.bridge import workflow as flexo_syson_bridge  # noqa: E402
 
 FIXTURE = ROOT / "evals" / "fixtures" / "container-deployment-basic.json"
 

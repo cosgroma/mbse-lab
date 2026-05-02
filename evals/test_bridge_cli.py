@@ -185,8 +185,8 @@ class CliTests(unittest.TestCase):
             self.assertTrue((workspace / "exports/flexo").is_dir())
             self.assertFalse((workspace / ".git").exists())
             self.assertIn("Applied fixes:", result.output)
-            self.assertIn("python3 scripts/flexo_mms_env.py init --with-sysmlv2", result.output)
-            self.assertIn("docker compose -f deploy/syson/docker-compose.yml up -d", result.output)
+            self.assertIn("mbse-lab init", result.output)
+            self.assertIn("mbse-lab services up --syson --timeout 60", result.output)
 
     def test_doctor_fix_rejects_json_output(self) -> None:
         runner = CliRunner()
@@ -725,6 +725,97 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("dry-run: python3 scripts/flexo_mms_env.py logs --tail 25", result.output)
         self.assertIn("dry-run: docker compose -f deploy/syson/docker-compose.yml logs --tail 25 app", result.output)
+
+    def test_services_logs_dry_run_supports_follow_and_service_filters(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            [
+                "--repo-root",
+                str(ROOT),
+                "services",
+                "logs",
+                "--tail",
+                "10",
+                "--follow",
+                "--flexo-service",
+                "auth",
+                "--syson-service",
+                "database",
+                "--dry-run",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: python3 scripts/flexo_mms_env.py logs --tail 10 --follow auth", result.output)
+        self.assertIn(
+            "dry-run: docker compose -f deploy/syson/docker-compose.yml logs --tail 10 --follow database",
+            result.output,
+        )
+
+    def test_services_down_can_pass_flexo_volumes_flag(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            ["--repo-root", str(ROOT), "services", "down", "--no-syson", "--volumes", "--dry-run"],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: python3 scripts/flexo_mms_env.py down --volumes", result.output)
+
+    def test_diagnostics_exposes_script_options(self) -> None:
+        runner = CliRunner()
+        with mock.patch.object(cli, "run_command") as run_command:
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "diagnostics",
+                    "--public-safe",
+                    "--output",
+                    "diagnostics/demo",
+                    "--timeout",
+                    "31",
+                    "--log-tail",
+                    "7",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        run_command.assert_called_once_with(
+            [
+                "python3",
+                "scripts/collect_diagnostics.py",
+                "--public-safe",
+                "--output",
+                "diagnostics/demo",
+                "--timeout",
+                "31",
+                "--log-tail",
+                "7",
+            ],
+            ROOT,
+        )
+
+    def test_flexo_admin_wrappers_build_script_commands(self) -> None:
+        runner = CliRunner()
+        cases = [
+            (
+                ["flexo", "init-org", "--org-id", "demo", "--title", "Demo", "--dry-run"],
+                "dry-run: python3 scripts/flexo_syson_bridge.py init-flexo-org",
+            ),
+            (["flexo", "token", "--username", "user02", "--dry-run"], "python3 scripts/flexo_mms_env.py token"),
+            (["flexo", "backup", "--no-update-init", "--dry-run"], "python3 scripts/flexo_mms_env.py backup"),
+            (["flexo", "restore", "backup.nq", "--dry-run"], "python3 scripts/flexo_mms_env.py restore backup.nq"),
+            (["flexo", "rotate-secrets", "--dry-run"], "python3 scripts/flexo_mms_env.py rotate-secrets"),
+        ]
+        for args, expected in cases:
+            with self.subTest(args=args):
+                result = runner.invoke(cli.main, ["--repo-root", str(ROOT), *args])
+
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertIn(expected, result.output)
 
     def test_services_requires_at_least_one_service_family(self) -> None:
         runner = CliRunner()

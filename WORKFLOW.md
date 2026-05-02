@@ -167,7 +167,7 @@ diagnostics/latest/deployment-verification.json
 Bridge runs should use structured run logs when evidence needs to be preserved:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
+mbse-lab bridge run <flexo-project-id> \
   --syson-project-id <syson-project-id> \
   --namespace-id <syson-root-package-id>
 ```

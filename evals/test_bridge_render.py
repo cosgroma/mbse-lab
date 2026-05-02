@@ -320,6 +320,27 @@ class BridgeRenderTests(unittest.TestCase):
             ),
         )
 
+    def test_mbse_lab_tool_system_curated_snapshot_matches_fixture_render(self) -> None:
+        fixture = ROOT / "evals" / "fixtures" / "mbse-lab-tool-system.json"
+        snapshot_path = ROOT / "exports" / "examples" / "sysml" / "mbse-lab-tool-system.public.sysml"
+        snapshot = json.loads(fixture.read_text(encoding="utf-8"))
+
+        rendered, report = bridge_render.render_snapshot_with_report(snapshot)
+
+        self.assertEqual(rendered, snapshot_path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            report["summary"],
+            {
+                "total_elements": 39,
+                "rendered_elements": 39,
+                "skipped_elements": 0,
+                "unsupported_elements": 0,
+                "types": 6,
+                "unsupported_types": 0,
+            },
+        )
+        self.assertEqual(report["warnings"], [])
+
     def test_container_deployment_fixture_renders_spec_backbone(self) -> None:
         fixture = ROOT / "evals" / "fixtures" / "container-deployment-basic.json"
         snapshot = json.loads(fixture.read_text(encoding="utf-8"))

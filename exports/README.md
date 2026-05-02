@@ -33,3 +33,22 @@ mbse-lab share-check
 That check blocks tracked generated exports under `exports/flexo/` and
 `exports/sysml/`. Force-add only synthetic examples under `exports/examples/`
 and use `.public.json` or `.public.sysml` suffixes for those curated artifacts.
+
+## Curated Examples
+
+The checked-in examples are synthetic and publishable. They are kept small so
+they can serve as renderer fixtures and documentation examples.
+
+```text
+exports/examples/sysml/mbse-lab-tool-system.public.sysml
+                                  Rendered textual snapshot of this repo's own
+                                  MBSE lab tool-system fixture
+```
+
+Regenerate the MBSE lab tool-system snapshot with:
+
+```bash
+PYTHONPATH=src python3 -m mbse_lab.cli bridge render \
+  evals/fixtures/mbse-lab-tool-system.json \
+  --output exports/examples/sysml/mbse-lab-tool-system.public.sysml
+```

@@ -61,6 +61,7 @@ flowchart LR
 | [Safety And Sharing](user-guide/safety-and-sharing.md) | Credential, service-data, private-workspace, share-check, report, and cleanup boundaries. |
 | [Troubleshooting](user-guide/troubleshooting.md) | Symptom-oriented recovery paths for Docker, ports, Flexo org setup, SysON startup, and bridge imports. |
 | [Release Process](user-guide/release-process.md) | Preparing release branches, smoke testing, tagging, and syncing release work back to `develop`. |
+| [v0.1.0 Limitations](user-guide/v0.1.0-limitations.md) | Tracking release-scope limits, known gaps, and downstream development focus areas. |
 
 ## Local Lab
 
@@ -82,6 +83,7 @@ flowchart LR
 
 | Page | Use it for |
 | --- | --- |
+| [MBSE Lab Tool System](model-specs/mbse-lab-tool-system.md) | Modeling this repo's own requirements, architecture, workflows, verification concepts, and rendered fixture artifacts. |
 | [RF Link Budget](model-specs/rf-link-budget.md) | Modeling RF link margin, budget equations, requirements, analysis cases, and verification evidence. |
 | [CCA Rollup](model-specs/cca-rollup.md) | Modeling circuit-card power, mass, cost, labor, test, and rollup verification. |
 | [RF to Digital Signal Chain](model-specs/rf-to-digital-signal-chain.md) | Modeling RF front-end, ADC, DSP, signal quality, and response artifacts. |
@@ -97,6 +99,7 @@ flowchart LR
 | [MVP Feature Catalog](plans/active/mvp-feature-catalog.md) | Current MVP feature status, evidence, gaps, and validation work. |
 | [Usability Remediation](plans/active/usability-remediation.md) | Active work plan for converting the usability review into validated safety, onboarding, and bridge improvements. |
 | [View Editor Flexo Experiment](plans/completed/openmbee-view-editor-flexo-experiment.md) | Completed direct-compatibility spike and final adapter decision. |
+| [MBSE Lab SysML Model](plans/active/mbse-lab-sysml-model-plan.md) | Active plan for keeping the lab tool-system model, fixture, and curated render output aligned. |
 
 ## Reviews
 

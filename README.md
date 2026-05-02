@@ -172,6 +172,8 @@ parts, attributes, ports, requirements, connections, interfaces, actions, and
 items. Unsupported element types remain preserved in the Flexo JSON export but
 are not emitted into the textual `.sysml` file yet. Diagram layout and live
 repository sync are not round-tripped.
+See `docs/user-guide/v0.1.0-limitations.md` for the release-scope limitation
+record and downstream development focus areas.
 
 See the [bridge workflow](docs/lab/flexo-syson-bridge.md) for the full command
 sequence, artifact table, render coverage report, and existing-project import

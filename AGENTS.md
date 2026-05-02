@@ -40,6 +40,8 @@ docs/lab/view-editor-flexo-experiment.md
                                   View Editor compatibility evidence
 docs/methodology/                 Reusable SysML v2 method guidance
 docs/model-specs/                 General-purpose model specifications
+docs/model-specs/mbse-lab-tool-system.md
+                                  SysML v2 model specification for this lab tool system
 docs/plans/README.md              Execution plan conventions
 deploy/flexo-mms/docker-compose.yml
 deploy/flexo-mms/README.md        Flexo deployment-specific operations

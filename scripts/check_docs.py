@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX_FILES = [
@@ -26,10 +28,15 @@ IGNORED_DOCS = {
 COMMAND_LINE = re.compile(r"^\s*(?:[A-Z0-9_./-]+=\\S+\s+)*(make|python3|docker|curl|git|cp|jq)\b(.+)?$")
 PYTHON_SCRIPT = re.compile(r"python3\s+(scripts/[A-Za-z0-9_.\-/]+\.py)(?:\s+([A-Za-z0-9_-]+))?")
 MAKE_TARGET = re.compile(r"\bmake\s+([A-Za-z0-9_.-]+)")
+MARKDOWN_LINK = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
+MBSE_LAB_COMMAND = re.compile(r"(?:^|\s)mbse-lab\s+([A-Za-z0-9_-]+(?:\s+[A-Za-z0-9_-]+)?)")
 
 
-def run(command: list[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, cwd=ROOT, text=True, capture_output=True)
+def run(command: list[str], extra_env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    env = None
+    if extra_env:
+        env = {**os.environ, **extra_env}
+    return subprocess.run(command, cwd=ROOT, text=True, capture_output=True, env=env)
 
 
 def fail(message: str, failures: list[str]) -> None:
@@ -44,12 +51,26 @@ def tracked_and_untracked_docs() -> list[Path]:
     return sorted(path for path in docs if path.is_file())
 
 
-def visible_index_text() -> str:
-    parts = []
-    for path in INDEX_FILES:
-        if path.exists():
-            parts.append(path.read_text(encoding="utf-8"))
-    return "\n".join(parts)
+def linked_index_paths() -> set[str]:
+    linked: set[str] = set()
+    for source in INDEX_FILES:
+        if not source.exists():
+            continue
+        text = source.read_text(encoding="utf-8")
+        for raw_target in MARKDOWN_LINK.findall(text):
+            target = raw_target.strip().split()[0]
+            if not target or target.startswith("#") or re.match(r"^[a-z][a-z0-9+.-]*:", target, re.IGNORECASE):
+                continue
+            target = unquote(target.split("#", 1)[0].split("?", 1)[0])
+            if not target:
+                continue
+            resolved = (source.parent / target).resolve()
+            try:
+                relative = resolved.relative_to(ROOT)
+            except ValueError:
+                continue
+            linked.add(relative.as_posix())
+    return linked
 
 
 def make_targets() -> set[str]:
@@ -87,6 +108,7 @@ def command_blocks(path: Path) -> list[str]:
                 in_fence = False
                 fence_language = ""
             continue
+        # Process bash, sh, shell, and unfenced (empty language tag) code blocks.
         if not in_fence or fence_language not in {"bash", "sh", "shell", ""}:
             continue
         stripped = line.strip()
@@ -97,16 +119,44 @@ def command_blocks(path: Path) -> list[str]:
     return commands
 
 
+def code_block_lines(path: Path) -> list[str]:
+    """Return all non-empty, non-comment lines from bash code blocks."""
+    text = path.read_text(encoding="utf-8")
+    lines: list[str] = []
+    in_fence = False
+    fence_language = ""
+    for line in text.splitlines():
+        if line.startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_language = line.removeprefix("```").strip()
+            else:
+                in_fence = False
+                fence_language = ""
+            continue
+        # Process bash, sh, shell, and unfenced (empty language tag) code blocks.
+        if not in_fence or fence_language not in {"bash", "sh", "shell", ""}:
+            continue
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped.endswith("\\"):
+            continue
+        lines.append(stripped)
+    return lines
+
+
 def check_discoverability(failures: list[str]) -> None:
-    index = visible_index_text()
+    linked_paths = linked_index_paths()
     for path in tracked_and_untracked_docs():
         relative = path.relative_to(ROOT).as_posix()
         if relative in {"README.md", "AGENTS.md"} or relative in IGNORED_DOCS:
             continue
         if relative.startswith("docs/plans/active/") or relative.startswith("docs/plans/completed/"):
             continue
-        if relative not in index:
-            fail(f"{relative} is not referenced by README.md, AGENTS.md, docs/index.md, or harness guidance", failures)
+        if relative not in linked_paths:
+            fail(
+                f"{relative} is not linked from README.md, WORKFLOW.md, AGENTS.md, docs/index.md, or harness guidance",
+                failures,
+            )
 
 
 def check_make_commands(failures: list[str]) -> None:
@@ -136,6 +186,56 @@ def check_python_commands(failures: list[str]) -> None:
                         "but that subcommand is not in --help",
                         failures,
                     )
+
+
+def mbse_lab_top_level_commands() -> set[str]:
+    """Return the set of top-level mbse-lab command/group names from --help."""
+    python_path = str(ROOT / "src")
+    existing_python_path = os.environ.get("PYTHONPATH")
+    if existing_python_path:
+        python_path = f"{python_path}{os.pathsep}{existing_python_path}"
+    result = run([sys.executable, "-m", "mbse_lab.cli", "--help"], {"PYTHONPATH": python_path})
+    text = result.stdout + result.stderr
+    commands: set[str] = set()
+    in_commands = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if re.match(r"^Commands:$", stripped, re.IGNORECASE):
+            in_commands = True
+            continue
+        if in_commands:
+            if not stripped:
+                break
+            match = re.match(r"^([A-Za-z0-9_-]+)", stripped)
+            if match:
+                commands.add(match.group(1))
+    return commands
+
+
+def check_mbse_lab_commands(failures: list[str]) -> None:
+    top_level = mbse_lab_top_level_commands()
+    if not top_level:
+        return
+    for doc in tracked_and_untracked_docs():
+        for line in code_block_lines(doc):
+            for match in MBSE_LAB_COMMAND.finditer(line):
+                tokens = match.group(1).split()
+                first_token = tokens[0]
+                if first_token.startswith("-"):
+                    continue
+                if first_token not in top_level:
+                    fail(
+                        f"{doc.relative_to(ROOT)} references `mbse-lab {first_token}`, "
+                        "but that command is not in `mbse-lab --help`",
+                        failures,
+                    )
+
+
+def check_cli_reference(failures: list[str]) -> None:
+    result = run(["python3", "scripts/generate_cli_reference.py", "--check"])
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        fail(detail or "generated CLI reference is out of date", failures)
 
 
 def check_workflow_contract(failures: list[str]) -> None:
@@ -173,8 +273,10 @@ def validate_workflow() -> list[str]:
 def validate_docs() -> list[str]:
     failures: list[str] = []
     check_discoverability(failures)
+    check_cli_reference(failures)
     check_make_commands(failures)
     check_python_commands(failures)
+    check_mbse_lab_commands(failures)
     failures.extend(validate_workflow())
     return failures
 

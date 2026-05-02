@@ -1,0 +1,353 @@
+{
+  "branches": [
+    {
+      "@id": "mbse-lab-branch-1",
+      "@type": "Branch",
+      "head": {
+        "@id": "mbse-lab-commit-1"
+      },
+      "name": "Initial"
+    }
+  ],
+  "commit": {
+    "@id": "mbse-lab-commit-1",
+    "@type": "Commit",
+    "description": "MBSE lab tool system fixture commit"
+  },
+  "elements": [
+    {
+      "@id": "mbse-lab-package-root",
+      "@type": "Package",
+      "declaredName": "MBSE Lab Tool System",
+      "ownedElement": [
+        {
+          "@id": "mbse-lab-package-stakeholders"
+        },
+        {
+          "@id": "mbse-lab-package-requirements"
+        },
+        {
+          "@id": "mbse-lab-package-architecture"
+        },
+        {
+          "@id": "mbse-lab-package-workflows"
+        },
+        {
+          "@id": "mbse-lab-package-verification"
+        }
+      ]
+    },
+    {
+      "@id": "mbse-lab-package-stakeholders",
+      "@type": "Package",
+      "declaredName": "Stakeholders and Concerns",
+      "ownedElement": [
+        {
+          "@id": "stakeholder-first-time-user"
+        },
+        {
+          "@id": "stakeholder-model-author"
+        },
+        {
+          "@id": "stakeholder-maintainer"
+        },
+        {
+          "@id": "stakeholder-release-publisher"
+        },
+        {
+          "@id": "stakeholder-future-agent"
+        }
+      ]
+    },
+    {
+      "@id": "stakeholder-first-time-user",
+      "@type": "ItemDefinition",
+      "declaredName": "FirstTimeLocalUser"
+    },
+    {
+      "@id": "stakeholder-model-author",
+      "@type": "ItemDefinition",
+      "declaredName": "ModelAuthor"
+    },
+    {
+      "@id": "stakeholder-maintainer",
+      "@type": "ItemDefinition",
+      "declaredName": "Maintainer"
+    },
+    {
+      "@id": "stakeholder-release-publisher",
+      "@type": "ItemDefinition",
+      "declaredName": "ReleasePublisher"
+    },
+    {
+      "@id": "stakeholder-future-agent",
+      "@type": "ItemDefinition",
+      "declaredName": "FutureAgent"
+    },
+    {
+      "@id": "mbse-lab-package-requirements",
+      "@type": "Package",
+      "declaredName": "Landed Feature Requirements",
+      "ownedElement": [
+        {
+          "@id": "requirement-bootstrap-local-lab"
+        },
+        {
+          "@id": "requirement-manage-local-services"
+        },
+        {
+          "@id": "requirement-preserve-private-model-boundary"
+        },
+        {
+          "@id": "requirement-provide-snapshot-bridge"
+        },
+        {
+          "@id": "requirement-render-conservative-subset"
+        },
+        {
+          "@id": "requirement-create-first-model"
+        },
+        {
+          "@id": "requirement-collect-diagnostics"
+        },
+        {
+          "@id": "requirement-protect-share-safety"
+        },
+        {
+          "@id": "requirement-support-validation"
+        },
+        {
+          "@id": "requirement-document-operations"
+        }
+      ]
+    },
+    {
+      "@id": "requirement-bootstrap-local-lab",
+      "@type": "RequirementDefinition",
+      "declaredName": "BootstrapLocalLab"
+    },
+    {
+      "@id": "requirement-manage-local-services",
+      "@type": "RequirementDefinition",
+      "declaredName": "ManageLocalServices"
+    },
+    {
+      "@id": "requirement-preserve-private-model-boundary",
+      "@type": "RequirementDefinition",
+      "declaredName": "PreservePrivateModelBoundary"
+    },
+    {
+      "@id": "requirement-provide-snapshot-bridge",
+      "@type": "RequirementDefinition",
+      "declaredName": "ProvideSnapshotBridge"
+    },
+    {
+      "@id": "requirement-render-conservative-subset",
+      "@type": "RequirementDefinition",
+      "declaredName": "RenderConservativeSysMLSubset"
+    },
+    {
+      "@id": "requirement-create-first-model",
+      "@type": "RequirementDefinition",
+      "declaredName": "CreateFirstModelEndToEnd"
+    },
+    {
+      "@id": "requirement-collect-diagnostics",
+      "@type": "RequirementDefinition",
+      "declaredName": "CollectRedactedDiagnostics"
+    },
+    {
+      "@id": "requirement-protect-share-safety",
+      "@type": "RequirementDefinition",
+      "declaredName": "ProtectShareSafety"
+    },
+    {
+      "@id": "requirement-support-validation",
+      "@type": "RequirementDefinition",
+      "declaredName": "SupportDeterministicValidation"
+    },
+    {
+      "@id": "requirement-document-operations",
+      "@type": "RequirementDefinition",
+      "declaredName": "DocumentSupportedOperations"
+    },
+    {
+      "@id": "mbse-lab-package-architecture",
+      "@type": "Package",
+      "declaredName": "Architecture",
+      "ownedElement": [
+        {
+          "@id": "mbse-lab-tooling-repo"
+        }
+      ]
+    },
+    {
+      "@id": "mbse-lab-tooling-repo",
+      "@type": "PartDefinition",
+      "declaredName": "MBSELabToolingRepo",
+      "ownedElement": [
+        {
+          "@id": "architecture-cli"
+        },
+        {
+          "@id": "architecture-flexo-env-manager"
+        },
+        {
+          "@id": "architecture-flexo-syson-bridge"
+        },
+        {
+          "@id": "architecture-diagnostics"
+        },
+        {
+          "@id": "architecture-docker-deployment"
+        },
+        {
+          "@id": "architecture-private-workspace"
+        },
+        {
+          "@id": "architecture-verification-harness"
+        }
+      ]
+    },
+    {
+      "@id": "architecture-cli",
+      "@type": "PartUsage",
+      "declaredName": "commandLineInterface"
+    },
+    {
+      "@id": "architecture-flexo-env-manager",
+      "@type": "PartUsage",
+      "declaredName": "flexoEnvironmentManager"
+    },
+    {
+      "@id": "architecture-flexo-syson-bridge",
+      "@type": "PartUsage",
+      "declaredName": "flexoSysONBridge"
+    },
+    {
+      "@id": "architecture-diagnostics",
+      "@type": "PartUsage",
+      "declaredName": "diagnosticsCollector"
+    },
+    {
+      "@id": "architecture-docker-deployment",
+      "@type": "PartUsage",
+      "declaredName": "dockerDeployment"
+    },
+    {
+      "@id": "architecture-private-workspace",
+      "@type": "PartUsage",
+      "declaredName": "privateModelWorkspace"
+    },
+    {
+      "@id": "architecture-verification-harness",
+      "@type": "PartUsage",
+      "declaredName": "verificationHarness"
+    },
+    {
+      "@id": "mbse-lab-package-workflows",
+      "@type": "Package",
+      "declaredName": "Workflows",
+      "ownedElement": [
+        {
+          "@id": "workflow-bootstrap"
+        },
+        {
+          "@id": "workflow-first-model"
+        },
+        {
+          "@id": "workflow-flexo-to-syson"
+        },
+        {
+          "@id": "workflow-diagnostics"
+        },
+        {
+          "@id": "workflow-release-validation"
+        }
+      ]
+    },
+    {
+      "@id": "workflow-bootstrap",
+      "@type": "ActionDefinition",
+      "declaredName": "BootstrapWorkflow"
+    },
+    {
+      "@id": "workflow-first-model",
+      "@type": "ActionDefinition",
+      "declaredName": "FirstModelWorkflow"
+    },
+    {
+      "@id": "workflow-flexo-to-syson",
+      "@type": "ActionDefinition",
+      "declaredName": "FlexoToSysONSnapshotWorkflow"
+    },
+    {
+      "@id": "workflow-diagnostics",
+      "@type": "ActionDefinition",
+      "declaredName": "DiagnosticsWorkflow"
+    },
+    {
+      "@id": "workflow-release-validation",
+      "@type": "ActionDefinition",
+      "declaredName": "ReleaseValidationWorkflow"
+    },
+    {
+      "@id": "mbse-lab-package-verification",
+      "@type": "Package",
+      "declaredName": "Verification",
+      "ownedElement": [
+        {
+          "@id": "verification-deterministic-checks"
+        },
+        {
+          "@id": "verification-live-evals"
+        },
+        {
+          "@id": "verification-share-check"
+        },
+        {
+          "@id": "verification-deployment-verify"
+        },
+        {
+          "@id": "verification-docs-check"
+        }
+      ]
+    },
+    {
+      "@id": "verification-deterministic-checks",
+      "@type": "ActionDefinition",
+      "declaredName": "DeterministicCheckSuite"
+    },
+    {
+      "@id": "verification-live-evals",
+      "@type": "ActionDefinition",
+      "declaredName": "LiveServiceEvalSuite"
+    },
+    {
+      "@id": "verification-share-check",
+      "@type": "ActionDefinition",
+      "declaredName": "ShareSafetyCheck"
+    },
+    {
+      "@id": "verification-deployment-verify",
+      "@type": "ActionDefinition",
+      "declaredName": "DeploymentVerificationCheck"
+    },
+    {
+      "@id": "verification-docs-check",
+      "@type": "ActionDefinition",
+      "declaredName": "DocumentationCheck"
+    }
+  ],
+  "project": {
+    "@id": "mbse-lab-project-1",
+    "@type": "Project",
+    "name": "MBSE Lab Tool System Fixture"
+  },
+  "roots": [
+    {
+      "@id": "mbse-lab-package-root"
+    }
+  ],
+  "source": "flexo-sysmlv2"
+}

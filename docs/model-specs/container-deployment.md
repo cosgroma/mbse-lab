@@ -365,7 +365,7 @@ minio-server:      ./data/minio -> /data
 Important data paths:
 
 ```text
-deploy/flexo-mms/mount/cluster.trig
+deploy/flexo-mms/mount/cluster.nq
 deploy/flexo-mms/data/minio/
 deploy/flexo-mms/backups/
 deploy/flexo-mms/env/
@@ -462,7 +462,7 @@ SysONUiReachable
 
 FlexoGraphDataPersistent
   subject: quad-store-server volume mount
-  constraint: cluster.trig is persisted and backup workflow is available
+  constraint: cluster.nq is persisted and backup workflow is available
 
 NoHostPortConflicts
   subject: MBSELocalLabDeployment
@@ -518,11 +518,10 @@ VerifyRuntimeCredentialFilesIgnored
 Example checks:
 
 ```bash
-python3 scripts/flexo_mms_env.py status --with-sysmlv2 --strict
+mbse-lab status
 curl -s http://localhost:18083/projects
 curl -I http://localhost:18090/
-docker compose -f deploy/syson/docker-compose.yml ps
-python3 scripts/flexo_mms_env.py backup
+mbse-lab flexo backup
 ```
 
 Each verification case should link to:

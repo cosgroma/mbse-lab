@@ -1,4 +1,25 @@
-.PHONY: help install-cli bootstrap first-model doctor report cleanup share-check init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify
+ISOLATED_COMPOSE_CHECK_ENV = \
+	FLEXO_MMS_FUSEKI_HOST_PORT=3030 \
+	FLEXO_MMS_MINIO_HOST_PORT=9000 \
+	FLEXO_MMS_AUTH_HOST_PORT=8082 \
+	FLEXO_MMS_STORE_HOST_PORT=8081 \
+	FLEXO_MMS_LAYER1_HOST_PORT=18080 \
+	FLEXO_MMS_SYSMLV2_HOST_PORT=18083 \
+	FLEXO_MMS_LDAP_ADMIN_PASSWORD=check \
+	FLEXO_MMS_LDAP_USER01_PASSWORD=check \
+	FLEXO_MMS_LDAP_USER02_PASSWORD=check \
+	FLEXO_MMS_MINIO_ROOT_USER=check \
+	FLEXO_MMS_MINIO_ROOT_PASSWORD=check \
+	FLEXO_MMS_DATA_DIR=/tmp/mbse-lab-check/flexo \
+	FLEXO_MMS_MOUNT_DIR=/tmp/mbse-lab-check/flexo/mount \
+	SYSON_HOST_PORT=18090 \
+	SYSON_POSTGRES_PASSWORD=check
+
+ISOLATED_COMPOSE_FILES = \
+	-f deploy/flexo-mms/docker-compose.isolated.yml \
+	-f deploy/syson/docker-compose.isolated.yml
+
+.PHONY: help install-cli bootstrap first-model first-use-smoke doctor report cleanup share-check init up down status logs diagnostics check docs-check docs-build docs-serve workflow-check eval bridge-eval live-eval secret-scan backup rotate-secrets syson-up syson-down syson-status flexo-list syson-list deployment-contract deployment-verify deployment-isolated-smoke
 
 help:
 	@printf '%s\n' 'MBSE local lab commands:'
@@ -6,6 +27,7 @@ help:
 	@printf '  %-16s %s\n' 'install-cli' 'Install the mbse-lab CLI in editable mode'
 	@printf '  %-16s %s\n' 'bootstrap' 'Prepare and start the local SysML v2 lab'
 	@printf '  %-16s %s\n' 'first-model' 'Create a tiny Flexo model and import it into SysON'
+	@printf '  %-16s %s\n' 'first-use-smoke' 'Run the first-use proof workflow'
 	@printf '  %-16s %s\n' 'doctor' 'Run mbse-lab environment checks'
 	@printf '  %-16s %s\n' 'report' 'Generate reports/latest local lab report'
 	@printf '  %-16s %s\n' 'cleanup' 'Remove generated reports, diagnostics, runs, and tmp output'
@@ -21,15 +43,16 @@ help:
 	@printf '  %-16s %s\n' 'workflow-check' 'Validate WORKFLOW.md policy contract'
 	@printf '  %-16s %s\n' 'eval' 'Run deterministic local evals'
 	@printf '  %-16s %s\n' 'live-eval' 'Run optional live service evals'
-	@printf '  %-16s %s\n' 'backup' 'Export Flexo Fuseki data and refresh startup dataset'
+	@printf '  %-16s %s\n' 'backup' 'Export Flexo Fuseki data to ignored backup storage'
 	@printf '  %-16s %s\n' 'rotate-secrets' 'Regenerate ignored local Flexo runtime secrets'
 	@printf '  %-16s %s\n' 'flexo-list' 'List Flexo SysML v2 projects'
 	@printf '  %-16s %s\n' 'syson-list' 'List SysON projects'
 	@printf '  %-16s %s\n' 'deployment-contract' 'Show fixture-derived deployment runtime contract'
 	@printf '  %-16s %s\n' 'deployment-verify' 'Verify Docker runtime against deployment contract'
+	@printf '  %-16s %s\n' 'deployment-isolated-smoke' 'Verify a disposable isolated Docker deployment'
 
 init:
-	python3 scripts/flexo_mms_env.py init --with-sysmlv2
+	mbse-lab init
 
 install-cli:
 	python3 -m pip install -e .
@@ -39,6 +62,9 @@ bootstrap:
 
 first-model:
 	mbse-lab first-model "First Model"
+
+first-use-smoke:
+	mbse-lab smoke first-use
 
 doctor:
 	mbse-lab doctor
@@ -53,28 +79,25 @@ share-check:
 	PYTHONPATH=src python3 -m mbse_lab.cli share-check
 
 up:
-	python3 scripts/flexo_mms_env.py up --wait --timeout 60
-	docker compose -f deploy/syson/docker-compose.yml up -d
+	mbse-lab services up --timeout 60
 
 down:
-	docker compose -f deploy/syson/docker-compose.yml down
-	python3 scripts/flexo_mms_env.py down
+	mbse-lab services down
 
 status:
-	python3 scripts/flexo_mms_env.py status --with-sysmlv2 --strict
-	docker compose -f deploy/syson/docker-compose.yml ps
+	mbse-lab status
 
 logs:
-	python3 scripts/flexo_mms_env.py logs --tail 100
-	docker compose -f deploy/syson/docker-compose.yml logs --tail 100 app
+	mbse-lab services logs --tail 100
 
 diagnostics:
-	python3 scripts/collect_diagnostics.py
+	mbse-lab diagnostics
 
 check:
-	python3 -m py_compile scripts/flexo_mms_env.py scripts/flexo_syson_bridge.py scripts/collect_diagnostics.py scripts/check_docs.py src/mbse_lab/*.py
+	python3 -m py_compile scripts/flexo_mms_env.py scripts/flexo_syson_bridge.py scripts/collect_diagnostics.py scripts/check_docs.py scripts/generate_cli_reference.py src/mbse_lab/*.py
 	docker compose -f deploy/flexo-mms/docker-compose.yml config --quiet
 	docker compose -f deploy/syson/docker-compose.yml config --quiet
+	$(ISOLATED_COMPOSE_CHECK_ENV) docker compose -p mbse-lab-check $(ISOLATED_COMPOSE_FILES) config --quiet
 	$(MAKE) workflow-check
 	$(MAKE) docs-check
 	$(MAKE) eval
@@ -105,19 +128,19 @@ secret-scan:
 	@git grep -n -E 'thisissomethingreallylon[g]|admi[n]test|adminpasswor[d]|passwor[d]1|passwor[d]2|eyJhb[G]ci|SYSON_POSTGRES_PASSWORD=passwor[d]|JWT_SECRET=thi[s]' HEAD || true
 
 backup:
-	python3 scripts/flexo_mms_env.py backup
+	mbse-lab flexo backup
 
 rotate-secrets:
-	python3 scripts/flexo_mms_env.py rotate-secrets
+	mbse-lab flexo rotate-secrets
 
 syson-up:
-	docker compose -f deploy/syson/docker-compose.yml up -d
+	mbse-lab services up --no-flexo
 
 syson-down:
-	docker compose -f deploy/syson/docker-compose.yml down
+	mbse-lab services down --no-flexo
 
 syson-status:
-	docker compose -f deploy/syson/docker-compose.yml ps
+	mbse-lab status
 
 flexo-list:
 	mbse-lab flexo list
@@ -130,3 +153,6 @@ deployment-contract:
 
 deployment-verify:
 	mbse-lab deployment verify
+
+deployment-isolated-smoke:
+	mbse-lab deployment isolated-smoke

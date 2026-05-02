@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -44,6 +45,8 @@ from mbse_lab.share import scan_share_issues
 from mbse_lab.shell import run_capture, run_capture_result, run_command
 from mbse_lab.workspace import default_output_dir, ensure_syson_env, initialize_model_workspace, sanitize_identifier
 
+MODEL_WORKSPACE_ENV = "MBSE_MODEL_WORKSPACE"
+
 __all__ = (
     "DEFAULT_FLEXO_URL",
     "DEFAULT_SYSON_URL",
@@ -57,6 +60,135 @@ __all__ = (
     "run_capture_result",
     "scan_share_issues",
 )
+
+
+def should_warn_repo_local_exports(explicit_output: Path | None, allow_repo_exports: bool = False) -> bool:
+    return not allow_repo_exports and explicit_output is None and not os.environ.get(MODEL_WORKSPACE_ENV)
+
+
+def warn_repo_local_exports(output_dir: Path) -> None:
+    click.echo(
+        (
+            f"warning: {MODEL_WORKSPACE_ENV} is unset; generated model artifacts "
+            f"will be written under repo-local `{output_dir}`. Set {MODEL_WORKSPACE_ENV} "
+            "or pass an explicit output path for private model data. "
+            "Pass --allow-repo-exports to suppress this warning."
+        ),
+        err=True,
+    )
+
+
+def first_model_dry_run_summary(
+    name: str,
+    package_name: str,
+    syson_project_name: str,
+    output_dir: Path,
+    flexo_url: str,
+    syson_url: str,
+) -> dict[str, object]:
+    package_identifier = sanitize_identifier(package_name)
+    return {
+        "status": "dry-run",
+        "model_name": name,
+        "package_name": package_name,
+        "package_identifier": package_identifier,
+        "syson_project_name": syson_project_name,
+        "export_path": str(output_dir / "flexo" / "<flexo-project-id>.json"),
+        "sysml_path": str(output_dir / "sysml" / "<flexo-project-id>.sysml"),
+        "flexo_url": flexo_url,
+        "syson_url": syson_url,
+        "planned_steps": [
+            f"create Flexo project `{name}` at {flexo_url}",
+            f"commit Package `{package_name}`",
+            f"export Flexo JSON to {output_dir / 'flexo' / '<flexo-project-id>.json'}",
+            f"render SysML to {output_dir / 'sysml' / '<flexo-project-id>.sysml'}",
+            f"create SysON project `{syson_project_name}` at {syson_url}",
+            f"import package `{package_identifier}` into the SysON root package",
+        ],
+    }
+
+
+def echo_first_model_dry_run(summary: dict[str, object]) -> None:
+    for step in summary["planned_steps"] if isinstance(summary.get("planned_steps"), list) else []:
+        click.echo(f"dry-run: {step}")
+
+
+def create_first_model_summary(
+    repo_root: Path,
+    name: str,
+    package_name: str,
+    syson_project_name: str,
+    output_dir: Path,
+    flexo_url: str,
+    syson_url: str,
+    timeout: int,
+    preflight: bool = True,
+) -> dict[str, object]:
+    if preflight:
+        wait_for_readiness(readiness_probes(flexo_url=flexo_url, syson_url=syson_url), timeout)
+
+    package_id = str(uuid.uuid4())
+    flexo_project = create_flexo_project(flexo_url, name, timeout)
+    flexo_project_id = str(flexo_project["@id"])
+    flexo_commit = commit_flexo_package(flexo_url, flexo_project_id, package_id, package_name, timeout)
+    flexo_commit_id = str(flexo_commit["@id"])
+
+    export_path = output_dir / "flexo" / f"{flexo_project_id}.json"
+    sysml_path = output_dir / "sysml" / f"{flexo_project_id}.sysml"
+    run_command(
+        [
+            "python3",
+            "scripts/flexo_syson_bridge.py",
+            "flexo-export",
+            flexo_project_id,
+            "--commit-id",
+            flexo_commit_id,
+            "--output",
+            str(export_path),
+            "--flexo-url",
+            flexo_url,
+            "--timeout",
+            str(timeout),
+        ],
+        repo_root,
+    )
+    run_command(
+        ["python3", "scripts/flexo_syson_bridge.py", "render-sysml", str(export_path), "--output", str(sysml_path)],
+        repo_root,
+    )
+
+    syson_project = create_syson_project(syson_url, syson_project_name, timeout)
+    syson_project_id = str(syson_project["id"])
+    editing_context = syson_project.get("currentEditingContext") or {}
+    if not isinstance(editing_context, dict) or not editing_context.get("id"):
+        raise click.ClickException(f"SysON project has no editing context: {syson_project_id}")
+    editing_context_id = str(editing_context["id"])
+    syson_commit_id = syson_latest_commit_id(syson_url, syson_project_id, timeout)
+    namespace_id = syson_root_package_id(syson_url, syson_project_id, syson_commit_id, timeout)
+    import_result = import_sysml_text(
+        syson_url,
+        namespace_id,
+        editing_context_id,
+        sysml_path.read_text(encoding="utf-8"),
+        timeout,
+    )
+
+    return {
+        "flexo_project_id": flexo_project_id,
+        "flexo_commit_id": flexo_commit_id,
+        "package_id": package_id,
+        "package_name": package_name,
+        "export_path": str(export_path),
+        "sysml_path": str(sysml_path),
+        "syson_project_id": syson_project_id,
+        "syson_project_name": syson_project_name,
+        "syson_commit_id": syson_commit_id,
+        "namespace_id": namespace_id,
+        "editing_context_id": editing_context_id,
+        "import_result": import_result,
+        "syson_url": syson_url,
+    }
+
 
 COMPLETION_ENVVAR = "_MBSE_LAB_COMPLETE"
 
@@ -105,6 +237,65 @@ def print_service_urls() -> None:
     click.echo("  SysON GraphQL API:  http://localhost:18090/api/graphql")
 
 
+@dataclass(frozen=True)
+class ReadinessProbe:
+    label: str
+    url: str
+    next_step: str
+
+
+def readiness_probes(
+    flexo: bool = True,
+    syson: bool = True,
+    flexo_url: str = DEFAULT_FLEXO_URL,
+    syson_url: str = DEFAULT_SYSON_URL,
+) -> list[ReadinessProbe]:
+    probes: list[ReadinessProbe] = []
+    if flexo:
+        probes.append(
+            ReadinessProbe(
+                label="Flexo SysML v2 API",
+                url=f"{trim_url(flexo_url)}/projects",
+                next_step="mbse-lab services up --flexo --timeout 60",
+            )
+        )
+    if syson:
+        probes.append(
+            ReadinessProbe(
+                label="SysON Web UI",
+                url=f"{trim_url(syson_url)}/",
+                next_step="mbse-lab services up --syson --timeout 60",
+            )
+        )
+    return probes
+
+
+def wait_for_readiness(probes: list[ReadinessProbe], timeout: int, interval: float = 2.0) -> None:
+    if not probes:
+        return
+    deadline = time.monotonic() + max(timeout, 0)
+    pending = {probe.label: probe for probe in probes}
+    last_status: dict[str, int | None] = {probe.label: None for probe in probes}
+
+    while pending:
+        for label, probe in list(pending.items()):
+            status = fetch_status(probe.url)
+            last_status[label] = status
+            if status is not None and status < 500:
+                del pending[label]
+        if not pending:
+            click.echo("Service readiness checks passed.")
+            return
+        if time.monotonic() >= deadline:
+            details = []
+            for label, probe in pending.items():
+                status = last_status[label]
+                status_detail = f"last status {status}" if status is not None else "no HTTP response"
+                details.append(f"{label} at {probe.url} ({status_detail}; next: `{probe.next_step}`)")
+            raise click.ClickException(f"Service readiness failed after {timeout}s: " + "; ".join(details))
+        time.sleep(min(interval, max(deadline - time.monotonic(), 0)))
+
+
 def unique_lines(lines: list[str]) -> list[str]:
     seen: set[str] = set()
     unique = []
@@ -124,7 +315,7 @@ def apply_doctor_fixes(repo_root: Path | None) -> tuple[list[str], list[str]]:
         next_steps.append("mbse-lab --repo-root <path-to-mbse-repo> doctor --fix")
     else:
         if not (repo_root / "deploy/flexo-mms/.env").exists():
-            next_steps.append("python3 scripts/flexo_mms_env.py init --with-sysmlv2")
+            next_steps.append("mbse-lab init")
 
         syson_env = repo_root / "deploy/syson/.env"
         if not syson_env.exists():
@@ -155,12 +346,12 @@ def apply_doctor_fixes(repo_root: Path | None) -> tuple[list[str], list[str]]:
         flexo_reachable = tcp_connects("localhost", 18083)
         syson_reachable = tcp_connects("localhost", 18090)
         if not flexo_reachable:
-            next_steps.append("python3 scripts/flexo_mms_env.py up --wait --timeout 60")
+            next_steps.append("mbse-lab services up --flexo --timeout 60")
         if not syson_reachable:
-            next_steps.append("docker compose -f deploy/syson/docker-compose.yml up -d")
+            next_steps.append("mbse-lab services up --syson --timeout 60")
         if not flexo_reachable:
-            next_steps.append("python3 scripts/flexo_syson_bridge.py init-flexo-org")
-            next_steps.append("python3 scripts/flexo_mms_env.py backup")
+            next_steps.append("mbse-lab flexo init-org")
+            next_steps.append("mbse-lab flexo backup")
 
     return fixed, unique_lines(next_steps)
 
@@ -288,6 +479,8 @@ def bootstrap(
             dry_run,
         )
         run_command(["docker", "compose", "-f", "deploy/syson/docker-compose.yml", "up", "-d"], repo_root, dry_run)
+        if not dry_run:
+            wait_for_readiness(readiness_probes(), timeout)
 
     if not skip_flexo_org:
         run_command(["python3", "scripts/flexo_syson_bridge.py", "init-flexo-org"], repo_root, dry_run)
@@ -307,6 +500,7 @@ def bootstrap(
     click.echo("Next:")
     click.echo("  mbse-lab doctor")
     click.echo("  mbse-lab workspace env <private-workspace>")
+    click.echo('  mbse-lab first-model "My First Model"')
 
 
 @main.command("first-model")
@@ -319,6 +513,11 @@ def bootstrap(
 @click.option("--timeout", type=int, default=30, show_default=True)
 @click.option("--json-output", is_flag=True, help="Print a machine-readable JSON summary.")
 @click.option("--dry-run", is_flag=True, help="Print the planned workflow without creating projects.")
+@click.option(
+    "--allow-repo-exports",
+    is_flag=True,
+    help="Suppress the warning when MBSE_MODEL_WORKSPACE is unset and writing to repo-local exports/.",
+)
 @click.pass_context
 def first_model(
     ctx: click.Context,
@@ -331,96 +530,178 @@ def first_model(
     timeout: int,
     json_output: bool,
     dry_run: bool,
+    allow_repo_exports: bool,
 ) -> None:
     """Create a tiny Flexo model and import it into a SysON review project."""
     repo_root = require_repo_root(ctx)
     resolved_package_name = package_name or name
     resolved_syson_project_name = syson_project_name or f"{name} Review"
     resolved_output_dir = (output_dir or default_output_dir()).expanduser()
-    package_identifier = sanitize_identifier(resolved_package_name)
+    if should_warn_repo_local_exports(output_dir, allow_repo_exports):
+        warn_repo_local_exports(resolved_output_dir)
 
     if dry_run:
-        click.echo(f"dry-run: create Flexo project `{name}` at {flexo_url}")
-        click.echo(f"dry-run: commit Package `{resolved_package_name}`")
-        click.echo(f"dry-run: export Flexo JSON to {resolved_output_dir / 'flexo' / '<flexo-project-id>.json'}")
-        click.echo(f"dry-run: render SysML to {resolved_output_dir / 'sysml' / '<flexo-project-id>.sysml'}")
-        click.echo(f"dry-run: create SysON project `{resolved_syson_project_name}` at {syson_url}")
-        click.echo(f"dry-run: import package `{package_identifier}` into the SysON root package")
+        echo_first_model_dry_run(
+            first_model_dry_run_summary(
+                name,
+                resolved_package_name,
+                resolved_syson_project_name,
+                resolved_output_dir,
+                flexo_url,
+                syson_url,
+            )
+        )
         return
 
-    package_id = str(uuid.uuid4())
-    flexo_project = create_flexo_project(flexo_url, name, timeout)
-    flexo_project_id = str(flexo_project["@id"])
-    flexo_commit = commit_flexo_package(flexo_url, flexo_project_id, package_id, resolved_package_name, timeout)
-    flexo_commit_id = str(flexo_commit["@id"])
-
-    export_path = resolved_output_dir / "flexo" / f"{flexo_project_id}.json"
-    sysml_path = resolved_output_dir / "sysml" / f"{flexo_project_id}.sysml"
-    run_command(
-        [
-            "python3",
-            "scripts/flexo_syson_bridge.py",
-            "flexo-export",
-            flexo_project_id,
-            "--commit-id",
-            flexo_commit_id,
-            "--output",
-            str(export_path),
-            "--flexo-url",
-            flexo_url,
-            "--timeout",
-            str(timeout),
-        ],
+    summary = create_first_model_summary(
         repo_root,
-    )
-    run_command(
-        ["python3", "scripts/flexo_syson_bridge.py", "render-sysml", str(export_path), "--output", str(sysml_path)],
-        repo_root,
-    )
-
-    syson_project = create_syson_project(syson_url, resolved_syson_project_name, timeout)
-    syson_project_id = str(syson_project["id"])
-    editing_context = syson_project.get("currentEditingContext") or {}
-    if not isinstance(editing_context, dict) or not editing_context.get("id"):
-        raise click.ClickException(f"SysON project has no editing context: {syson_project_id}")
-    editing_context_id = str(editing_context["id"])
-    syson_commit_id = syson_latest_commit_id(syson_url, syson_project_id, timeout)
-    namespace_id = syson_root_package_id(syson_url, syson_project_id, syson_commit_id, timeout)
-    import_result = import_sysml_text(
+        name,
+        resolved_package_name,
+        resolved_syson_project_name,
+        resolved_output_dir,
+        flexo_url,
         syson_url,
-        namespace_id,
-        editing_context_id,
-        sysml_path.read_text(encoding="utf-8"),
         timeout,
     )
-
-    summary = {
-        "flexo_project_id": flexo_project_id,
-        "flexo_commit_id": flexo_commit_id,
-        "package_id": package_id,
-        "package_name": resolved_package_name,
-        "export_path": str(export_path),
-        "sysml_path": str(sysml_path),
-        "syson_project_id": syson_project_id,
-        "syson_project_name": resolved_syson_project_name,
-        "syson_commit_id": syson_commit_id,
-        "namespace_id": namespace_id,
-        "editing_context_id": editing_context_id,
-        "import_result": import_result,
-        "syson_url": syson_url,
-    }
     if json_output:
         click.echo(json.dumps(summary, indent=2, sort_keys=True))
         return
 
     click.echo("Created first SysML v2 model.")
-    click.echo(f"  Flexo project: {flexo_project_id}")
-    click.echo(f"  Flexo commit:  {flexo_commit_id}")
-    click.echo(f"  Package:       {resolved_package_name} ({package_id})")
-    click.echo(f"  Flexo export:  {export_path}")
-    click.echo(f"  SysML text:    {sysml_path}")
-    click.echo(f"  SysON project: {syson_project_id}")
-    click.echo(f"  SysON root:    {namespace_id}")
+    click.echo(f"  Flexo project: {summary['flexo_project_id']}")
+    click.echo(f"  Flexo commit:  {summary['flexo_commit_id']}")
+    click.echo(f"  Package:       {summary['package_name']} ({summary['package_id']})")
+    click.echo(f"  Flexo export:  {summary['export_path']}")
+    click.echo(f"  SysML text:    {summary['sysml_path']}")
+    click.echo(f"  SysON project: {summary['syson_project_id']}")
+    click.echo(f"  SysON root:    {summary['namespace_id']}")
+    click.echo(f"  Open SysON:    {trim_url(syson_url)}")
+
+
+@main.group()
+def smoke() -> None:
+    """Run proof workflows for the local lab."""
+
+
+@smoke.command("first-use")
+@click.argument("name", default="First Use Smoke Model", required=False)
+@click.option("--package-name", help="Name of the first SysML package. Defaults to NAME.")
+@click.option("--syson-project-name", help="Name of the SysON review project. Defaults to '<NAME> Review'.")
+@click.option("--output-dir", type=click.Path(path_type=Path), help="Directory for generated export artifacts.")
+@click.option(
+    "--report-dir",
+    type=click.Path(path_type=Path, file_okay=False, dir_okay=True),
+    default=Path("reports/latest"),
+    show_default=True,
+    help="Directory for the generated lab report.",
+)
+@click.option("--flexo-url", default=DEFAULT_FLEXO_URL, show_default=True)
+@click.option("--syson-url", default=DEFAULT_SYSON_URL, show_default=True)
+@click.option("--timeout", type=int, default=60, show_default=True)
+@click.option("--json-output", is_flag=True, help="Print a machine-readable JSON summary.")
+@click.option(
+    "--dry-run", is_flag=True, help="Print the planned workflow without starting services or creating projects."
+)
+@click.option(
+    "--allow-repo-exports",
+    is_flag=True,
+    help="Suppress the warning when MBSE_MODEL_WORKSPACE is unset and writing to repo-local exports/.",
+)
+@click.pass_context
+def smoke_first_use(
+    ctx: click.Context,
+    name: str,
+    package_name: str | None,
+    syson_project_name: str | None,
+    output_dir: Path | None,
+    report_dir: Path,
+    flexo_url: str,
+    syson_url: str,
+    timeout: int,
+    json_output: bool,
+    dry_run: bool,
+    allow_repo_exports: bool,
+) -> None:
+    """Validate first-use setup by creating and importing a disposable model."""
+    repo_root = require_repo_root(ctx)
+    resolved_package_name = package_name or name
+    resolved_syson_project_name = syson_project_name or f"{name} Review"
+    resolved_output_dir = (output_dir or default_output_dir()).expanduser()
+    resolved_report_dir = report_dir.expanduser()
+    if not resolved_report_dir.is_absolute():
+        resolved_report_dir = repo_root / resolved_report_dir
+    report_path = resolved_report_dir / "index.md"
+
+    if should_warn_repo_local_exports(output_dir, allow_repo_exports):
+        warn_repo_local_exports(resolved_output_dir)
+
+    model_plan = first_model_dry_run_summary(
+        name,
+        resolved_package_name,
+        resolved_syson_project_name,
+        resolved_output_dir,
+        flexo_url,
+        syson_url,
+    )
+    dry_run_summary = {
+        "status": "dry-run",
+        "model": model_plan,
+        "report_path": str(report_path),
+        "planned_steps": [
+            f"start Flexo services with timeout {timeout}s",
+            "start SysON services",
+            f"wait for Flexo and SysON readiness for up to {timeout}s",
+            "initialize Flexo SysML v2 org",
+            *[str(step) for step in model_plan.get("planned_steps", [])],
+            f"write lab report to {report_path}",
+        ],
+    }
+
+    if dry_run:
+        if json_output:
+            click.echo(json.dumps(dry_run_summary, indent=2, sort_keys=True))
+            return
+        for step in dry_run_summary["planned_steps"] if isinstance(dry_run_summary["planned_steps"], list) else []:
+            click.echo(f"dry-run: {step}")
+        return
+
+    run_command(["python3", "scripts/flexo_mms_env.py", "up", "--wait", "--timeout", str(timeout)], repo_root)
+    run_command(["docker", "compose", "-f", "deploy/syson/docker-compose.yml", "up", "-d"], repo_root)
+    wait_for_readiness(readiness_probes(flexo_url=flexo_url, syson_url=syson_url), timeout)
+    run_command(["python3", "scripts/flexo_syson_bridge.py", "init-flexo-org"], repo_root)
+    model_summary = create_first_model_summary(
+        repo_root,
+        name,
+        resolved_package_name,
+        resolved_syson_project_name,
+        resolved_output_dir,
+        flexo_url,
+        syson_url,
+        timeout,
+        preflight=False,
+    )
+    write_report(resolved_report_dir, report_data(repo_root))
+
+    summary = {
+        "status": "passed",
+        "model": model_summary,
+        "report_path": str(report_path),
+        "service_urls": {
+            "flexo_sysmlv2": flexo_url,
+            "syson_web": syson_url,
+            "syson_graphql": f"{trim_url(syson_url)}/api/graphql",
+        },
+    }
+    if json_output:
+        click.echo(json.dumps(summary, indent=2, sort_keys=True))
+        return
+
+    click.echo("First-use smoke workflow passed.")
+    click.echo(f"  Flexo project: {model_summary['flexo_project_id']}")
+    click.echo(f"  SysON project: {model_summary['syson_project_id']}")
+    click.echo(f"  Flexo export:  {model_summary['export_path']}")
+    click.echo(f"  SysML text:    {model_summary['sysml_path']}")
+    click.echo(f"  Report:        {report_path}")
     click.echo(f"  Open SysON:    {trim_url(syson_url)}")
 
 
@@ -457,8 +738,10 @@ def doctor(ctx: click.Context, json_output: bool, fix: bool) -> None:
 
     failures = 0
 
-    check_mark("python", command_exists("python3"), sys.version.split()[0])
-    if not command_exists("python3"):
+    click.echo("--- Prerequisites ---")
+    python_ok = command_exists("python3")
+    check_mark("python", python_ok, sys.version.split()[0])
+    if not python_ok:
         failures += 1
 
     docker_ok = command_exists("docker")
@@ -471,6 +754,8 @@ def doctor(ctx: click.Context, json_output: bool, fix: bool) -> None:
         check_mark("docker compose", False)
         failures += 1
 
+    click.echo("")
+    click.echo("--- Repo Setup ---")
     if repo_root:
         check_mark("repo root", True, str(repo_root))
         for marker in REQUIRED_MARKERS:
@@ -479,11 +764,13 @@ def doctor(ctx: click.Context, json_output: bool, fix: bool) -> None:
             if not exists:
                 failures += 1
         warn_mark("Flexo env", (repo_root / "deploy/flexo-mms/.env").exists(), "run `make init` if missing")
-        warn_mark("SysON env", (repo_root / "deploy/syson/.env").exists(), "copy deploy/syson/.env.example if missing")
+        warn_mark("SysON env", (repo_root / "deploy/syson/.env").exists(), "run `mbse-lab init` if missing")
     else:
         check_mark("repo root", False, "run from the repo or pass --repo-root")
         failures += 1
 
+    click.echo("")
+    click.echo("--- Workspace ---")
     workspace = os.environ.get("MBSE_MODEL_WORKSPACE")
     if workspace:
         workspace_path = Path(workspace).expanduser()
@@ -491,6 +778,8 @@ def doctor(ctx: click.Context, json_output: bool, fix: bool) -> None:
     else:
         warn_mark("MBSE_MODEL_WORKSPACE", False, "unset; generated artifacts default to exports/")
 
+    click.echo("")
+    click.echo("--- Services ---")
     for label, port in (
         ("Flexo SysML v2 port", 18083),
         ("SysON web port", 18090),
@@ -511,6 +800,13 @@ def doctor(ctx: click.Context, json_output: bool, fix: bool) -> None:
             bool(syson_database_credentials.get("ok")),
             str(syson_database_credentials.get("detail", "")),
         )
+
+    remediation_codes = report.get("remediation_codes", [])
+    if remediation_codes:
+        click.echo("")
+        click.echo("--- Remediation Codes ---")
+        for code in remediation_codes:
+            click.echo(f"  {code}")
 
     if failures:
         raise click.ClickException(f"doctor found {failures} required failure(s)")
@@ -537,8 +833,8 @@ def services() -> None:
 @services.command("up")
 @click.option("--flexo/--no-flexo", default=True, help="Start Flexo services.")
 @click.option("--syson/--no-syson", default=True, help="Start SysON services.")
-@click.option("--wait/--no-wait", default=True, help="Wait for Flexo health during startup.")
-@click.option("--timeout", type=int, default=60, show_default=True, help="Flexo startup wait timeout in seconds.")
+@click.option("--wait/--no-wait", default=True, help="Wait for selected service APIs during startup.")
+@click.option("--timeout", type=int, default=60, show_default=True, help="Startup readiness timeout in seconds.")
 @click.option("--dry-run", is_flag=True, help="Print commands without changing containers.")
 @click.pass_context
 def services_up(ctx: click.Context, flexo: bool, syson: bool, wait: bool, timeout: int, dry_run: bool) -> None:
@@ -552,6 +848,8 @@ def services_up(ctx: click.Context, flexo: bool, syson: bool, wait: bool, timeou
         run_flexo_env(ctx, args, dry_run)
     if syson:
         run_syson_compose(ctx, ["up", "-d"], dry_run)
+    if wait and not dry_run:
+        wait_for_readiness(readiness_probes(flexo=flexo, syson=syson), timeout)
     if not dry_run:
         print_service_urls()
 
@@ -559,16 +857,20 @@ def services_up(ctx: click.Context, flexo: bool, syson: bool, wait: bool, timeou
 @services.command("down")
 @click.option("--flexo/--no-flexo", default=True, help="Stop Flexo services.")
 @click.option("--syson/--no-syson", default=True, help="Stop SysON services.")
+@click.option("--volumes", is_flag=True, help="Also remove Flexo compose-managed volumes.")
 @click.option("--dry-run", is_flag=True, help="Print commands without changing containers.")
 @click.pass_context
-def services_down(ctx: click.Context, flexo: bool, syson: bool, dry_run: bool) -> None:
+def services_down(ctx: click.Context, flexo: bool, syson: bool, volumes: bool, dry_run: bool) -> None:
     """Stop Flexo and SysON services without deleting runtime data."""
     if not flexo and not syson:
         raise click.ClickException("Select at least one service family.")
     if syson:
         run_syson_compose(ctx, ["down"], dry_run)
     if flexo:
-        run_flexo_env(ctx, ["down"], dry_run)
+        args = ["down"]
+        if volumes:
+            args.append("--volumes")
+        run_flexo_env(ctx, args, dry_run)
 
 
 @services.command("restart")
@@ -599,25 +901,59 @@ def services_restart(ctx: click.Context, flexo: bool, syson: bool, wait: bool, t
 @services.command("logs")
 @click.option("--flexo/--no-flexo", default=True, help="Show Flexo logs.")
 @click.option("--syson/--no-syson", default=True, help="Show SysON app logs.")
+@click.option("--flexo-service", "flexo_services", multiple=True, help="Flexo compose service to include.")
+@click.option("--syson-service", "syson_services", multiple=True, help="SysON compose service to include.")
+@click.option("--follow", "-f", is_flag=True, help="Follow logs.")
 @click.option("--tail", type=int, default=100, show_default=True, help="Number of log lines to show.")
 @click.option("--dry-run", is_flag=True, help="Print commands without reading logs.")
 @click.pass_context
-def services_logs(ctx: click.Context, flexo: bool, syson: bool, tail: int, dry_run: bool) -> None:
+def services_logs(
+    ctx: click.Context,
+    flexo: bool,
+    syson: bool,
+    flexo_services: tuple[str, ...],
+    syson_services: tuple[str, ...],
+    follow: bool,
+    tail: int,
+    dry_run: bool,
+) -> None:
     """Show recent Flexo and SysON service logs."""
     if not flexo and not syson:
         raise click.ClickException("Select at least one service family.")
     if flexo:
-        run_flexo_env(ctx, ["logs", "--tail", str(tail)], dry_run)
+        args = ["logs", "--tail", str(tail)]
+        if follow:
+            args.append("--follow")
+        args.extend(flexo_services)
+        run_flexo_env(ctx, args, dry_run)
     if syson:
-        run_syson_compose(ctx, ["logs", "--tail", str(tail), "app"], dry_run)
+        args = ["logs", "--tail", str(tail)]
+        if follow:
+            args.append("--follow")
+        args.extend(syson_services or ("app",))
+        run_syson_compose(ctx, args, dry_run)
 
 
 @main.command()
+@click.option(
+    "--public-safe",
+    is_flag=True,
+    help="Omit project lists and recent service logs from the diagnostics bundle.",
+)
+@click.option("--output", type=click.Path(path_type=Path), help="Diagnostics bundle output directory.")
+@click.option("--timeout", type=int, default=20, show_default=True, help="Command and HTTP timeout in seconds.")
+@click.option("--log-tail", type=int, default=80, show_default=True, help="Number of service log lines to collect.")
 @click.pass_context
-def diagnostics(ctx: click.Context) -> None:
+def diagnostics(ctx: click.Context, public_safe: bool, output: Path | None, timeout: int, log_tail: int) -> None:
     """Collect a redacted diagnostics bundle."""
     repo_root = require_repo_root(ctx)
-    run_command(["python3", "scripts/collect_diagnostics.py"], repo_root)
+    args = ["python3", "scripts/collect_diagnostics.py"]
+    if public_safe:
+        args.append("--public-safe")
+    if output:
+        args.extend(["--output", str(output)])
+    args.extend(["--timeout", str(timeout), "--log-tail", str(log_tail)])
+    run_command(args, repo_root)
 
 
 @main.command()
@@ -673,6 +1009,123 @@ def flexo() -> None:
     """Work with Flexo SysML v2 projects."""
 
 
+@flexo.command("init-org")
+@click.option("--layer1-url", default="http://localhost:18080", show_default=True)
+@click.option("--env-dir", type=click.Path(path_type=Path), default=Path("deploy/flexo-mms"), show_default=True)
+@click.option("--org-id", default="sysmlv2", show_default=True)
+@click.option("--title", default="SysML v2", show_default=True)
+@click.option("--token")
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def flexo_init_org(
+    ctx: click.Context,
+    layer1_url: str,
+    env_dir: Path,
+    org_id: str,
+    title: str,
+    token: str | None,
+    timeout: int,
+    dry_run: bool,
+) -> None:
+    """Create the Flexo org used by the SysML v2 service."""
+    args = [
+        "init-flexo-org",
+        "--layer1-url",
+        layer1_url,
+        "--env-dir",
+        str(env_dir),
+        "--org-id",
+        org_id,
+        "--title",
+        title,
+        "--timeout",
+        str(timeout),
+    ]
+    if token:
+        args.extend(["--token", token])
+    run_bridge(ctx, args, dry_run)
+
+
+@flexo.command("token")
+@click.option("--url", help="Auth service login URL. Defaults to the generated auth host port.")
+@click.option("--username", default="user01", show_default=True)
+@click.option("--password", help="LDAP password. Defaults to FLEXO_MMS_LDAP_USER01_PASSWORD in .env.")
+@click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def flexo_token(
+    ctx: click.Context, url: str | None, username: str, password: str | None, timeout: int, dry_run: bool
+) -> None:
+    """Request a local Flexo JWT from the auth service."""
+    args = ["token", "--username", username, "--timeout", str(timeout)]
+    if url:
+        args.extend(["--url", url])
+    if password:
+        args.extend(["--password", password])
+    run_flexo_env(ctx, args, dry_run)
+
+
+@flexo.command("backup")
+@click.option("--url", help="Fuseki dataset URL. Defaults to the generated Fuseki host port.")
+@click.option("--output", type=click.Path(path_type=Path), help="Backup file path.")
+@click.option("--timeout", type=int, default=60, show_default=True)
+@click.option(
+    "--update-init/--no-update-init",
+    default=False,
+    help="Also refresh tracked mount/cluster.nq after export.",
+)
+@click.option(
+    "--i-understand-this-updates-tracked-seed",
+    is_flag=True,
+    help="Required with --update-init to acknowledge that tracked seed data must be publishable.",
+)
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def flexo_backup(
+    ctx: click.Context,
+    url: str | None,
+    output: Path | None,
+    timeout: int,
+    update_init: bool,
+    i_understand_this_updates_tracked_seed: bool,
+    dry_run: bool,
+) -> None:
+    """Export the live Flexo Fuseki dataset to a durable backup."""
+    if update_init and not i_understand_this_updates_tracked_seed:
+        raise click.ClickException(
+            "Updating deploy/flexo-mms/mount/cluster.nq requires " "--i-understand-this-updates-tracked-seed."
+        )
+    if i_understand_this_updates_tracked_seed and not update_init:
+        raise click.ClickException("--i-understand-this-updates-tracked-seed requires --update-init.")
+
+    args = ["backup", "--timeout", str(timeout)]
+    if url:
+        args.extend(["--url", url])
+    if output:
+        args.extend(["--output", str(output)])
+    if update_init:
+        args.extend(["--update-init", "--i-understand-this-updates-tracked-seed"])
+    run_flexo_env(ctx, args, dry_run)
+
+
+@flexo.command("restore")
+@click.argument("backup", type=click.Path(path_type=Path))
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def flexo_restore(ctx: click.Context, backup: Path, dry_run: bool) -> None:
+    """Restore Flexo mount/cluster.nq from a backup file."""
+    run_flexo_env(ctx, ["restore", str(backup)], dry_run)
+
+
+@flexo.command("rotate-secrets")
+@click.option("--dry-run", is_flag=True)
+@click.pass_context
+def flexo_rotate_secrets(ctx: click.Context, dry_run: bool) -> None:
+    """Regenerate ignored local Flexo runtime secrets."""
+    run_flexo_env(ctx, ["rotate-secrets"], dry_run)
+
+
 @flexo.command("list")
 @click.option("--json-output", is_flag=True, help="Print raw JSON from Flexo.")
 @click.option("--flexo-url", default=DEFAULT_FLEXO_URL, show_default=True)
@@ -711,6 +1164,11 @@ def flexo_create(
 @click.option("--flexo-url", default=DEFAULT_FLEXO_URL, show_default=True)
 @click.option("--timeout", type=int, default=30, show_default=True)
 @click.option("--dry-run", is_flag=True)
+@click.option(
+    "--allow-repo-exports",
+    is_flag=True,
+    help="Suppress the warning when MBSE_MODEL_WORKSPACE is unset and writing to repo-local exports/.",
+)
 @click.pass_context
 def flexo_export(
     ctx: click.Context,
@@ -720,9 +1178,12 @@ def flexo_export(
     flexo_url: str,
     timeout: int,
     dry_run: bool,
+    allow_repo_exports: bool,
 ) -> None:
     """Export a Flexo project snapshot."""
     args = ["flexo-export", project_id, "--flexo-url", flexo_url, "--timeout", str(timeout)]
+    if should_warn_repo_local_exports(output, allow_repo_exports):
+        warn_repo_local_exports(default_output_dir())
     if commit_id:
         args.extend(["--commit-id", commit_id])
     if output:
@@ -804,13 +1265,34 @@ def bridge() -> None:
 @bridge.command("render")
 @click.argument("input", type=click.Path(path_type=Path, exists=False))
 @click.option("--output", type=click.Path(path_type=Path))
+@click.option("--report", is_flag=True, help="Write render-report.json next to the SysML output.")
+@click.option("--report-output", type=click.Path(path_type=Path), help="Write render coverage report to this path.")
 @click.option("--dry-run", is_flag=True)
+@click.option(
+    "--allow-repo-exports",
+    is_flag=True,
+    help="Suppress the warning when MBSE_MODEL_WORKSPACE is unset and writing to repo-local exports/.",
+)
 @click.pass_context
-def bridge_render(ctx: click.Context, input: Path, output: Path | None, dry_run: bool) -> None:
+def bridge_render(
+    ctx: click.Context,
+    input: Path,
+    output: Path | None,
+    report: bool,
+    report_output: Path | None,
+    dry_run: bool,
+    allow_repo_exports: bool,
+) -> None:
     """Render a Flexo export JSON file as SysML textual notation."""
     args = ["render-sysml", str(input)]
+    if should_warn_repo_local_exports(output, allow_repo_exports):
+        warn_repo_local_exports(default_output_dir())
     if output:
         args.extend(["--output", str(output)])
+    if report or report_output:
+        args.append("--report")
+    if report_output:
+        args.extend(["--report-output", str(report_output)])
     run_bridge(ctx, args, dry_run)
 
 
@@ -854,8 +1336,9 @@ def bridge_import(
 @bridge.command("run")
 @click.argument("flexo_project_id")
 @click.option("--commit-id")
-@click.option("--syson-project-id", required=True)
-@click.option("--namespace-id", required=True)
+@click.option("--syson-project-id")
+@click.option("--namespace-id")
+@click.option("--create-syson-project", help="Create a SysON review project and import into its root package.")
 @click.option("--editing-context-id")
 @click.option("--output-dir", type=click.Path(path_type=Path))
 @click.option("--run-log", type=click.Path(path_type=Path))
@@ -863,14 +1346,21 @@ def bridge_import(
 @click.option("--flexo-url", default=DEFAULT_FLEXO_URL, show_default=True)
 @click.option("--syson-url", default=DEFAULT_SYSON_URL, show_default=True)
 @click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--json-output", is_flag=True, help="Print a machine-readable JSON summary.")
 @click.option("--dry-run", is_flag=True)
+@click.option(
+    "--allow-repo-exports",
+    is_flag=True,
+    help="Suppress the warning when MBSE_MODEL_WORKSPACE is unset and writing to repo-local exports/.",
+)
 @click.pass_context
 def bridge_run(
     ctx: click.Context,
     flexo_project_id: str,
     commit_id: str | None,
-    syson_project_id: str,
-    namespace_id: str,
+    syson_project_id: str | None,
+    namespace_id: str | None,
+    create_syson_project: str | None,
     editing_context_id: str | None,
     output_dir: Path | None,
     run_log: Path | None,
@@ -878,16 +1368,22 @@ def bridge_run(
     flexo_url: str,
     syson_url: str,
     timeout: int,
+    json_output: bool,
     dry_run: bool,
+    allow_repo_exports: bool,
 ) -> None:
     """Export from Flexo, render SysML text, and import into SysON."""
+    if create_syson_project and (syson_project_id or namespace_id):
+        raise click.ClickException(
+            "--create-syson-project cannot be combined with --syson-project-id or --namespace-id"
+        )
+    if not create_syson_project and (not syson_project_id or not namespace_id):
+        raise click.ClickException("Provide --syson-project-id and --namespace-id, or use --create-syson-project.")
+    if should_warn_repo_local_exports(output_dir, allow_repo_exports):
+        warn_repo_local_exports(default_output_dir())
     args = [
         "flexo-to-syson",
         flexo_project_id,
-        "--syson-project-id",
-        syson_project_id,
-        "--namespace-id",
-        namespace_id,
         "--flexo-url",
         flexo_url,
         "--syson-url",
@@ -895,6 +1391,12 @@ def bridge_run(
         "--timeout",
         str(timeout),
     ]
+    if create_syson_project:
+        args.extend(["--create-syson-project", create_syson_project])
+    else:
+        args.extend(["--syson-project-id", syson_project_id, "--namespace-id", namespace_id])
+    if json_output:
+        args.append("--json-output")
     for option, value in (
         ("--commit-id", commit_id),
         ("--editing-context-id", editing_context_id),
@@ -904,6 +1406,16 @@ def bridge_run(
     ):
         if value:
             args.extend([option, str(value)])
+    if dry_run and create_syson_project:
+        for step in (
+            f"export Flexo project `{flexo_project_id}`",
+            "render SysML text and render coverage report",
+            f"create SysON review project `{create_syson_project}`",
+            "discover SysON root namespace",
+            "import rendered SysML into SysON",
+            "write bridge run log",
+        ):
+            click.echo(f"dry-run: {step}")
     run_bridge(ctx, args, dry_run)
 
 
@@ -963,19 +1475,91 @@ def deployment() -> None:
 
 
 @deployment.command("contract")
+@click.option("--fixture", type=click.Path(path_type=Path), help="Deployment fixture path.")
+@click.option("--json-output", is_flag=True, help="Print a machine-readable JSON contract.")
 @click.pass_context
-def deployment_contract(ctx: click.Context) -> None:
+def deployment_contract(ctx: click.Context, fixture: Path | None, json_output: bool) -> None:
     """Print the fixture-derived deployment runtime contract."""
     repo_root = require_repo_root(ctx)
-    run_command(["python3", "scripts/flexo_syson_bridge.py", "deployment-contract"], repo_root)
+    args = ["python3", "scripts/flexo_syson_bridge.py", "deployment-contract"]
+    if fixture:
+        args.extend(["--fixture", str(fixture)])
+    if json_output:
+        args.append("--json")
+    run_command(args, repo_root)
 
 
 @deployment.command("verify")
+@click.option("--fixture", type=click.Path(path_type=Path), help="Deployment fixture path.")
+@click.option(
+    "--project-name",
+    help="Inspect containers by Compose project and service labels instead of fixed container names.",
+)
+@click.option("--timeout", type=int, default=20, show_default=True)
+@click.option("--json-output", is_flag=True, help="Print a machine-readable JSON report.")
+@click.option("--output", type=click.Path(path_type=Path), help="Write the structured verification report as JSON.")
 @click.pass_context
-def deployment_verify(ctx: click.Context) -> None:
+def deployment_verify(
+    ctx: click.Context,
+    fixture: Path | None,
+    project_name: str | None,
+    timeout: int,
+    json_output: bool,
+    output: Path | None,
+) -> None:
     """Verify Docker runtime state against the deployment contract."""
     repo_root = require_repo_root(ctx)
-    run_command(["python3", "scripts/flexo_syson_bridge.py", "deployment-verify"], repo_root)
+    args = ["python3", "scripts/flexo_syson_bridge.py", "deployment-verify", "--timeout", str(timeout)]
+    if fixture:
+        args.extend(["--fixture", str(fixture)])
+    if project_name:
+        args.extend(["--project-name", project_name])
+    if json_output:
+        args.append("--json")
+    if output:
+        args.extend(["--output", str(output)])
+    run_command(args, repo_root)
+
+
+@deployment.command("isolated-smoke")
+@click.option("--fixture", type=click.Path(path_type=Path), help="Deployment fixture path.")
+@click.option("--project-name", help="Compose project name. Defaults to a generated unique name.")
+@click.option(
+    "--runtime-dir",
+    type=click.Path(path_type=Path, file_okay=False, dir_okay=True),
+    help="Directory for disposable bind-mounted data. Defaults under tmp/isolated-deployments/.",
+)
+@click.option("--timeout", type=int, default=120, show_default=True)
+@click.option("--output", type=click.Path(path_type=Path), help="Write the structured verification report as JSON.")
+@click.option("--keep", is_flag=True, help="Leave the isolated deployment running after verification.")
+@click.option("--dry-run", is_flag=True, help="Print commands without starting containers.")
+@click.pass_context
+def deployment_isolated_smoke(
+    ctx: click.Context,
+    fixture: Path | None,
+    project_name: str | None,
+    runtime_dir: Path | None,
+    timeout: int,
+    output: Path | None,
+    keep: bool,
+    dry_run: bool,
+) -> None:
+    """Start and verify a disposable isolated deployment."""
+    repo_root = require_repo_root(ctx)
+    args = ["python3", "scripts/flexo_syson_bridge.py", "deployment-isolated-smoke", "--timeout", str(timeout)]
+    if fixture:
+        args.extend(["--fixture", str(fixture)])
+    if project_name:
+        args.extend(["--project-name", project_name])
+    if runtime_dir:
+        args.extend(["--runtime-dir", str(runtime_dir)])
+    if output:
+        args.extend(["--output", str(output)])
+    if keep:
+        args.append("--keep")
+    if dry_run:
+        args.append("--dry-run")
+    run_command(args, repo_root)
 
 
 if __name__ == "__main__":

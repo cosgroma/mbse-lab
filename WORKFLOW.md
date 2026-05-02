@@ -167,7 +167,7 @@ diagnostics/latest/deployment-verification.json
 Bridge runs should use structured run logs when evidence needs to be preserved:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
+mbse-lab bridge run <flexo-project-id> \
   --syson-project-id <syson-project-id> \
   --namespace-id <syson-root-package-id>
 ```
@@ -181,7 +181,11 @@ snapshots, or real model source. Commit publishable examples and deterministic
 fixtures only.
 
 Use `MBSE_MODEL_WORKSPACE` or explicit bridge output paths when generated model
-artifacts belong in a private workspace outside this repo.
+artifacts belong in a private workspace outside this repo. Commands that write
+model artifacts (`first-model`, `flexo export`, `bridge render`, `bridge run`)
+warn when neither `MBSE_MODEL_WORKSPACE` nor an explicit `--output` path is
+provided. Pass `--allow-repo-exports` only when intentionally writing curated
+example output under `exports/` in this shared tooling repo.
 
 Before destructive reset actions, such as deleting service data, removing
 containers with volumes, or rewriting persisted Flexo startup data, get

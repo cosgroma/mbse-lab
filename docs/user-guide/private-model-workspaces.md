@@ -9,31 +9,38 @@ home for private system models.
 
 Use separate directories for tooling and model data:
 
-```text
-~/work/sysmlv2-lab/             Shared tooling repo
-~/work/my-private-models/       Private model workspace or private repo
+```mermaid
+flowchart LR
+    tooling["Shared tooling repo<br/>mbse-lab"]
+    workspace["Private model workspace<br/>or private repo"]
+    exports["generated exports<br/>rendered .sysml<br/>run logs"]
+    services["local service data<br/>ignored runtime files"]
+
+    tooling --> scripts["CLI, scripts, docs,<br/>compose files, fixtures"]
+    tooling -. "MBSE_MODEL_WORKSPACE" .-> workspace
+    workspace --> exports
+    tooling -. "ignored" .-> services
 ```
 
 Keep this repo public or broadly shared. Keep real program, customer, product,
 or system models in the private workspace.
 
+| Location | Example | Contents |
+| --- | --- | --- |
+| Shared tooling repo | `~/work/sysmlv2-lab/` | Compose files, CLI, bridge scripts, docs, synthetic fixtures. |
+| Private model workspace | `~/work/my-private-models/` | Real model source, private exports, rendered snapshots, run evidence. |
+
 ## What Belongs In This Repo
 
-- Docker Compose files for Flexo and SysON.
-- Runtime setup, status, backup, diagnostics, and bridge scripts.
-- Publishable `.env.example` files.
-- Public synthetic fixtures and examples.
-- Documentation for operating the local lab.
-
-## What Belongs Outside This Repo
-
-- Real `.sysml` model source.
-- Flexo JSON exports from private projects.
-- Rendered SysML snapshots from private projects.
-- SysON database contents.
-- Flexo backup files that include private graph state.
-- Run logs that include private project IDs, names, or import details.
-- Runtime credentials and local `.env` files.
+| Belongs here | Belongs outside this repo |
+| --- | --- |
+| Docker Compose files for Flexo and SysON. | Real `.sysml` model source. |
+| Runtime setup, status, backup, diagnostics, and bridge scripts. | Flexo JSON exports from private projects. |
+| Publishable `.env.example` files. | Rendered SysML snapshots from private projects. |
+| Public synthetic fixtures and examples. | SysON database contents. |
+| Documentation for operating the local lab. | Flexo backup files that include private graph state. |
+|  | Run logs that include private project IDs, names, or import details. |
+|  | Runtime credentials and local `.env` files. |
 
 ## Workspace Environment Variable
 
@@ -51,18 +58,23 @@ paths write generated artifacts under:
 $MBSE_MODEL_WORKSPACE/exports/
 ```
 
+When this variable is unset and no explicit output path is provided,
+model-generating commands fall back to repo-local `exports/` and print a
+warning. Use that fallback only for synthetic, publishable examples or local
+scratch work that will not be shared.
+
 For example:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py flexo-export <flexo-project-id>
-python3 scripts/flexo_syson_bridge.py render-sysml \
+mbse-lab flexo export <flexo-project-id>
+mbse-lab bridge render \
   ~/work/my-private-models/exports/flexo/<flexo-project-id>.json
 ```
 
 The full bridge also respects the workspace default:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
+mbse-lab bridge run <flexo-project-id> \
   --syson-project-id <syson-project-id> \
   --namespace-id <syson-root-package-id>
 ```
@@ -70,9 +82,9 @@ python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
 You can still override paths explicitly for one-off runs:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py flexo-export <flexo-project-id> \
+mbse-lab flexo export <flexo-project-id> \
   --output ~/work/my-private-models/exports/flexo/model.json
-python3 scripts/flexo_syson_bridge.py render-sysml \
+mbse-lab bridge render \
   ~/work/my-private-models/exports/flexo/model.json \
   --output ~/work/my-private-models/exports/sysml/model.sysml
 ```
@@ -88,3 +100,11 @@ make check
 That includes the tracked secret scan and confirms the deterministic bridge
 evals still pass. It does not inspect private model workspaces, so review those
 separately before sharing them.
+
+## Related Docs
+
+| Page | Why it matters |
+| --- | --- |
+| [CLI](cli.md) | Provides `mbse-lab workspace`, `bootstrap`, `doctor`, and `share-check` commands. |
+| [Bridge Workflow](../lab/flexo-syson-bridge.md) | Shows how generated Flexo and SysON artifacts flow through the private workspace boundary. |
+| [Harness Engineering](../lab/harness-engineering.md) | Documents diagnostics, run logs, evals, and share-safety guardrails. |

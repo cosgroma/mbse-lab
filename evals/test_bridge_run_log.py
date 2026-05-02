@@ -9,14 +9,15 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "scripts"))
+sys.path.insert(0, str(ROOT / "src"))
 
-import flexo_syson_bridge  # noqa: E402
+from mbse_lab.bridge import runlog as bridge_runlog  # noqa: E402
+from mbse_lab.bridge import workflow as flexo_syson_bridge  # noqa: E402
 
 
 class BridgeRunLogTests(unittest.TestCase):
     def test_run_log_path_is_workflow_scoped(self) -> None:
-        path = flexo_syson_bridge.run_log_path(Path("runs"), "flexo-to-syson", "run-123")
+        path = bridge_runlog.run_log_path(Path("runs"), "flexo-to-syson", "run-123")
 
         self.assertEqual(path, Path("runs") / "flexo-to-syson" / "run-123.json")
 
@@ -30,7 +31,7 @@ class BridgeRunLogTests(unittest.TestCase):
     def test_write_run_log_creates_pretty_json(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "run.json"
-            flexo_syson_bridge.write_run_log(
+            bridge_runlog.write_run_log(
                 path,
                 {
                     "run_id": "run-123",

@@ -25,15 +25,22 @@ nav:
   - User Guide:
       - Private Model Workspaces: user-guide/private-model-workspaces.md
       - CLI: user-guide/cli.md
+      - CLI Reference: user-guide/cli-reference.md
+      - Services: user-guide/services.md
+      - Safety And Sharing: user-guide/safety-and-sharing.md
+      - Troubleshooting: user-guide/troubleshooting.md
       - Release Process: user-guide/release-process.md
+      - v0.2.0 Limitations: user-guide/v0.2.0-limitations.md
   - Local Lab:
       - Bridge Workflow: lab/flexo-syson-bridge.md
       - Harness Engineering: lab/harness-engineering.md
       - Modeling Conventions: lab/modeling-conventions.md
+      - View Editor Flexo Experiment: lab/view-editor-flexo-experiment.md
   - Methodology:
       - Verification Model Setup: methodology/sysml-v2-verification-model-setup.md
       - Transformation Pipeline: methodology/sysml-v2-transformation-pipeline-design.md
   - Model Specs:
+      - MBSE Lab Tool System: model-specs/mbse-lab-tool-system.md
       - RF Link Budget: model-specs/rf-link-budget.md
       - CCA Rollup: model-specs/cca-rollup.md
       - RF to Digital Signal Chain: model-specs/rf-to-digital-signal-chain.md
@@ -43,6 +50,13 @@ nav:
   - Plans:
       - Overview: plans/README.md
       - MVP Feature Catalog: plans/active/mvp-feature-catalog.md
+      - Usability Remediation: plans/active/usability-remediation.md
+      - View Editor Flexo Experiment: plans/completed/openmbee-view-editor-flexo-experiment.md
+      - MBSE Lab SysML Model: plans/active/mbse-lab-sysml-model-plan.md
+  - Reviews:
+      - Usability Review: reviews/usability-review.md
+      - Recommended Features Review: reviews/recommended-features.md
+      - Recommended Sprint Sequence: reviews/recommended-sprints.md
 
 markdown_extensions:
   - admonition

@@ -24,3 +24,9 @@ use one.
 ## Active Plans
 
 - [MVP Feature Catalog](active/mvp-feature-catalog.md)
+- [SysML JSON Rendering Reuse Spike](active/sysml-json-rendering-reuse-spike.md)
+- [Usability Remediation](active/usability-remediation.md)
+
+## Completed Plans
+
+- [OpenMBEE View Editor Flexo Experiment](completed/openmbee-view-editor-flexo-experiment.md)

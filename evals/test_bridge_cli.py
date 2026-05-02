@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -13,7 +14,7 @@ from click.testing import CliRunner
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from mbse_lab import cli, health  # noqa: E402
+from mbse_lab import cli, health, reports  # noqa: E402
 
 
 class CliTests(unittest.TestCase):
@@ -185,8 +186,8 @@ class CliTests(unittest.TestCase):
             self.assertTrue((workspace / "exports/flexo").is_dir())
             self.assertFalse((workspace / ".git").exists())
             self.assertIn("Applied fixes:", result.output)
-            self.assertIn("python3 scripts/flexo_mms_env.py init --with-sysmlv2", result.output)
-            self.assertIn("docker compose -f deploy/syson/docker-compose.yml up -d", result.output)
+            self.assertIn("mbse-lab init", result.output)
+            self.assertIn("mbse-lab services up --syson --timeout 60", result.output)
 
     def test_doctor_fix_rejects_json_output(self) -> None:
         runner = CliRunner()
@@ -250,6 +251,67 @@ class CliTests(unittest.TestCase):
             self.assertTrue((output_dir / "status.json").exists())
             self.assertEqual(json.loads((output_dir / "doctor.json").read_text(encoding="utf-8")), doctor)
             self.assertIn("# MBSE Lab Report", (output_dir / "index.md").read_text(encoding="utf-8"))
+
+    def test_report_handles_no_bridge_run_state(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            bridge = reports.latest_bridge_run_report(Path(temp_dir))
+
+        self.assertFalse(bridge["latest_exists"])
+        self.assertEqual(bridge["status"], "not-found")
+
+    def test_report_links_latest_bridge_artifacts_without_model_content(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            run_log = repo / "runs" / "flexo-to-syson" / "run-1.json"
+            render_report = repo / "exports" / "reports" / "project-1.render-report.json"
+            render_report.parent.mkdir(parents=True)
+            render_report.write_text(
+                json.dumps(
+                    {
+                        "schema": "mbse-lab.render-report.v1",
+                        "summary": {
+                            "total_elements": 3,
+                            "rendered_elements": 2,
+                            "skipped_elements": 0,
+                            "unsupported_elements": 1,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            run_log.parent.mkdir(parents=True)
+            run_log.write_text(
+                json.dumps(
+                    {
+                        "status": "succeeded",
+                        "artifacts": {
+                            "flexo_export": str(repo / "exports" / "flexo" / "private.json"),
+                            "sysml_text": str(repo / "exports" / "sysml" / "private.sysml"),
+                            "render_report": str(render_report),
+                        },
+                        "steps": [{"name": "import-syson", "status": "succeeded"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            data = {
+                "generated_at": "2026-01-01T00:00:00+00:00",
+                "repo_root": str(repo),
+                "model_workspace": None,
+                "service_urls": {},
+                "doctor": {"status": "passed"},
+                "status": {"status": "passed", "containers": []},
+                "share_issues": [],
+                "diagnostics": {"latest_index": "diagnostics/latest/index.md", "latest_exists": False},
+                "bridge": reports.latest_bridge_run_report(repo),
+            }
+            markdown = reports.render_report_markdown(data)
+
+        self.assertIn("Latest run log: `runs/flexo-to-syson/run-1.json`", markdown)
+        self.assertIn("Artifact `render_report`: `exports/reports/project-1.render-report.json`", markdown)
+        self.assertIn("`2` rendered, `0` skipped, `1` unsupported", markdown)
+        self.assertNotIn("package Private", markdown)
 
     def test_cleanup_dry_run_keeps_generated_files(self) -> None:
         runner = CliRunner()
@@ -330,6 +392,7 @@ class CliTests(unittest.TestCase):
             self.assertIn("dry-run: python3 scripts/flexo_mms_env.py init --with-sysmlv2", result.output)
             self.assertIn("dry-run: copy deploy/syson/.env.example to deploy/syson/.env", result.output)
             self.assertIn(f"dry-run: initialize model workspace {workspace}", result.output)
+            self.assertIn('mbse-lab first-model "My First Model"', result.output)
             self.assertFalse(workspace.exists())
 
     def test_init_dry_run_prepares_files_without_starting_services(self) -> None:
@@ -371,7 +434,7 @@ class CliTests(unittest.TestCase):
     def test_flexo_env_init_renders_compose_with_docker_env_placeholders(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             env_dir = Path(temp_dir) / "flexo"
-            cluster = env_dir / "mount" / "cluster.trig"
+            cluster = env_dir / "mount" / "cluster.nq"
             cluster.parent.mkdir(parents=True)
             cluster.write_text("# local fixture\n", encoding="utf-8")
 
@@ -424,6 +487,15 @@ class CliTests(unittest.TestCase):
             self.assertIn("dry-run: create SysON project `Demo Model Review`", result.output)
             self.assertIn("dry-run: import package `Demo_Model`", result.output)
 
+    def test_first_model_dry_run_warns_when_workspace_unset(self) -> None:
+        runner = CliRunner()
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+            result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "first-model", "Demo Model", "--dry-run"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("warning: MBSE_MODEL_WORKSPACE is unset", result.output)
+        self.assertIn("repo-local `exports`", result.output)
+
     def test_flexo_export_wrapper_builds_bridge_command(self) -> None:
         runner = CliRunner()
         result = runner.invoke(
@@ -446,6 +518,30 @@ class CliTests(unittest.TestCase):
         self.assertIn("dry-run: python3 scripts/flexo_syson_bridge.py flexo-export project-1", result.output)
         self.assertIn("--commit-id commit-1", result.output)
         self.assertIn("--output out.json", result.output)
+
+    def test_bridge_render_wrapper_builds_report_command(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            [
+                "--repo-root",
+                str(ROOT),
+                "bridge",
+                "render",
+                "export.json",
+                "--output",
+                "out.sysml",
+                "--report",
+                "--report-output",
+                "render-report.json",
+                "--dry-run",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: python3 scripts/flexo_syson_bridge.py render-sysml export.json", result.output)
+        self.assertIn("--output out.sysml", result.output)
+        self.assertIn("--report --report-output render-report.json", result.output)
 
     def test_syson_roots_wrapper_builds_bridge_command(self) -> None:
         runner = CliRunner()
@@ -484,6 +580,36 @@ class CliTests(unittest.TestCase):
         self.assertIn("--namespace-id namespace-1", result.output)
         self.assertIn("--output-dir exports", result.output)
 
+    def test_bridge_run_create_syson_project_dry_run_shows_plan(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            [
+                "--repo-root",
+                str(ROOT),
+                "bridge",
+                "run",
+                "flexo-project-1",
+                "--create-syson-project",
+                "Imported From Flexo",
+                "--json-output",
+                "--dry-run",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: export Flexo project `flexo-project-1`", result.output)
+        self.assertIn("dry-run: create SysON review project `Imported From Flexo`", result.output)
+        self.assertIn("--create-syson-project Imported From Flexo", result.output)
+        self.assertIn("--json-output", result.output)
+
+    def test_bridge_run_requires_existing_or_created_syson_target(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "bridge", "run", "flexo-project-1", "--dry-run"])
+
+        self.assertNotEqual(result.exit_code, 0, result.output)
+        self.assertIn("Provide --syson-project-id and --namespace-id, or use --create-syson-project.", result.output)
+
     def test_services_up_dry_run_builds_start_commands(self) -> None:
         runner = CliRunner()
         result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "services", "up", "--timeout", "45", "--dry-run"])
@@ -491,6 +617,204 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertIn("dry-run: python3 scripts/flexo_mms_env.py up --wait --timeout 45", result.output)
         self.assertIn("dry-run: docker compose -f deploy/syson/docker-compose.yml up -d", result.output)
+
+    def test_wait_for_readiness_succeeds_after_retry(self) -> None:
+        probe = cli.ReadinessProbe("Demo API", "http://example.invalid/ready", "mbse-lab services up")
+        with (
+            mock.patch.object(cli, "fetch_status", side_effect=[None, 200]),
+            mock.patch.object(cli.time, "sleep") as sleep,
+        ):
+            cli.wait_for_readiness([probe], timeout=5, interval=0)
+
+        sleep.assert_called_once_with(0)
+
+    def test_wait_for_readiness_failure_explains_next_command(self) -> None:
+        probe = cli.ReadinessProbe("Demo API", "http://example.invalid/ready", "mbse-lab services up")
+        with (
+            mock.patch.object(cli, "fetch_status", return_value=None),
+            self.assertRaises(cli.click.ClickException) as raised,
+        ):
+            cli.wait_for_readiness([probe], timeout=0, interval=0)
+
+        self.assertIn("Service readiness failed after 0s", str(raised.exception))
+        self.assertIn("Demo API", str(raised.exception))
+        self.assertIn("no HTTP response", str(raised.exception))
+        self.assertIn("mbse-lab services up", str(raised.exception))
+
+    def test_services_up_waits_for_selected_service_apis(self) -> None:
+        runner = CliRunner()
+        with (
+            mock.patch.object(cli, "run_command") as run_command,
+            mock.patch.object(cli, "wait_for_readiness") as wait_for_readiness,
+        ):
+            result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "services", "up", "--no-flexo"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        run_command.assert_called_once_with(
+            ["docker", "compose", "-f", "deploy/syson/docker-compose.yml", "up", "-d"],
+            ROOT,
+            False,
+        )
+        wait_for_readiness.assert_called_once()
+        probes = wait_for_readiness.call_args.args[0]
+        self.assertEqual([probe.label for probe in probes], ["SysON Web UI"])
+
+    def test_bootstrap_waits_for_service_readiness_after_start(self) -> None:
+        runner = CliRunner()
+        with (
+            mock.patch.object(cli, "run_command") as run_command,
+            mock.patch.object(cli, "ensure_syson_env"),
+            mock.patch.object(cli, "wait_for_readiness") as wait_for_readiness,
+        ):
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "bootstrap",
+                    "--skip-flexo-org",
+                    "--skip-status",
+                    "--timeout",
+                    "45",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(run_command.call_count, 3)
+        self.assertIn("init", run_command.call_args_list[0].args[0])
+        self.assertIn("up", run_command.call_args_list[1].args[0])
+        self.assertIn("deploy/syson/docker-compose.yml", run_command.call_args_list[2].args[0])
+        wait_for_readiness.assert_called_once()
+        self.assertEqual(wait_for_readiness.call_args.args[1], 45)
+
+    def test_first_model_preflight_failure_stops_before_creating_projects(self) -> None:
+        runner = CliRunner()
+        with (
+            mock.patch.object(
+                cli,
+                "wait_for_readiness",
+                side_effect=cli.click.ClickException("Service readiness failed after 1s: Flexo unavailable"),
+            ),
+            mock.patch.object(cli, "create_flexo_project") as create_flexo_project,
+        ):
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "first-model",
+                    "Demo",
+                    "--output-dir",
+                    "/tmp/mbse-lab-demo",
+                    "--timeout",
+                    "1",
+                ],
+            )
+
+        self.assertNotEqual(result.exit_code, 0, result.output)
+        self.assertIn("Service readiness failed", result.output)
+        create_flexo_project.assert_not_called()
+
+    def test_smoke_first_use_dry_run_prints_planned_workflow_without_docker(self) -> None:
+        runner = CliRunner()
+        with mock.patch.object(cli, "run_command") as run_command:
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "smoke",
+                    "first-use",
+                    "--dry-run",
+                    "--output-dir",
+                    "/tmp/mbse-lab-smoke",
+                    "--report-dir",
+                    "/tmp/mbse-lab-report",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: start Flexo services", result.output)
+        self.assertIn("dry-run: create Flexo project `First Use Smoke Model`", result.output)
+        self.assertIn("dry-run: write lab report to /tmp/mbse-lab-report/index.md", result.output)
+        run_command.assert_not_called()
+
+    def test_smoke_first_use_dry_run_json_outputs_plan(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            [
+                "--repo-root",
+                str(ROOT),
+                "smoke",
+                "first-use",
+                "Demo Smoke",
+                "--dry-run",
+                "--json-output",
+                "--output-dir",
+                "/tmp/mbse-lab-smoke",
+                "--report-dir",
+                "/tmp/mbse-lab-report",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        summary = json.loads(result.output)
+        self.assertEqual(summary["status"], "dry-run")
+        self.assertEqual(summary["model"]["model_name"], "Demo Smoke")
+        self.assertEqual(summary["report_path"], "/tmp/mbse-lab-report/index.md")
+        self.assertIn("planned_steps", summary)
+
+    def test_smoke_first_use_live_outputs_json_summary(self) -> None:
+        runner = CliRunner()
+        model_summary = {
+            "flexo_project_id": "flexo-1",
+            "flexo_commit_id": "commit-1",
+            "package_id": "package-1",
+            "package_name": "Demo Smoke",
+            "export_path": "/tmp/mbse-lab-smoke/flexo/flexo-1.json",
+            "sysml_path": "/tmp/mbse-lab-smoke/sysml/flexo-1.sysml",
+            "syson_project_id": "syson-1",
+            "syson_project_name": "Demo Smoke Review",
+            "syson_commit_id": "syson-commit-1",
+            "namespace_id": "namespace-1",
+            "editing_context_id": "editing-context-1",
+            "import_result": {"__typename": "SuccessPayload", "id": "import-1"},
+            "syson_url": "http://localhost:18090",
+        }
+        with (
+            mock.patch.object(cli, "run_command") as run_command,
+            mock.patch.object(cli, "wait_for_readiness") as wait_for_readiness,
+            mock.patch.object(cli, "create_first_model_summary", return_value=model_summary) as create_model,
+            mock.patch.object(cli, "report_data", return_value={"doctor": {}, "status": {}}),
+            mock.patch.object(cli, "write_report") as write_report,
+        ):
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "smoke",
+                    "first-use",
+                    "Demo Smoke",
+                    "--json-output",
+                    "--output-dir",
+                    "/tmp/mbse-lab-smoke",
+                    "--report-dir",
+                    "/tmp/mbse-lab-report",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        summary = json.loads(result.output)
+        self.assertEqual(summary["status"], "passed")
+        self.assertEqual(summary["model"]["flexo_project_id"], "flexo-1")
+        self.assertEqual(summary["model"]["syson_project_id"], "syson-1")
+        self.assertEqual(summary["report_path"], "/tmp/mbse-lab-report/index.md")
+        self.assertEqual(run_command.call_count, 3)
+        wait_for_readiness.assert_called_once()
+        create_model.assert_called_once()
+        write_report.assert_called_once()
 
     def test_services_down_dry_run_stops_syson_before_flexo(self) -> None:
         runner = CliRunner()
@@ -518,6 +842,221 @@ class CliTests(unittest.TestCase):
         self.assertIn("dry-run: python3 scripts/flexo_mms_env.py logs --tail 25", result.output)
         self.assertIn("dry-run: docker compose -f deploy/syson/docker-compose.yml logs --tail 25 app", result.output)
 
+    def test_services_logs_dry_run_supports_follow_and_service_filters(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            [
+                "--repo-root",
+                str(ROOT),
+                "services",
+                "logs",
+                "--tail",
+                "10",
+                "--follow",
+                "--flexo-service",
+                "auth",
+                "--syson-service",
+                "database",
+                "--dry-run",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: python3 scripts/flexo_mms_env.py logs --tail 10 --follow auth", result.output)
+        self.assertIn(
+            "dry-run: docker compose -f deploy/syson/docker-compose.yml logs --tail 10 --follow database",
+            result.output,
+        )
+
+    def test_services_down_can_pass_flexo_volumes_flag(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            ["--repo-root", str(ROOT), "services", "down", "--no-syson", "--volumes", "--dry-run"],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: python3 scripts/flexo_mms_env.py down --volumes", result.output)
+
+    def test_diagnostics_exposes_script_options(self) -> None:
+        runner = CliRunner()
+        with mock.patch.object(cli, "run_command") as run_command:
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "diagnostics",
+                    "--public-safe",
+                    "--output",
+                    "diagnostics/demo",
+                    "--timeout",
+                    "31",
+                    "--log-tail",
+                    "7",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        run_command.assert_called_once_with(
+            [
+                "python3",
+                "scripts/collect_diagnostics.py",
+                "--public-safe",
+                "--output",
+                "diagnostics/demo",
+                "--timeout",
+                "31",
+                "--log-tail",
+                "7",
+            ],
+            ROOT,
+        )
+
+    def test_flexo_admin_wrappers_build_script_commands(self) -> None:
+        runner = CliRunner()
+        cases = [
+            (
+                ["flexo", "init-org", "--org-id", "demo", "--title", "Demo", "--dry-run"],
+                "dry-run: python3 scripts/flexo_syson_bridge.py init-flexo-org",
+            ),
+            (["flexo", "token", "--username", "user02", "--dry-run"], "python3 scripts/flexo_mms_env.py token"),
+            (["flexo", "backup", "--no-update-init", "--dry-run"], "python3 scripts/flexo_mms_env.py backup"),
+            (["flexo", "restore", "backup.nq", "--dry-run"], "python3 scripts/flexo_mms_env.py restore backup.nq"),
+            (["flexo", "rotate-secrets", "--dry-run"], "python3 scripts/flexo_mms_env.py rotate-secrets"),
+        ]
+        for args, expected in cases:
+            with self.subTest(args=args):
+                result = runner.invoke(cli.main, ["--repo-root", str(ROOT), *args])
+
+                self.assertEqual(result.exit_code, 0, result.output)
+                self.assertIn(expected, result.output)
+
+    def test_flexo_backup_does_not_update_init_by_default(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "flexo", "backup", "--dry-run"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("dry-run: python3 scripts/flexo_mms_env.py backup --timeout 60", result.output)
+        self.assertNotIn("--update-init", result.output)
+        self.assertNotIn("--no-update-init", result.output)
+
+    def test_flexo_backup_update_init_requires_acknowledgement(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "flexo", "backup", "--update-init", "--dry-run"])
+
+        self.assertNotEqual(result.exit_code, 0, result.output)
+        self.assertIn("--i-understand-this-updates-tracked-seed", result.output)
+
+    def test_flexo_backup_update_init_passes_high_intent_flags(self) -> None:
+        runner = CliRunner()
+        result = runner.invoke(
+            cli.main,
+            [
+                "--repo-root",
+                str(ROOT),
+                "flexo",
+                "backup",
+                "--update-init",
+                "--i-understand-this-updates-tracked-seed",
+                "--dry-run",
+            ],
+        )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertIn("--update-init --i-understand-this-updates-tracked-seed", result.output)
+
+    def test_flexo_backup_script_writes_ignored_backup_only_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            env_dir = root / "deploy/flexo-mms"
+            source = root / "source.nq"
+            output = root / "backup.nq"
+            source.write_text("<urn:s> <urn:p> <urn:o> .\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts/flexo_mms_env.py"),
+                    "--env-dir",
+                    str(env_dir),
+                    "backup",
+                    "--url",
+                    source.as_uri(),
+                    "--output",
+                    str(output),
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(output.read_text(encoding="utf-8"), source.read_text(encoding="utf-8"))
+            self.assertFalse((env_dir / "mount/cluster.nq").exists())
+
+    def test_flexo_backup_script_requires_high_intent_seed_update(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "source.nq"
+            output = root / "backup.nq"
+            source.write_text("<urn:s> <urn:p> <urn:o> .\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts/flexo_mms_env.py"),
+                    "--env-dir",
+                    str(root / "deploy/flexo-mms"),
+                    "backup",
+                    "--url",
+                    source.as_uri(),
+                    "--output",
+                    str(output),
+                    "--update-init",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("--i-understand-this-updates-tracked-seed", result.stderr)
+
+    def test_flexo_backup_script_updates_seed_with_explicit_acknowledgement(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            env_dir = root / "deploy/flexo-mms"
+            source = root / "source.nq"
+            output = root / "backup.nq"
+            source.write_text("<urn:s> <urn:p> <urn:o> .\n", encoding="utf-8")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(ROOT / "scripts/flexo_mms_env.py"),
+                    "--env-dir",
+                    str(env_dir),
+                    "backup",
+                    "--url",
+                    source.as_uri(),
+                    "--output",
+                    str(output),
+                    "--update-init",
+                    "--i-understand-this-updates-tracked-seed",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Only use this path for synthetic, publishable seed data.", result.stdout)
+            self.assertEqual(
+                (env_dir / "mount/cluster.nq").read_text(encoding="utf-8"), source.read_text(encoding="utf-8")
+            )
+
     def test_services_requires_at_least_one_service_family(self) -> None:
         runner = CliRunner()
         result = runner.invoke(
@@ -527,6 +1066,86 @@ class CliTests(unittest.TestCase):
 
         self.assertNotEqual(result.exit_code, 0, result.output)
         self.assertIn("Select at least one service family.", result.output)
+
+    def test_deployment_verify_can_target_compose_project(self) -> None:
+        runner = CliRunner()
+        with mock.patch.object(cli, "run_command") as run_command:
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "deployment",
+                    "verify",
+                    "--project-name",
+                    "mbse-lab-test",
+                    "--timeout",
+                    "12",
+                    "--json-output",
+                    "--output",
+                    "tmp/report.json",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        run_command.assert_called_once_with(
+            [
+                "python3",
+                "scripts/flexo_syson_bridge.py",
+                "deployment-verify",
+                "--timeout",
+                "12",
+                "--project-name",
+                "mbse-lab-test",
+                "--json",
+                "--output",
+                "tmp/report.json",
+            ],
+            ROOT,
+        )
+
+    def test_deployment_isolated_smoke_dry_run_builds_command(self) -> None:
+        runner = CliRunner()
+        with mock.patch.object(cli, "run_command") as run_command:
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "deployment",
+                    "isolated-smoke",
+                    "--project-name",
+                    "mbse-lab-test",
+                    "--runtime-dir",
+                    "tmp/isolated",
+                    "--timeout",
+                    "30",
+                    "--output",
+                    "tmp/report.json",
+                    "--keep",
+                    "--dry-run",
+                ],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        run_command.assert_called_once_with(
+            [
+                "python3",
+                "scripts/flexo_syson_bridge.py",
+                "deployment-isolated-smoke",
+                "--timeout",
+                "30",
+                "--project-name",
+                "mbse-lab-test",
+                "--runtime-dir",
+                "tmp/isolated",
+                "--output",
+                "tmp/report.json",
+                "--keep",
+                "--dry-run",
+            ],
+            ROOT,
+        )
 
     def test_share_check_passes_for_clean_git_repo(self) -> None:
         runner = CliRunner()
@@ -554,7 +1173,7 @@ class CliTests(unittest.TestCase):
             cli.run_capture(["git", "config", "user.name", "Test User"], repo)
             env = repo / "deploy" / "syson" / ".env"
             env.parent.mkdir(parents=True)
-            env.write_text("SYSON_POSTGRES_PASSWORD=pass" "word\n", encoding="utf-8")
+            env.write_text("SYSON_POSTGRES_PASSWORD=pass" "word\n", encoding="utf-8")  # fmt: skip
             cli.run_capture(["git", "add", "-f", "deploy/syson/.env"], repo)
 
             issues = cli.scan_share_issues(repo)
@@ -576,6 +1195,348 @@ class CliTests(unittest.TestCase):
             issues = cli.scan_share_issues(repo)
 
             self.assertIn("untracked generated export: exports/flexo/private.json", issues)
+
+    def test_share_check_flags_ignored_generated_export(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            cli.run_capture(["git", "init", "-b", "main"], repo)
+            cli.run_capture(["git", "config", "user.email", "test@example.invalid"], repo)
+            cli.run_capture(["git", "config", "user.name", "Test User"], repo)
+            (repo / ".gitignore").write_text("exports/**\n", encoding="utf-8")
+            export = repo / "exports" / "sysml" / "private.sysml"
+            export.parent.mkdir(parents=True)
+            export.write_text("package PrivateModel;\n", encoding="utf-8")
+
+            issues = cli.scan_share_issues(repo)
+
+            self.assertIn("untracked generated export: exports/sysml/private.sysml", issues)
+
+    def test_share_check_flags_tracked_generated_export(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            cli.run_capture(["git", "init", "-b", "main"], repo)
+            cli.run_capture(["git", "config", "user.email", "test@example.invalid"], repo)
+            cli.run_capture(["git", "config", "user.name", "Test User"], repo)
+            export = repo / "exports" / "flexo" / "private.json"
+            export.parent.mkdir(parents=True)
+            export.write_text("{}", encoding="utf-8")
+            cli.run_capture(["git", "add", "-f", "exports/flexo/private.json"], repo)
+
+            issues = cli.scan_share_issues(repo)
+
+            self.assertIn("tracked publish-blocked path: exports/flexo/private.json", issues)
+
+    def test_share_check_flags_tracked_model_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            cli.run_capture(["git", "init", "-b", "main"], repo)
+            cli.run_capture(["git", "config", "user.email", "test@example.invalid"], repo)
+            cli.run_capture(["git", "config", "user.name", "Test User"], repo)
+            model = repo / "docs" / "private.sysml"
+            model.parent.mkdir(parents=True)
+            model.write_text("package PrivateModel;\n", encoding="utf-8")
+            cli.run_capture(["git", "add", "docs/private.sysml"], repo)
+
+            issues = cli.scan_share_issues(repo)
+
+            self.assertIn("tracked model artifact outside curated allowlist: docs/private.sysml", issues)
+
+    def test_share_check_flags_dirty_flexo_startup_dataset(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir) / "repo"
+            repo.mkdir()
+            cli.run_capture(["git", "init", "-b", "main"], repo)
+            cli.run_capture(["git", "config", "user.email", "test@example.invalid"], repo)
+            cli.run_capture(["git", "config", "user.name", "Test User"], repo)
+            cluster = repo / "deploy" / "flexo-mms" / "mount" / "cluster.nq"
+            cluster.parent.mkdir(parents=True)
+            cluster.write_text("# synthetic seed\n", encoding="utf-8")
+            cli.run_capture(["git", "add", "deploy/flexo-mms/mount/cluster.nq"], repo)
+            cli.run_capture(["git", "commit", "-m", "seed"], repo)
+            cluster.write_text("# private live state\n", encoding="utf-8")
+
+            issues = cli.scan_share_issues(repo)
+
+            self.assertIn("dirty Flexo startup dataset: deploy/flexo-mms/mount/cluster.nq", issues)
+
+
+class SysonPasswordTests(unittest.TestCase):
+    """Tests for issue #10: Generate random SysON Postgres password during init/bootstrap."""
+
+    def test_ensure_syson_env_generates_random_password_not_placeholder(self) -> None:
+        from mbse_lab.workspace import SYSON_POSTGRES_PASSWORD_PLACEHOLDER, ensure_syson_env
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            example = repo / "deploy/syson/.env.example"
+            example.parent.mkdir(parents=True)
+            # Write a minimal .env.example using the real placeholder text so ensure_syson_env
+            # replaces it with a generated value.
+            example.write_text(
+                "SYSON_POSTGRES_IMAGE=postgres:15\n"
+                "SYSON_POSTGRES_DB=postgres\n"
+                "SYSON_POSTGRES_USER=username\n"
+                "SYSON_POSTGRES_PASSWORD=change-me\n",
+                encoding="utf-8",
+            )
+
+            ensure_syson_env(repo)
+
+            env_path = repo / "deploy/syson/.env"
+            self.assertTrue(env_path.exists())
+            env_content = env_path.read_text(encoding="utf-8")
+            self.assertNotIn(SYSON_POSTGRES_PASSWORD_PLACEHOLDER, env_content)
+            self.assertIn("SYSON_POSTGRES_PASSWORD=", env_content)
+
+    def test_ensure_syson_env_preserves_existing_env(self) -> None:
+        from mbse_lab.workspace import ensure_syson_env
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            env_path = repo / "deploy/syson/.env"
+            env_path.parent.mkdir(parents=True)
+            env_path.write_text("SYSON_POSTGRES_PASSWORD=my-custom-password\n", encoding="utf-8")
+
+            ensure_syson_env(repo)
+
+            self.assertEqual(env_path.read_text(encoding="utf-8"), "SYSON_POSTGRES_PASSWORD=my-custom-password\n")
+
+    def test_doctor_flags_placeholder_password(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            env_path = repo / "deploy/syson/.env"
+            env_path.parent.mkdir(parents=True)
+            env_path.write_text("SYSON_POSTGRES_PASSWORD=change-me\n", encoding="utf-8")
+
+            with mock.patch.object(health, "has_persisted_data", return_value=True):
+                report = health.syson_database_credential_report(repo)
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["status"], "placeholder-password")
+        self.assertIn("placeholder", report["detail"])
+
+    def test_doctor_report_includes_syson_password_placeholder_remediation_code(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            env_path = repo / "deploy/syson/.env"
+            env_path.parent.mkdir(parents=True)
+            env_path.write_text("SYSON_POSTGRES_PASSWORD=change-me\n", encoding="utf-8")
+
+            with (
+                mock.patch.object(health, "has_persisted_data", return_value=True),
+                mock.patch.object(health, "command_exists", return_value=True),
+                mock.patch.object(health, "tcp_connects", return_value=False),
+                mock.patch.object(health, "fetch_status", return_value=None),
+                mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
+            ):
+                report = health.doctor_report(repo)
+
+        self.assertIn("SYSON_PASSWORD_PLACEHOLDER", report["remediation_codes"])
+
+
+class WorkspacePreflightTests(unittest.TestCase):
+    """Tests for issue #11: Private workspace preflight for generated artifacts."""
+
+    def test_warn_when_workspace_unset_and_no_explicit_output(self) -> None:
+        self.assertTrue(cli.should_warn_repo_local_exports(None, allow_repo_exports=False))
+
+    def test_no_warn_when_explicit_output_given(self) -> None:
+        self.assertFalse(cli.should_warn_repo_local_exports(Path("/some/output"), allow_repo_exports=False))
+
+    def test_no_warn_when_allow_repo_exports_set(self) -> None:
+        self.assertFalse(cli.should_warn_repo_local_exports(None, allow_repo_exports=True))
+
+    def test_no_warn_when_workspace_env_is_set(self) -> None:
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": "/some/workspace"}):
+            self.assertFalse(cli.should_warn_repo_local_exports(None, allow_repo_exports=False))
+
+    def test_first_model_dry_run_no_warning_with_allow_repo_exports(self) -> None:
+        runner = CliRunner()
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+            result = runner.invoke(
+                cli.main,
+                ["--repo-root", str(ROOT), "first-model", "Demo", "--dry-run", "--allow-repo-exports"],
+            )
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertNotIn("warning: MBSE_MODEL_WORKSPACE is unset", result.output)
+
+    def test_flexo_export_warns_when_workspace_unset(self) -> None:
+        runner = CliRunner()
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+            result = runner.invoke(
+                cli.main,
+                ["--repo-root", str(ROOT), "flexo", "export", "proj-1", "--dry-run"],
+            )
+
+        self.assertIn("warning: MBSE_MODEL_WORKSPACE is unset", result.output)
+
+    def test_flexo_export_no_warning_with_allow_repo_exports(self) -> None:
+        runner = CliRunner()
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+            result = runner.invoke(
+                cli.main,
+                ["--repo-root", str(ROOT), "flexo", "export", "proj-1", "--dry-run", "--allow-repo-exports"],
+            )
+
+        self.assertNotIn("warning: MBSE_MODEL_WORKSPACE is unset", result.output)
+
+    def test_bridge_render_warns_when_workspace_unset(self) -> None:
+        runner = CliRunner()
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+            result = runner.invoke(
+                cli.main,
+                ["--repo-root", str(ROOT), "bridge", "render", "export.json", "--dry-run"],
+            )
+
+        self.assertIn("warning: MBSE_MODEL_WORKSPACE is unset", result.output)
+
+    def test_bridge_run_no_warning_with_explicit_output_dir(self) -> None:
+        runner = CliRunner()
+        with mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}):
+            result = runner.invoke(
+                cli.main,
+                [
+                    "--repo-root",
+                    str(ROOT),
+                    "bridge",
+                    "run",
+                    "flexo-proj",
+                    "--syson-project-id",
+                    "syson-proj",
+                    "--namespace-id",
+                    "ns-1",
+                    "--output-dir",
+                    "/tmp/explicit-output",
+                    "--dry-run",
+                ],
+            )
+
+        self.assertNotIn("warning: MBSE_MODEL_WORKSPACE is unset", result.output)
+
+
+class DoctorRemediationCodesTests(unittest.TestCase):
+    """Tests for issue #14: Remediation codes and grouped next steps in doctor."""
+
+    def test_doctor_report_includes_remediation_codes_key(self) -> None:
+        with (
+            mock.patch.object(health, "command_exists", return_value=True),
+            mock.patch.object(health, "tcp_connects", return_value=False),
+            mock.patch.object(health, "fetch_status", return_value=None),
+            mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
+        ):
+            report = health.doctor_report(None)
+
+        self.assertIn("remediation_codes", report)
+        self.assertIsInstance(report["remediation_codes"], list)
+
+    def test_doctor_report_includes_repo_root_missing_code(self) -> None:
+        with (
+            mock.patch.object(health, "command_exists", return_value=True),
+            mock.patch.object(health, "tcp_connects", return_value=False),
+            mock.patch.object(health, "fetch_status", return_value=None),
+            mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
+        ):
+            report = health.doctor_report(None)
+
+        self.assertIn("REPO_ROOT_MISSING", report["remediation_codes"])
+
+    def test_doctor_report_includes_workspace_unset_code(self) -> None:
+        with (
+            mock.patch.object(health, "command_exists", return_value=True),
+            mock.patch.object(health, "tcp_connects", return_value=False),
+            mock.patch.object(health, "fetch_status", return_value=None),
+            mock.patch.dict(os.environ, {"MBSE_MODEL_WORKSPACE": ""}),
+            mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
+        ):
+            report = health.doctor_report(None)
+
+        self.assertIn("WORKSPACE_UNSET", report["remediation_codes"])
+
+    def test_doctor_json_output_includes_remediation_codes(self) -> None:
+        runner = CliRunner()
+        mock_report = {
+            "status": "passed",
+            "checks": {
+                "repo_root": {"ok": True, "path": str(ROOT)},
+                "markers": [],
+            },
+            "remediation_codes": ["WORKSPACE_UNSET"],
+        }
+        with mock.patch.object(cli, "doctor_report", return_value=mock_report):
+            result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "doctor", "--json-output"])
+
+        self.assertEqual(result.exit_code, 0, result.output)
+        report = json.loads(result.output)
+        self.assertIn("remediation_codes", report)
+        self.assertIn("WORKSPACE_UNSET", report["remediation_codes"])
+
+    def test_doctor_text_output_has_grouped_sections(self) -> None:
+        runner = CliRunner()
+        with (
+            mock.patch.object(cli, "command_exists", return_value=True),
+            mock.patch.object(cli, "tcp_connects", return_value=False),
+            mock.patch.object(cli, "fetch_status", return_value=None),
+            mock.patch.object(cli.subprocess, "run", return_value=mock.Mock(returncode=0)),
+            mock.patch.object(
+                cli,
+                "doctor_report",
+                return_value={
+                    "status": "passed",
+                    "checks": {"syson_database_credentials": {"ok": True, "detail": "skipped", "status": "skipped"}},
+                    "remediation_codes": [],
+                },
+            ),
+        ):
+            result = runner.invoke(cli.main, ["--repo-root", str(ROOT), "doctor"])
+
+        self.assertIn("--- Prerequisites ---", result.output)
+        self.assertIn("--- Repo Setup ---", result.output)
+        self.assertIn("--- Workspace ---", result.output)
+        self.assertIn("--- Services ---", result.output)
+
+
+class DocsCheckMbseLabCommandsTests(unittest.TestCase):
+    """Tests for issue #12: docs-check validates mbse-lab command snippets."""
+
+    def test_valid_mbse_lab_commands_in_docs_pass(self) -> None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("check_docs", ROOT / "scripts" / "check_docs.py")
+        check_docs = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(check_docs)
+
+        failures: list[str] = []
+        check_docs.check_mbse_lab_commands(failures)
+        self.assertEqual(failures, [], f"Unexpected failures: {failures}")
+
+    def test_stale_mbse_lab_command_fails_docs_check(self) -> None:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("check_docs", ROOT / "scripts" / "check_docs.py")
+        check_docs = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(check_docs)
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".md", dir=ROOT / "docs", delete=False, encoding="utf-8"
+        ) as tmp_doc:
+            tmp_doc.write("# Test\n\n```bash\nmbse-lab nonexistent-command-xyz\n```\n")
+            tmp_path = Path(tmp_doc.name)
+
+        try:
+            with mock.patch.object(check_docs, "tracked_and_untracked_docs", return_value=[tmp_path]):
+                failures: list[str] = []
+                check_docs.check_mbse_lab_commands(failures)
+
+            self.assertTrue(
+                any("nonexistent-command-xyz" in f for f in failures),
+                f"Expected failure for stale command, got: {failures}",
+            )
+        finally:
+            tmp_path.unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

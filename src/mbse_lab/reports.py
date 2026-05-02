@@ -16,6 +16,84 @@ from mbse_lab.health import doctor_report, service_report
 from mbse_lab.share import scan_share_issues
 
 
+def report_path_label(path: Path, repo_root: Path) -> str:
+    try:
+        return path.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
+def latest_bridge_run_report(repo_root: Path) -> dict[str, object]:
+    run_dir = repo_root / "runs" / "flexo-to-syson"
+    run_logs = sorted(run_dir.glob("*.json"), key=lambda path: path.stat().st_mtime, reverse=True)
+    if not run_logs:
+        return {
+            "latest_exists": False,
+            "run_log": None,
+            "status": "not-found",
+            "artifacts": {},
+            "render_summary": None,
+            "import_status": None,
+        }
+
+    run_log = run_logs[0]
+    try:
+        record = json.loads(run_log.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        return {
+            "latest_exists": True,
+            "run_log": report_path_label(run_log, repo_root),
+            "status": "unreadable",
+            "artifacts": {},
+            "render_summary": None,
+            "import_status": None,
+            "error": f"could not parse run log: {exc}",
+        }
+
+    artifacts = record.get("artifacts", {}) if isinstance(record, dict) else {}
+    safe_artifacts: dict[str, str] = {}
+    if isinstance(artifacts, dict):
+        for name, raw_path in artifacts.items():
+            if isinstance(raw_path, str):
+                artifact_path = Path(raw_path)
+                if not artifact_path.is_absolute():
+                    artifact_path = repo_root / artifact_path
+                safe_artifacts[str(name)] = report_path_label(artifact_path, repo_root)
+
+    import_status = None
+    steps = record.get("steps", []) if isinstance(record, dict) else []
+    if isinstance(steps, list):
+        for step in steps:
+            if isinstance(step, dict) and step.get("name") == "import-syson":
+                import_status = step.get("status")
+
+    render_summary = None
+    render_report_path = safe_artifacts.get("render_report")
+    if render_report_path:
+        raw_render_report_path = Path(str(artifacts.get("render_report"))) if isinstance(artifacts, dict) else None
+        candidate = (
+            raw_render_report_path
+            if raw_render_report_path and raw_render_report_path.is_absolute()
+            else repo_root / render_report_path
+        )
+        if candidate.exists():
+            try:
+                render_report = json.loads(candidate.read_text(encoding="utf-8"))
+                if isinstance(render_report, dict) and isinstance(render_report.get("summary"), dict):
+                    render_summary = render_report["summary"]
+            except json.JSONDecodeError:
+                render_summary = {"status": "unreadable"}
+
+    return {
+        "latest_exists": True,
+        "run_log": report_path_label(run_log, repo_root),
+        "status": record.get("status", "unknown") if isinstance(record, dict) else "unknown",
+        "artifacts": safe_artifacts,
+        "render_summary": render_summary,
+        "import_status": import_status,
+    }
+
+
 def report_data(repo_root: Path) -> dict[str, object]:
     workspace = os.environ.get("MBSE_MODEL_WORKSPACE")
     diagnostics_index = repo_root / "diagnostics" / "latest" / "index.md"
@@ -36,6 +114,7 @@ def report_data(repo_root: Path) -> dict[str, object]:
             "latest_index": str(diagnostics_index.relative_to(repo_root)),
             "latest_exists": diagnostics_index.exists(),
         },
+        "bridge": latest_bridge_run_report(repo_root),
     }
 
 
@@ -52,6 +131,7 @@ def render_report_markdown(data: dict[str, object]) -> str:
     status = data["status"] if isinstance(data.get("status"), dict) else {}
     doctor = data["doctor"] if isinstance(data.get("doctor"), dict) else {}
     diagnostics = data["diagnostics"] if isinstance(data.get("diagnostics"), dict) else {}
+    bridge = data["bridge"] if isinstance(data.get("bridge"), dict) else {}
     service_urls = data["service_urls"] if isinstance(data.get("service_urls"), dict) else {}
 
     containers = status.get("containers", []) if isinstance(status, dict) else []
@@ -95,6 +175,26 @@ def render_report_markdown(data: dict[str, object]) -> str:
         lines.append(f"- Latest diagnostics: `{diagnostics.get('latest_index')}`")
     else:
         lines.append("- Latest diagnostics: not found")
+    lines.extend(["", "## Bridge Evidence", ""])
+    if bridge.get("latest_exists"):
+        lines.append(f"- Latest run log: `{bridge.get('run_log')}`")
+        lines.append(f"- Workflow status: `{bridge.get('status', 'unknown')}`")
+        if bridge.get("import_status") is not None:
+            lines.append(f"- SysON import step: `{bridge.get('import_status')}`")
+        artifacts = bridge.get("artifacts", {})
+        if isinstance(artifacts, dict) and artifacts:
+            for name, path in sorted(artifacts.items()):
+                lines.append(f"- Artifact `{name}`: `{path}`")
+        render_summary = bridge.get("render_summary")
+        if isinstance(render_summary, dict):
+            lines.append(
+                "- Render coverage: "
+                f"`{render_summary.get('rendered_elements', 'unknown')}` rendered, "
+                f"`{render_summary.get('skipped_elements', 'unknown')}` skipped, "
+                f"`{render_summary.get('unsupported_elements', 'unknown')}` unsupported"
+            )
+    else:
+        lines.append("- Latest bridge run: not found")
     lines.extend(["", "## Share Check", ""])
     if isinstance(share_issues, list) and share_issues:
         lines.extend(f"- {issue}" for issue in share_issues)

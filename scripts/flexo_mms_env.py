@@ -19,7 +19,7 @@ import urllib.request
 from pathlib import Path
 
 DEFAULT_ENV_DIR = Path("deploy/flexo-mms")
-CLUSTER_TRIG_URL = (
+CLUSTER_SEED_URL = (
     "https://raw.githubusercontent.com/Open-MBEE/flexo-mms-deployment/" "develop/docker-compose/mount/cluster.trig"
 )
 
@@ -72,7 +72,7 @@ FLEXO_MMS_GRAPH_STORE_PROTOCOL_URL=http://quad-server:3030/ds/data
 FLEXO_MMS_ARTIFACT_USE_STORE=true
 """,
     "env/flexo-mms-quad-store.env.example": """\
-JAVA_OPTIONS="-Xmx4096m -Xms1024m"
+JAVA_OPTIONS=-XX:-UseContainerSupport -Xmx512m -Xms128m
 """,
     "env/flexo-mms-store.env.example": """\
 S3_ENDPOINT=http://minio-server:9000
@@ -109,7 +109,7 @@ services:
     container_name: quad-server
     env_file:
       - ./env/flexo-mms-quad-store.env
-    command: --file=/tmp/mount/cluster.trig --update /ds
+    command: --file=/tmp/mount/cluster.nq --update /ds
     volumes:
       - ./mount:/tmp/mount
     ports:
@@ -329,16 +329,16 @@ FLEXO_AUTH="Bearer {service_token}"
     }
 
 
-def download_cluster_trig(target: Path, force: bool) -> bool:
+def download_cluster_seed(target: Path, force: bool) -> bool:
     if target.exists() and not force:
         return False
     target.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with urllib.request.urlopen(CLUSTER_TRIG_URL, timeout=30) as response:
+        with urllib.request.urlopen(CLUSTER_SEED_URL, timeout=30) as response:
             target.write_bytes(response.read())
     except (urllib.error.URLError, TimeoutError) as exc:
         fail(
-            "could not download cluster.trig from OpenMBEE. "
+            "could not download the Flexo startup seed from OpenMBEE. "
             f"Create {target} manually or rerun with network access. Details: {exc}"
         )
     return True
@@ -368,8 +368,8 @@ def cmd_init(args: argparse.Namespace) -> None:
     if write_file(compose_path, compose_contents, args.force):
         changed.append(compose_path)
 
-    cluster_path = env_dir / "mount" / "cluster.trig"
-    if download_cluster_trig(cluster_path, args.force):
+    cluster_path = env_dir / "mount" / "cluster.nq"
+    if download_cluster_seed(cluster_path, args.force):
         changed.append(cluster_path)
 
     readme = env_dir / "README.md"
@@ -441,8 +441,8 @@ def read_env_value(path: Path, key: str, default: str) -> str:
 def ensure_initialized(env_dir: Path) -> None:
     if not compose_file(env_dir).exists():
         fail(f"{compose_file(env_dir)} does not exist. Run `init` first.")
-    if not (env_dir / "mount" / "cluster.trig").exists():
-        fail(f"{env_dir / 'mount' / 'cluster.trig'} does not exist. Run `init --force` to download it.")
+    if not (env_dir / "mount" / "cluster.nq").exists():
+        fail(f"{env_dir / 'mount' / 'cluster.nq'} does not exist. Run `init --force` to download it.")
 
 
 def cmd_up(args: argparse.Namespace) -> None:
@@ -581,6 +581,14 @@ def cmd_token(args: argparse.Namespace) -> None:
 
 
 def cmd_backup(args: argparse.Namespace) -> None:
+    if args.update_init and not args.i_understand_this_updates_tracked_seed:
+        fail(
+            "updating mount/cluster.nq requires "
+            "--i-understand-this-updates-tracked-seed because it is tracked startup data"
+        )
+    if args.i_understand_this_updates_tracked_seed and not args.update_init:
+        fail("--i-understand-this-updates-tracked-seed requires --update-init")
+
     env_dir = args.env_dir
     fuseki_port = read_env_value(env_dir / ".env", "FLEXO_MMS_FUSEKI_HOST_PORT", "3030")
     url = args.url or f"http://localhost:{fuseki_port}/ds"
@@ -602,7 +610,8 @@ def cmd_backup(args: argparse.Namespace) -> None:
     info(f"Wrote dataset backup: {output}")
 
     if args.update_init:
-        init_path = env_dir / "mount" / "cluster.trig"
+        init_path = env_dir / "mount" / "cluster.nq"
+        info("WARNING: updating tracked startup dataset. " "Only use this path for synthetic, publishable seed data.")
         init_path.parent.mkdir(parents=True, exist_ok=True)
         init_path.write_bytes(contents)
         info(f"Updated startup dataset file: {init_path}")
@@ -612,7 +621,7 @@ def cmd_restore(args: argparse.Namespace) -> None:
     backup = args.backup
     if not backup.exists():
         fail(f"backup file does not exist: {backup}")
-    init_path = args.env_dir / "mount" / "cluster.trig"
+    init_path = args.env_dir / "mount" / "cluster.nq"
     init_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(backup, init_path)
     info(f"Restored startup dataset file from {backup} to {init_path}")
@@ -673,15 +682,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     backup_parser.add_argument("--timeout", type=int, default=60, help="HTTP timeout in seconds.")
     backup_parser.add_argument(
+        "--update-init",
+        dest="update_init",
+        action="store_true",
+        help="Also refresh tracked mount/cluster.nq after exporting the backup.",
+    )
+    backup_parser.add_argument(
         "--no-update-init",
         dest="update_init",
         action="store_false",
-        help="Do not refresh mount/cluster.trig after exporting the backup.",
+        help="Compatibility no-op. Backup does not refresh mount/cluster.nq by default.",
     )
-    backup_parser.set_defaults(func=cmd_backup, update_init=True)
+    backup_parser.add_argument(
+        "--i-understand-this-updates-tracked-seed",
+        action="store_true",
+        help="Required with --update-init to acknowledge that tracked seed data must be publishable.",
+    )
+    backup_parser.set_defaults(func=cmd_backup, update_init=False)
 
-    restore_parser = subparsers.add_parser("restore", help="Restore mount/cluster.trig from a backup file.")
-    restore_parser.add_argument("backup", type=Path, help="Backup file to copy into mount/cluster.trig.")
+    restore_parser = subparsers.add_parser("restore", help="Restore mount/cluster.nq from a backup file.")
+    restore_parser.add_argument("backup", type=Path, help="Backup file to copy into mount/cluster.nq.")
     restore_parser.set_defaults(func=cmd_restore)
 
     return parser

@@ -60,6 +60,8 @@ FORBIDDEN_TRACKED_PREFIXES = (
     "deploy/flexo-mms/env/",
     "deploy/flexo-mms/data/",
     "deploy/syson/data/postgres/",
+    "exports/flexo/",
+    "exports/sysml/",
 )
 
 FORBIDDEN_UNTRACKED_PREFIXES = (

@@ -2,8 +2,15 @@
 
 This is the initial bridge path:
 
-```text
-Flexo SysML v2 REST JSON -> SysML v2 textual .sysml -> SysON GraphQL import
+```mermaid
+flowchart LR
+    flexo["Flexo project<br/>SysML v2 REST API"]
+    export["Flexo JSON export<br/>exports/flexo/*.json"]
+    render["text renderer<br/>supported SysML v2 subset"]
+    sysml["SysML v2 text<br/>exports/sysml/*.sysml"]
+    syson["SysON project<br/>GraphQL textual import"]
+
+    flexo --> export --> render --> sysml --> syson
 ```
 
 The script is intentionally conservative. It preserves the Flexo JSON export and
@@ -28,67 +35,84 @@ $MBSE_MODEL_WORKSPACE/exports/
 ```
 
 Use explicit `--output` or `--output-dir` paths when a run needs a different
-location.
+location. The canonical boundary is documented in
+[Private Model Workspaces](../user-guide/private-model-workspaces.md).
 
 ## Preflight
 
 Make sure both stacks are running:
 
 ```bash
-python3 scripts/flexo_mms_env.py status --with-sysmlv2
-docker compose -f deploy/syson/docker-compose.yml ps
+mbse-lab status
 ```
 
 Initialize the Flexo org used by the SysML v2 service if project creation fails
 with `Org <http://layer1-service/orgs/sysmlv2> does not exist`:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py init-flexo-org
-python3 scripts/flexo_mms_env.py backup
+mbse-lab flexo init-org
+mbse-lab flexo backup
 ```
 
-The backup matters because the local Fuseki container starts from
-`deploy/flexo-mms/mount/cluster.trig`.
+The backup writes ignored N-Quads data under `deploy/flexo-mms/backups/`.
+Refreshing the tracked startup seed requires `mbse-lab flexo backup
+--update-init --i-understand-this-updates-tracked-seed` and should be used only
+for synthetic, publishable seed data.
+
+| Check | Command | Expected signal |
+| --- | --- | --- |
+| Service status | `mbse-lab status` | Flexo and SysON containers are reachable. |
+| Flexo org exists | `mbse-lab flexo init-org` | Needed only when project creation reports the missing `sysmlv2` org. |
+| Graph backup exists | `mbse-lab flexo backup` | Ignored backup file is written under `deploy/flexo-mms/backups/`. |
 
 ## Flexo Commands
 
-```bash
-python3 scripts/flexo_syson_bridge.py flexo-list-projects
-python3 scripts/flexo_syson_bridge.py flexo-create-project "Example Model"
-python3 scripts/flexo_syson_bridge.py flexo-export <flexo-project-id>
-python3 scripts/flexo_syson_bridge.py render-sysml exports/flexo/<flexo-project-id>.json
-```
+| Task | CLI command |
+| --- | --- |
+| List projects | `mbse-lab flexo list` |
+| Create project | `mbse-lab flexo create "Example Model"` |
+| Export JSON | `mbse-lab flexo export <flexo-project-id>` |
+| Render SysML text | `mbse-lab bridge render exports/flexo/<flexo-project-id>.json --report` |
 
 ## SysON Commands
 
-Create a SysON project:
+| Task | CLI command |
+| --- | --- |
+| Create project | `mbse-lab syson create "Imported From Flexo"` |
+| Find import namespace | `mbse-lab syson roots <syson-project-id>` |
+| Import SysML text | `mbse-lab bridge import exports/sysml/<flexo-project-id>.sysml --project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
+| Run full pipeline | `mbse-lab bridge run <flexo-project-id> --create-syson-project "Imported From Flexo"` |
+
+The roots command resolves the latest SysON REST commit before fetching root
+namespace elements. Use `mbse-lab syson roots <syson-project-id> --json-output`
+when you need the raw root package ID for `--namespace-id`.
+
+For the full pipeline, the expanded CLI form is:
 
 ```bash
-python3 scripts/flexo_syson_bridge.py syson-create-project "Imported From Flexo"
+mbse-lab bridge run <flexo-project-id> \
+  --create-syson-project "Imported From Flexo" \
+  --json-output
 ```
 
-Find a namespace/root element to import into:
+Use `--syson-project-id` and `--namespace-id` when importing into an existing
+SysON project. With `--create-syson-project`, the bridge creates the review
+project, discovers its root package, writes the Flexo export, SysML text,
+render report, and run log, then prints the created SysON IDs and URL.
 
-```bash
-python3 scripts/flexo_syson_bridge.py syson-roots <syson-project-id>
-```
+## Artifacts
 
-Import a generated `.sysml` file:
+| Artifact | Default location | Share guidance |
+| --- | --- | --- |
+| Flexo JSON export | `exports/flexo/<flexo-project-id>.json` | Keep private unless the model is synthetic and publishable. |
+| Rendered SysML text | `exports/sysml/<flexo-project-id>.sysml` | Derived from the export; keep private for real models. |
+| Render coverage report | `exports/sysml/render-report.json` or `exports/reports/<flexo-project-id>.render-report.json` | Counts rendered, skipped, and unsupported element types without embedding model text. |
+| Full-pipeline run log | `runs/flexo-to-syson/` | Ignored by git; may include private project IDs and names. |
+| Private workspace exports | `$MBSE_MODEL_WORKSPACE/exports/` | Preferred location for real model bridge artifacts. |
 
-```bash
-python3 scripts/flexo_syson_bridge.py syson-import-text \
-  exports/sysml/<flexo-project-id>.sysml \
-  --project-id <syson-project-id> \
-  --namespace-id <syson-root-package-id>
-```
-
-Or run the full pipeline:
-
-```bash
-python3 scripts/flexo_syson_bridge.py flexo-to-syson <flexo-project-id> \
-  --syson-project-id <syson-project-id> \
-  --namespace-id <syson-root-package-id>
-```
+`mbse-lab report` links the latest full-pipeline run log and bridge artifact
+paths when a run log exists. It reports workflow status, SysON import status,
+and render coverage counts, but it does not embed Flexo JSON or SysML text.
 
 ## Current Scope
 
@@ -112,3 +136,26 @@ The renderer currently handles a practical subset:
 
 Unsupported element types remain in the raw Flexo JSON export but are not emitted
 into the textual `.sysml` file yet.
+
+## Renderer Reuse Assessment
+
+A reuse spike checked whether this bridge could replace the local renderer with
+an existing SysML v2 JSON-to-text path. No supported offline renderer was found.
+SysON can export textual SysML from existing SysON EMF documents, but its public
+REST data-version facade did not materialize a tested API-shaped Flexo payload
+into an exportable document. The OMG SysML v2 Pilot Implementation has a
+repository API to EMF path, but no supported JSON file to `.sysml` command.
+
+For now, the supported path remains the conservative Python renderer shown
+above. Keep additions fixture-driven, update
+[Modeling Conventions](modeling-conventions.md), and validate generated text
+through SysON import behavior before broadening the subset.
+
+## Related Docs
+
+| Page | Why it matters |
+| --- | --- |
+| [CLI](../user-guide/cli.md) | Describes the user-facing `mbse-lab bridge`, `flexo`, and `syson` commands. |
+| [Private Model Workspaces](../user-guide/private-model-workspaces.md) | Defines where generated model artifacts should live. |
+| [Modeling Conventions](modeling-conventions.md) | Lists supported rendered element types and naming rules. |
+| [Transformation Pipeline](../methodology/sysml-v2-transformation-pipeline-design.md) | Places the bridge in the broader model transformation strategy. |

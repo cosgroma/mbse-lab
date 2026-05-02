@@ -3,6 +3,10 @@ name: Live smoke
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read
+
 concurrency:
   group: live-smoke-${{ github.ref }}
   cancel-in-progress: false

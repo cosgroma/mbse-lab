@@ -36,6 +36,8 @@ docs/user-guide/private-model-workspaces.md
 docs/lab/flexo-syson-bridge.md   Bridge-specific notes
 docs/lab/harness-engineering.md   Harness design and eval/diagnostics guidance
 docs/lab/modeling-conventions.md  Supported SysML v2 rendering subset
+docs/lab/view-editor-flexo-experiment.md
+                                  View Editor compatibility evidence
 docs/methodology/                 Reusable SysML v2 method guidance
 docs/model-specs/                 General-purpose model specifications
 docs/plans/README.md              Execution plan conventions
@@ -43,6 +45,10 @@ deploy/flexo-mms/docker-compose.yml
 deploy/flexo-mms/README.md        Flexo deployment-specific operations
 deploy/syson/docker-compose.yml
 deploy/syson/README.md            SysON deployment-specific operations
+deploy/view-editor/docker-compose.yml
+deploy/view-editor/README.md      Experimental View Editor compatibility probe
+deploy/view-editor-5/docker-compose.yml
+deploy/view-editor-5/README.md    Source-built View Editor 5.x experiment
 scripts/flexo_mms_env.py          Flexo environment manager
 scripts/flexo_syson_bridge.py     Flexo/SysON bridge CLI
 Makefile                          Stable command targets for routine workflows

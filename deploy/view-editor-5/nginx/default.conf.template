@@ -1,0 +1,22 @@
+server {
+    listen ${NGINX_PORT};
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location = /api {
+        return 308 /api/;
+    }
+
+    location /api/ {
+        proxy_pass ${VE_API_UPSTREAM}/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Forwarded-Proto http;
+    }
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

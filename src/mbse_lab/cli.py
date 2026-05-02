@@ -1336,8 +1336,9 @@ def bridge_import(
 @bridge.command("run")
 @click.argument("flexo_project_id")
 @click.option("--commit-id")
-@click.option("--syson-project-id", required=True)
-@click.option("--namespace-id", required=True)
+@click.option("--syson-project-id")
+@click.option("--namespace-id")
+@click.option("--create-syson-project", help="Create a SysON review project and import into its root package.")
 @click.option("--editing-context-id")
 @click.option("--output-dir", type=click.Path(path_type=Path))
 @click.option("--run-log", type=click.Path(path_type=Path))
@@ -1345,6 +1346,7 @@ def bridge_import(
 @click.option("--flexo-url", default=DEFAULT_FLEXO_URL, show_default=True)
 @click.option("--syson-url", default=DEFAULT_SYSON_URL, show_default=True)
 @click.option("--timeout", type=int, default=30, show_default=True)
+@click.option("--json-output", is_flag=True, help="Print a machine-readable JSON summary.")
 @click.option("--dry-run", is_flag=True)
 @click.option(
     "--allow-repo-exports",
@@ -1356,8 +1358,9 @@ def bridge_run(
     ctx: click.Context,
     flexo_project_id: str,
     commit_id: str | None,
-    syson_project_id: str,
-    namespace_id: str,
+    syson_project_id: str | None,
+    namespace_id: str | None,
+    create_syson_project: str | None,
     editing_context_id: str | None,
     output_dir: Path | None,
     run_log: Path | None,
@@ -1365,19 +1368,22 @@ def bridge_run(
     flexo_url: str,
     syson_url: str,
     timeout: int,
+    json_output: bool,
     dry_run: bool,
     allow_repo_exports: bool,
 ) -> None:
     """Export from Flexo, render SysML text, and import into SysON."""
+    if create_syson_project and (syson_project_id or namespace_id):
+        raise click.ClickException(
+            "--create-syson-project cannot be combined with --syson-project-id or --namespace-id"
+        )
+    if not create_syson_project and (not syson_project_id or not namespace_id):
+        raise click.ClickException("Provide --syson-project-id and --namespace-id, or use --create-syson-project.")
     if should_warn_repo_local_exports(output_dir, allow_repo_exports):
         warn_repo_local_exports(default_output_dir())
     args = [
         "flexo-to-syson",
         flexo_project_id,
-        "--syson-project-id",
-        syson_project_id,
-        "--namespace-id",
-        namespace_id,
         "--flexo-url",
         flexo_url,
         "--syson-url",
@@ -1385,6 +1391,12 @@ def bridge_run(
         "--timeout",
         str(timeout),
     ]
+    if create_syson_project:
+        args.extend(["--create-syson-project", create_syson_project])
+    else:
+        args.extend(["--syson-project-id", syson_project_id, "--namespace-id", namespace_id])
+    if json_output:
+        args.append("--json-output")
     for option, value in (
         ("--commit-id", commit_id),
         ("--editing-context-id", editing_context_id),
@@ -1394,6 +1406,16 @@ def bridge_run(
     ):
         if value:
             args.extend([option, str(value)])
+    if dry_run and create_syson_project:
+        for step in (
+            f"export Flexo project `{flexo_project_id}`",
+            "render SysML text and render coverage report",
+            f"create SysON review project `{create_syson_project}`",
+            "discover SysON root namespace",
+            "import rendered SysML into SysON",
+            "write bridge run log",
+        ):
+            click.echo(f"dry-run: {step}")
     run_bridge(ctx, args, dry_run)
 
 

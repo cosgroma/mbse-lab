@@ -62,7 +62,7 @@ example model without the full smoke workflow.
 | Stop services | `mbse-lab services down` | Keeps persisted service data. |
 | Create demo model | `mbse-lab first-model "My First Model"` | Creates one Flexo project and imports it into SysON. |
 | Prove first-use path | `mbse-lab smoke first-use --json-output` | Starts services, creates/imports a disposable model, and writes a report. |
-| Bridge existing model | `mbse-lab bridge run <flexo-project-id>` | Requires a target SysON project and namespace today. |
+| Bridge existing model | `mbse-lab bridge run <flexo-project-id> --create-syson-project "Imported From Flexo"` | Creates a SysON review project and imports into its root package. |
 | Collect diagnostics | `mbse-lab diagnostics` | Use after service failures. |
 | Generate report | `mbse-lab report` | Writes Markdown, HTML, and JSON under `reports/latest/`. |
 | Clean generated local output | `mbse-lab cleanup --dry-run` | Remove reports, diagnostics, runs, and temp output after previewing. |
@@ -248,8 +248,8 @@ Routine bridge operations are also available through the CLI:
 mbse-lab flexo list
 mbse-lab syson list
 mbse-lab bridge run <flexo-project-id> \
-  --syson-project-id <syson-project-id> \
-  --namespace-id <syson-root-package-id>
+  --create-syson-project "Imported From Flexo" \
+  --json-output
 ```
 
 Before sharing or publishing the tooling repo, run:
@@ -432,7 +432,7 @@ reset the environment.
 | Create a SysON project | `mbse-lab syson create "Imported From Flexo"` |
 | Find a SysON import namespace | `mbse-lab syson roots <syson-project-id>` |
 | Import a `.sysml` file into SysON | `mbse-lab bridge import exports/sysml/<flexo-project-id>.sysml --project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
-| Run the full Flexo-to-SysON pipeline | `mbse-lab bridge run <flexo-project-id> --syson-project-id <syson-project-id> --namespace-id <syson-root-package-id>` |
+| Run the full Flexo-to-SysON pipeline | `mbse-lab bridge run <flexo-project-id> --create-syson-project "Imported From Flexo"` |
 
 Default artifacts are written under `exports/flexo/` and `exports/sysml/`, or
 under `$MBSE_MODEL_WORKSPACE/exports/` when the private workspace variable is

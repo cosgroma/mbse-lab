@@ -77,6 +77,7 @@ flowchart LR
 | [Bridge Workflow](lab/flexo-syson-bridge.md) | Exporting from Flexo, rendering textual SysML v2, and importing into SysON. |
 | [Harness Engineering](lab/harness-engineering.md) | Understanding command surfaces, guardrails, evals, diagnostics, and agent-oriented operating rules. |
 | [Feature Development Agent Prompt](lab/feature-development-agent-prompt.md) | Copyable fresh-agent prompt for proposal-backed feature implementation. |
+| [Feature Development Prompt Pack](lab/feature-development-prompt-pack.md) | Filled, copyable prompts for selected proposal-backed feature issues. |
 | [Modeling Conventions](lab/modeling-conventions.md) | Checking which Flexo element types are rendered into textual SysML v2 and how names are sanitized. |
 | [View Editor Flexo Experiment](lab/view-editor-flexo-experiment.md) | Final compatibility report and request evidence for the experimental OpenMBEE View Editor deployments. |
 

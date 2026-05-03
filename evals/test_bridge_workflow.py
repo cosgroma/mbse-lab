@@ -58,6 +58,8 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("committed with a focused message", text)
         self.assertIn("recommended next chunk", text)
         self.assertIn("Runtime secrets and local service data are intentionally ignored", text)
+        self.assertIn("docs/roadmap.md", text)
+        self.assertIn("docs/plans/proposals/", text)
         self.assertIn("docs/plans/active/", text)
         self.assertIn("docs/plans/completed/", text)
         self.assertIn("GitHub CI workflow runs pre-commit", text)

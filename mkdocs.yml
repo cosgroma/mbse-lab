@@ -22,6 +22,7 @@ plugins:
 
 nav:
   - Home: index.md
+  - Roadmap: roadmap.md
   - User Guide:
       - Private Model Workspaces: user-guide/private-model-workspaces.md
       - CLI: user-guide/cli.md
@@ -34,6 +35,8 @@ nav:
   - Local Lab:
       - Bridge Workflow: lab/flexo-syson-bridge.md
       - Harness Engineering: lab/harness-engineering.md
+      - Feature Development Agent Prompt: lab/feature-development-agent-prompt.md
+      - Feature Development Prompt Pack: lab/feature-development-prompt-pack.md
       - Modeling Conventions: lab/modeling-conventions.md
       - View Editor Flexo Experiment: lab/view-editor-flexo-experiment.md
   - Methodology:
@@ -49,8 +52,20 @@ nav:
       - Enterprise Architecture: model-specs/enterprise-architecture.md
   - Plans:
       - Overview: plans/README.md
+      - Feature Proposals: plans/proposals/README.md
+      - Feature Pre-Plan Template: plans/proposals/feature-preplan-template.md
+      - Backup-First Reset Workflow: plans/proposals/backup-first-reset-workflow.md
+      - Bridge Import Preflight: plans/proposals/bridge-import-preflight.md
+      - Bridge Snapshot Diff: plans/proposals/bridge-snapshot-diff.md
+      - Environment Profiles: plans/proposals/environment-profiles.md
+      - Model-Like JSON Share Check: plans/proposals/model-like-json-share-check.md
+      - Optional SysML v2 Starter Libraries: plans/proposals/optional-sysml-v2-starter-libraries.md
+      - Polished HTML Report: plans/proposals/polished-html-report.md
+      - Snapshot Evidence Bundle: plans/proposals/snapshot-evidence-bundle.md
+      - SysML Coverage Matrix Gate: plans/proposals/sysml-coverage-matrix-gate.md
       - MVP Feature Catalog: plans/active/mvp-feature-catalog.md
       - Usability Remediation: plans/active/usability-remediation.md
+      - SysML JSON Rendering Reuse Spike: plans/active/sysml-json-rendering-reuse-spike.md
       - View Editor Flexo Experiment: plans/completed/openmbee-view-editor-flexo-experiment.md
       - MBSE Lab SysML Model: plans/active/mbse-lab-sysml-model-plan.md
   - Reviews:

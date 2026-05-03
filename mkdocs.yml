@@ -22,6 +22,7 @@ plugins:
 
 nav:
   - Home: index.md
+  - Roadmap: roadmap.md
   - User Guide:
       - Private Model Workspaces: user-guide/private-model-workspaces.md
       - CLI: user-guide/cli.md
@@ -49,8 +50,11 @@ nav:
       - Enterprise Architecture: model-specs/enterprise-architecture.md
   - Plans:
       - Overview: plans/README.md
+      - Feature Proposals: plans/proposals/README.md
+      - Feature Pre-Plan Template: plans/proposals/feature-preplan-template.md
       - MVP Feature Catalog: plans/active/mvp-feature-catalog.md
       - Usability Remediation: plans/active/usability-remediation.md
+      - SysML JSON Rendering Reuse Spike: plans/active/sysml-json-rendering-reuse-spike.md
       - View Editor Flexo Experiment: plans/completed/openmbee-view-editor-flexo-experiment.md
       - MBSE Lab SysML Model: plans/active/mbse-lab-sysml-model-plan.md
   - Reviews:

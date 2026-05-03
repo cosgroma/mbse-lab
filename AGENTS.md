@@ -31,6 +31,7 @@ WORKFLOW.md                       Repo-owned workflow contract for agent work
 mkdocs.yml                        MkDocs site navigation and build configuration
 pyproject.toml                    Ruff and Hatch environment configuration
 docs/index.md                     Documentation landing page
+docs/roadmap.md                   Durable roadmap, planning gates, and non-goals
 docs/user-guide/private-model-workspaces.md
                                   Private model workspace guidance
 docs/lab/flexo-syson-bridge.md   Bridge-specific notes
@@ -42,7 +43,8 @@ docs/methodology/                 Reusable SysML v2 method guidance
 docs/model-specs/                 General-purpose model specifications
 docs/model-specs/mbse-lab-tool-system.md
                                   SysML v2 model specification for this lab tool system
-docs/plans/README.md              Execution plan conventions
+docs/plans/README.md              Proposal and execution plan conventions
+docs/plans/proposals/             Feature pre-planning templates and proposals
 deploy/flexo-mms/docker-compose.yml
 deploy/flexo-mms/README.md        Flexo deployment-specific operations
 deploy/syson/docker-compose.yml
@@ -60,6 +62,14 @@ Makefile                          Stable command targets for routine workflows
 Only curated, publishable example output should live under `exports/`. Real
 model exports should go to a private model workspace, usually through
 `MBSE_MODEL_WORKSPACE`.
+
+## Feature Planning
+
+Use `docs/roadmap.md` for the short, authoritative Now/Next/Later roadmap. Use
+`docs/plans/proposals/` for feature pre-planning before changing CLI workflow
+shape, data or credential handling, bridge behavior, service lifecycle, release
+gates, or public documentation structure. Use `docs/plans/active/` only after
+work is accepted and needs durable implementation memory.
 
 ## Credential Rules
 

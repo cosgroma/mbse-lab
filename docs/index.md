@@ -15,6 +15,7 @@ specifications.
 | Understand supported rendered SysML v2 content | [Modeling Conventions](lab/modeling-conventions.md) | [Bridge Workflow](lab/flexo-syson-bridge.md) |
 | Prepare or publish a release | [Release Process](user-guide/release-process.md) | [v0.2.0 Limitations](user-guide/v0.2.0-limitations.md) |
 | Extend the local harness or evals | [Harness Engineering](lab/harness-engineering.md) | [Plans](plans/README.md) |
+| Plan roadmap or feature work | [Roadmap](roadmap.md) | [Feature Proposals](plans/proposals/README.md) |
 
 ## Which Command Should I Run?
 
@@ -63,6 +64,12 @@ flowchart LR
 | [Release Process](user-guide/release-process.md) | Preparing release branches, smoke testing, tagging, and syncing release work back to `develop`. |
 | [v0.2.0 Limitations](user-guide/v0.2.0-limitations.md) | Tracking release-scope limits, known gaps, and downstream development focus areas. |
 
+## Roadmap
+
+| Page | Use it for |
+| --- | --- |
+| [Roadmap](roadmap.md) | Maintaining Now/Next/Later priorities, roadmap themes, out-of-scope boundaries, and planning gates. |
+
 ## Local Lab
 
 | Page | Use it for |
@@ -95,9 +102,12 @@ flowchart LR
 
 | Page | Use it for |
 | --- | --- |
-| [Plans](plans/README.md) | Execution plan conventions for active and completed work. |
+| [Plans](plans/README.md) | Feature proposal and execution plan conventions for planned, active, and completed work. |
+| [Feature Proposals](plans/proposals/README.md) | Deciding feature shape, non-goals, validation, and safety impact before implementation starts. |
+| [Feature Pre-Plan Template](plans/proposals/feature-preplan-template.md) | Copyable proposal template for roadmap-changing or risk-bearing feature work. |
 | [MVP Feature Catalog](plans/active/mvp-feature-catalog.md) | Current MVP feature status, evidence, gaps, and validation work. |
 | [Usability Remediation](plans/active/usability-remediation.md) | Active work plan for converting the usability review into validated safety, onboarding, and bridge improvements. |
+| [SysML JSON Rendering Reuse Spike](plans/active/sysml-json-rendering-reuse-spike.md) | Active spike on reuse options for SysML JSON rendering and import workflows. |
 | [View Editor Flexo Experiment](plans/completed/openmbee-view-editor-flexo-experiment.md) | Completed direct-compatibility spike and final adapter decision. |
 | [MBSE Lab SysML Model](plans/active/mbse-lab-sysml-model-plan.md) | Active plan for keeping the lab tool-system model, fixture, and curated render output aligned. |
 

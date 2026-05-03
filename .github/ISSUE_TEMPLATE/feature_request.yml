@@ -23,6 +23,51 @@ body:
     attributes:
       label: Alternatives Considered
       description: Note any simpler or existing workflows that might solve the same problem.
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-Goals
+      description: What should this feature explicitly not do?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      description: List the observable outcomes required before this feature is done.
+      placeholder: |
+        - ...
+        - ...
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: Which checks, evals, docs builds, live smoke runs, or manual demos should prove the change?
+      placeholder: |
+        - make check
+        - make docs-build
+    validations:
+      required: true
+  - type: textarea
+    id: data_safety
+    attributes:
+      label: Data And Credential Safety
+      description: Note any private model data, generated artifacts, credentials, diagnostics, backups, reports, or share-check impact.
+    validations:
+      required: true
+  - type: dropdown
+    id: preplan
+    attributes:
+      label: Pre-Planning Needed
+      description: Use a proposal for roadmap-changing, risky, or multi-chunk feature work.
+      options:
+        - "No, focused issue is enough"
+        - "Yes, create docs/plans/proposals/<feature>.md"
+        - "Already linked"
+    validations:
+      required: true
   - type: dropdown
     id: area
     attributes:

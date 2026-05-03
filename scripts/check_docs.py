@@ -254,6 +254,8 @@ def check_workflow_contract(failures: list[str]) -> None:
         "hatch run lint:all",
         "docs/plans/active/",
         "docs/plans/completed/",
+        "docs/plans/proposals/",
+        "docs/roadmap.md",
         "GitHub CI workflow runs pre-commit",
         "MkDocs",
         "explicit user intent",

@@ -2,10 +2,17 @@
 
 Status: Draft
 
+Release Target: Unassigned
+
 ## Problem
 
 What workflow, safety risk, maintainability gap, or evidence gap does this
 feature address?
+
+## Rationale
+
+Why is this feature worth doing for this repo now or later? Explain the
+connection to the roadmap themes and the tradeoff it improves.
 
 ## Target Users
 

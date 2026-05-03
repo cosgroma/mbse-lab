@@ -52,6 +52,15 @@ nav:
       - Overview: plans/README.md
       - Feature Proposals: plans/proposals/README.md
       - Feature Pre-Plan Template: plans/proposals/feature-preplan-template.md
+      - Backup-First Reset Workflow: plans/proposals/backup-first-reset-workflow.md
+      - Bridge Import Preflight: plans/proposals/bridge-import-preflight.md
+      - Bridge Snapshot Diff: plans/proposals/bridge-snapshot-diff.md
+      - Environment Profiles: plans/proposals/environment-profiles.md
+      - Model-Like JSON Share Check: plans/proposals/model-like-json-share-check.md
+      - Optional SysML v2 Starter Libraries: plans/proposals/optional-sysml-v2-starter-libraries.md
+      - Polished HTML Report: plans/proposals/polished-html-report.md
+      - Snapshot Evidence Bundle: plans/proposals/snapshot-evidence-bundle.md
+      - SysML Coverage Matrix Gate: plans/proposals/sysml-coverage-matrix-gate.md
       - MVP Feature Catalog: plans/active/mvp-feature-catalog.md
       - Usability Remediation: plans/active/usability-remediation.md
       - SysML JSON Rendering Reuse Spike: plans/active/sysml-json-rendering-reuse-spike.md

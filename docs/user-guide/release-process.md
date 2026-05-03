@@ -12,6 +12,10 @@ stable branch that users install from by default.
 Copilot-authored branches using the `copilot/*` prefix are accepted only when
 they target `develop`.
 
+Use the [roadmap release plan](../roadmap.md#release-plan) to decide candidate
+release scope. This page stays procedural: branching, validation, tagging,
+publishing, and syncing release work back to `develop`.
+
 ## Release Checklist
 
 Before opening a release branch:

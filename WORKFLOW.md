@@ -72,9 +72,9 @@ planning gates, and explicit non-goals.
 Create a feature proposal under `docs/plans/proposals/` before work that
 changes CLI workflow shape, data or credential handling, bridge behavior,
 service lifecycle, live validation, release gates, or public documentation
-structure. A proposal should capture the problem, target users, non-goals,
-current evidence, proposed behavior, safety impact, validation plan, acceptance
-criteria, rollout notes, and open decisions.
+structure. A proposal should capture the problem, rationale, release target,
+target users, non-goals, current evidence, proposed behavior, safety impact,
+validation plan, acceptance criteria, rollout notes, and open decisions.
 
 GitHub issues remain the operational backlog. Link the relevant roadmap item,
 proposal, active plan, and validation gate from sprint-plan or feature issues

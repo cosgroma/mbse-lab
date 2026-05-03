@@ -26,8 +26,8 @@ they change one of those boundaries.
 
 1. Copy [Feature Pre-Plan Template](feature-preplan-template.md).
 2. Name the proposal with a short kebab-case feature name.
-3. Fill in problem, users, non-goals, safety impact, validation, and acceptance
-   criteria before implementation starts.
+3. Fill in problem, rationale, release target, users, non-goals, safety impact,
+   validation, and acceptance criteria before implementation starts.
 4. Link the proposal from the relevant GitHub issue, sprint-plan issue, or
    active execution plan.
 5. Keep rejected or superseded proposals in this directory if they record a
@@ -36,3 +36,12 @@ they change one of those boundaries.
 ## Current Proposals
 
 - [Feature Pre-Plan Template](feature-preplan-template.md)
+- [Backup-First Reset Workflow](backup-first-reset-workflow.md)
+- [Bridge Import Preflight](bridge-import-preflight.md)
+- [Bridge Snapshot Diff](bridge-snapshot-diff.md)
+- [Environment Profiles](environment-profiles.md)
+- [Model-Like JSON Share Check](model-like-json-share-check.md)
+- [Optional SysML v2 Starter Libraries](optional-sysml-v2-starter-libraries.md)
+- [Polished HTML Report](polished-html-report.md)
+- [Snapshot Evidence Bundle](snapshot-evidence-bundle.md)
+- [SysML Coverage Matrix Gate](sysml-coverage-matrix-gate.md)

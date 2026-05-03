@@ -105,6 +105,15 @@ flowchart LR
 | [Plans](plans/README.md) | Feature proposal and execution plan conventions for planned, active, and completed work. |
 | [Feature Proposals](plans/proposals/README.md) | Deciding feature shape, non-goals, validation, and safety impact before implementation starts. |
 | [Feature Pre-Plan Template](plans/proposals/feature-preplan-template.md) | Copyable proposal template for roadmap-changing or risk-bearing feature work. |
+| [Backup-First Reset Workflow](plans/proposals/backup-first-reset-workflow.md) | Proposed safe reset workflow with backup, dry-run, and confirmation gates. |
+| [Bridge Import Preflight](plans/proposals/bridge-import-preflight.md) | Proposed pre-import checks for snapshot quality, render coverage, and target context. |
+| [Bridge Snapshot Diff](plans/proposals/bridge-snapshot-diff.md) | Proposed comparison workflow for bridge snapshots, rendered text, and render reports. |
+| [Environment Profiles](plans/proposals/environment-profiles.md) | Proposed named non-secret config profiles for advanced local and endpoint workflows. |
+| [Model-Like JSON Share Check](plans/proposals/model-like-json-share-check.md) | Proposed share-check heuristic for tracked Flexo/SysML-looking JSON. |
+| [Optional SysML v2 Starter Libraries](plans/proposals/optional-sysml-v2-starter-libraries.md) | Proposed public starter library catalog for optional model scaffolding. |
+| [Polished HTML Report](plans/proposals/polished-html-report.md) | Proposed structured static HTML report for workflow evidence. |
+| [Snapshot Evidence Bundle](plans/proposals/snapshot-evidence-bundle.md) | Proposed public-safe evidence bundle for bridge run handoffs. |
+| [SysML Coverage Matrix Gate](plans/proposals/sysml-coverage-matrix-gate.md) | Proposed bridge coverage matrix tied to fixtures and deterministic tests. |
 | [MVP Feature Catalog](plans/active/mvp-feature-catalog.md) | Current MVP feature status, evidence, gaps, and validation work. |
 | [Usability Remediation](plans/active/usability-remediation.md) | Active work plan for converting the usability review into validated safety, onboarding, and bridge improvements. |
 | [SysML JSON Rendering Reuse Spike](plans/active/sysml-json-rendering-reuse-spike.md) | Active spike on reuse options for SysML JSON rendering and import workflows. |

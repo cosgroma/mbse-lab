@@ -17,6 +17,8 @@ INDEX_FILES = [
     ROOT / "WORKFLOW.md",
     ROOT / "AGENTS.md",
     ROOT / "docs" / "index.md",
+    ROOT / "docs" / "plans" / "README.md",
+    ROOT / "docs" / "plans" / "proposals" / "README.md",
     ROOT / "docs" / "lab" / "harness-engineering.md",
 ]
 WORKFLOW_FILE = ROOT / "WORKFLOW.md"

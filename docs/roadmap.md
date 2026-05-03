@@ -32,7 +32,7 @@ These are the preferred near-term bets.
 
 | Item | Outcome | Evidence required |
 | --- | --- | --- |
-| Fixture-driven SysML coverage | Every supported renderer type is tied to a fixture, matrix row, and deterministic test. | `make check`, coverage matrix update, fixture assertions. |
+| SysML coverage matrix gate | Every supported renderer type is tied to a fixture, matrix row, and deterministic test. | `make check`, coverage matrix update, fixture assertions. |
 | Recursive Python/static validation | Package submodules are covered by compile/static checks as the codebase grows. | `make check` covers all tracked Python files or an equivalent recursive path. |
 | Nested CLI docs validation | Documentation checks validate `mbse-lab` groups, subcommands, and options, not only top-level commands. | A stale nested command or option fails `make docs-check`. |
 | Planning system cleanup | Roadmap, proposals, active plans, and completed plans have clear ownership. | `make workflow-check`, `make docs-check`, updated plan index. |
@@ -45,6 +45,9 @@ These should follow once the near-term planning and validation gaps are closed.
 | --- | --- | --- |
 | Stricter private workspace policy | Model-generating commands require `MBSE_MODEL_WORKSPACE`, explicit output paths, or explicit repo-export intent. | CLI tests for workspace-set, explicit-output, and blocked/default cases. |
 | Model-like JSON share checks | Force-added Flexo/SysML-looking JSON outside curated allowlists is flagged before sharing. | Temporary-repo share-check tests. |
+| Bridge import preflight | Users can check snapshot quality, render coverage, output safety, and optional SysON target context before import. | Deterministic preflight outcomes and JSON codes. |
+| Bridge snapshot diff | Users can compare exports, rendered text, or render reports before updating a SysON review project. | Fixture pair diff tests and public-safe summaries. |
+| Snapshot evidence bundle | Bridge run logs can produce compact public-safe evidence summaries for review and handoff. | Markdown/JSON evidence tests and private-content exclusion checks. |
 | Better HTML report | `mbse-lab report` produces a readable HTML evidence report without embedding private model content. | Report tests for empty, passing, warning, and bridge-run states. |
 | Scheduled live smoke evaluation | External image and runtime drift are caught on a conservative cadence. | Manual/scheduled workflow, public-safe diagnostics on failure. |
 
@@ -57,7 +60,34 @@ These are useful only after the core workflow remains stable.
 | Endpoint and workspace profiles | Advanced users can switch between local and experimental remote endpoints. | Local Docker workflow remains the documented default. |
 | Backup-first reset workflow | Users can recover from local service state problems without accidental data loss. | Backup, dry-run, and confirmation behavior is designed and tested. |
 | Renderer registry | Adding a SysML element renderer becomes a focused module, fixture, test, and docs change. | Coverage reports and matrix are already established. |
+| Optional starter library catalog | Users can include small public SysML v2 starter libraries in generated model workflows. | First-use reliability, private workspace enforcement, and bridge coverage evidence are stable. |
 | Example model gallery | Public synthetic examples demonstrate useful MBSE patterns. | Public/private export policy is explicit and enforced. |
+
+## Release Plan
+
+Release targets are planning candidates, not commitments. Move features between
+releases when evidence, risk, or user value changes. A release should make one
+primary user promise and include only the supporting hardening needed to make
+that promise trustworthy.
+
+| Release | Primary promise | Candidate scope | Excluded scope | Required evidence |
+| --- | --- | --- | --- | --- |
+| `v0.2.1` | Planning and maintainer hygiene | Roadmap/proposals, release planning docs, docs validation, narrow maintainer checks. | New user workflows, bridge behavior changes, stricter safety gates. | `make check`, `make docs-build`, `make share-check`. |
+| `v0.3.0` | Bridge coverage and safety gates | SysML coverage matrix gate, model-like JSON share-check, stricter private workspace policy. | Starter libraries, environment profiles, broad renderer expansion. | Fixture coverage, `make check`, `make share-check`, docs coverage updates. |
+| `v0.4.0` | Bridge review evidence | Bridge import preflight, bridge snapshot diff, snapshot evidence bundle, polished HTML report. | Live sync, semantic diffing, diagram round-trip. | Deterministic fixture diff/preflight tests, public-safe evidence tests, report tests. |
+| `v0.5.0` | Service recovery confidence | Backup-first reset workflow, cleanup/reset docs, scheduled live smoke evaluation. | Production backup/restore, remote operations. | Reset dry-run tests, destructive-action confirmation tests, live smoke evidence. |
+| `v0.6.0` | Reuse and advanced configuration | Environment profiles, optional starter libraries, example model gallery. | Authoritative standard libraries, production configuration management. | Profile precedence tests, catalog metadata tests, workspace safety tests. |
+
+## Release Placement Rules
+
+Put a feature earlier when it reduces private-data risk, makes existing bridge
+behavior more honest, strengthens deterministic validation, or improves release
+confidence without expanding user-facing scope.
+
+Put a feature later when it expands modeling scope, adds new public content,
+adds configuration modes, depends heavily on live-service behavior, or could
+confuse the repo's identity as local lab tooling rather than a model repository
+or production platform.
 
 ## Out Of Scope
 

@@ -5,6 +5,9 @@ is to give the agent enough repo context, planning context, safety boundaries,
 and validation expectations to implement a focused feature without relying on
 chat history.
 
+For prompts with issue, proposal, and release details already filled in, use
+the [Feature Development Prompt Pack](feature-development-prompt-pack.md).
+
 ## When To Use This Prompt
 
 Use this prompt for work tied to:

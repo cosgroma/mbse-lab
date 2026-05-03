@@ -31,6 +31,7 @@ this MBSE lab.
 | [Private Model Workspaces](../user-guide/private-model-workspaces.md) | Tooling repo versus private model workspace boundary. |
 | [Bridge Workflow](flexo-syson-bridge.md) | Flexo export, SysML render, and SysON import details. |
 | [Modeling Conventions](modeling-conventions.md) | Supported SysML v2 bridge subset. |
+| [Feature Development Agent Prompt](feature-development-agent-prompt.md) | Copyable prompt for handing proposal-backed feature work to a fresh agent. |
 | [Plans](../plans/README.md) | Execution plan conventions. |
 | `deploy/*/*.example` | Publishable config templates. |
 

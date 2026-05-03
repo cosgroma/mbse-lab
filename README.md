@@ -117,12 +117,13 @@ the full boundary.
 | [deploy/view-editor/](deploy/view-editor/README.md) | Experimental OpenMBEE View Editor compatibility probe. |
 | [deploy/view-editor-5/](deploy/view-editor-5/README.md) | Experimental source-built View Editor 5.x compatibility probe. |
 | [docs/index.md](docs/index.md) | Documentation landing page and task router. |
+| [docs/roadmap.md](docs/roadmap.md) | Durable Now/Next/Later roadmap, planning gates, and out-of-scope boundaries. |
 | [docs/user-guide/](docs/user-guide/cli.md) | CLI, services, safety, troubleshooting, release, and private workspace guidance. |
 | [docs/lab/](docs/lab/flexo-syson-bridge.md) | Local lab operations, bridge behavior, and harness notes. |
 | [docs/lab/view-editor-flexo-experiment.md](docs/lab/view-editor-flexo-experiment.md) | View Editor compatibility evidence. |
 | [docs/methodology/](docs/methodology/sysml-v2-verification-model-setup.md) | Reusable SysML v2 setup and transformation guidance. |
 | [docs/model-specs/](docs/model-specs/rf-link-budget.md) | General-purpose model specifications. |
-| [docs/plans/](docs/plans/README.md) | Active and completed execution plans. |
+| [docs/plans/](docs/plans/README.md) | Feature proposals, active execution plans, and completed plans. |
 | [exports/](exports/README.md) | Curated publishable example exports only. |
 | [WORKFLOW.md](WORKFLOW.md) | Repo-owned workflow contract for agent work. |
 | `scripts/flexo_mms_env.py` | Flexo environment manager. |
@@ -209,6 +210,7 @@ may be published, and how to clean generated output.
 | Share safely | [Safety and sharing](docs/user-guide/safety-and-sharing.md) |
 | Recover from common failures | [Troubleshooting](docs/user-guide/troubleshooting.md) |
 | Run Flexo-to-SysON bridge workflows | [Bridge workflow](docs/lab/flexo-syson-bridge.md) |
+| Plan roadmap or feature work | [Roadmap](docs/roadmap.md) |
 | Prepare a release | [Release process](docs/user-guide/release-process.md) |
 
 Build the MkDocs site:

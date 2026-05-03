@@ -4,9 +4,11 @@ workflow:
   version: 1
 tracker:
   kind: manual
+  roadmap: docs/roadmap.md
 workspace:
   mode: shared-repo
   plans_dir: docs/plans
+  proposals_dir: docs/plans/proposals
 agent:
   commit_after_chunk: true
   max_chunk_scope: focused
@@ -51,10 +53,32 @@ Keep durable state in files:
 
 - `README.md` for user-facing operations.
 - `AGENTS.md` for maintainer and fresh-agent guidance.
+- `docs/roadmap.md` for Now/Next/Later roadmap priorities, planning gates, and
+  out-of-scope boundaries.
 - `docs/lab/harness-engineering.md` for harness design.
-- `docs/plans/` for task plans when a task needs persistent planning.
+- `docs/plans/proposals/` for feature pre-planning before implementation
+  starts.
+- `docs/plans/` for task plans when a task needs persistent implementation
+  planning.
 - `runs/` for ignored workflow run logs.
 - `diagnostics/latest/` for ignored diagnostics bundles.
+
+## Roadmap And Feature Pre-Planning
+
+Use `docs/roadmap.md` as the durable roadmap index. It should stay concise and
+authoritative: product direction, roadmap themes, Now/Next/Later priorities,
+planning gates, and explicit non-goals.
+
+Create a feature proposal under `docs/plans/proposals/` before work that
+changes CLI workflow shape, data or credential handling, bridge behavior,
+service lifecycle, live validation, release gates, or public documentation
+structure. A proposal should capture the problem, rationale, release target,
+target users, non-goals, current evidence, proposed behavior, safety impact,
+validation plan, acceptance criteria, rollout notes, and open decisions.
+
+GitHub issues remain the operational backlog. Link the relevant roadmap item,
+proposal, active plan, and validation gate from sprint-plan or feature issues
+when the work is large enough to need durable planning.
 
 ## Task Plans
 

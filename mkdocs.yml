@@ -35,6 +35,7 @@ nav:
   - Local Lab:
       - Bridge Workflow: lab/flexo-syson-bridge.md
       - Harness Engineering: lab/harness-engineering.md
+      - Feature Development Agent Prompt: lab/feature-development-agent-prompt.md
       - Modeling Conventions: lab/modeling-conventions.md
       - View Editor Flexo Experiment: lab/view-editor-flexo-experiment.md
   - Methodology:

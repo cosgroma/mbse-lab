@@ -36,6 +36,8 @@ docs/user-guide/private-model-workspaces.md
                                   Private model workspace guidance
 docs/lab/flexo-syson-bridge.md   Bridge-specific notes
 docs/lab/harness-engineering.md   Harness design and eval/diagnostics guidance
+docs/lab/feature-development-agent-prompt.md
+                                  Copyable fresh-agent prompt for feature work
 docs/lab/modeling-conventions.md  Supported SysML v2 rendering subset
 docs/lab/view-editor-flexo-experiment.md
                                   View Editor compatibility evidence

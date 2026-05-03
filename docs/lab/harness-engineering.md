@@ -32,6 +32,7 @@ this MBSE lab.
 | [Bridge Workflow](flexo-syson-bridge.md) | Flexo export, SysML render, and SysON import details. |
 | [Modeling Conventions](modeling-conventions.md) | Supported SysML v2 bridge subset. |
 | [Feature Development Agent Prompt](feature-development-agent-prompt.md) | Copyable prompt for handing proposal-backed feature work to a fresh agent. |
+| [Feature Development Prompt Pack](feature-development-prompt-pack.md) | Filled prompts for selected proposal-backed feature issues. |
 | [Plans](../plans/README.md) | Execution plan conventions. |
 | `deploy/*/*.example` | Publishable config templates. |
 

@@ -22,7 +22,7 @@ jobs:
     env:
       MBSE_MODEL_WORKSPACE: ${{ github.workspace }}/.live-smoke-models
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
